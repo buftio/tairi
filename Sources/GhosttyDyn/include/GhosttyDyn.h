@@ -11,6 +11,7 @@ const char *tairi_ghostty_load(const char *binary_path);
 int tairi_ghostty_is_loaded(void);
 
 int tairi_ghostty_init(uintptr_t argc, char **argv);
+ghostty_info_s tairi_ghostty_info(void);
 
 ghostty_config_t tairi_ghostty_config_new(void);
 void tairi_ghostty_config_free(ghostty_config_t config);

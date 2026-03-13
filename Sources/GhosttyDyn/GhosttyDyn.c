@@ -22,6 +22,7 @@ static char ghostty_error[4096] = {0};
     } while (0)
 
 DECLARE_SYM(ghostty_init, int, (uintptr_t, char **));
+DECLARE_SYM(ghostty_info, ghostty_info_s, (void));
 DECLARE_SYM(ghostty_config_new, ghostty_config_t, (void));
 DECLARE_SYM(ghostty_config_free, void, (ghostty_config_t));
 DECLARE_SYM(ghostty_config_load_default_files, void, (ghostty_config_t));
@@ -111,6 +112,7 @@ const char *tairi_ghostty_load(const char *binary_path) {
     if (ghostty_handle == NULL) return set_dlerror("Ghostty dlopen failed");
 
     LOAD_SYM(ghostty_init);
+    LOAD_SYM(ghostty_info);
     LOAD_SYM(ghostty_config_new);
     p_ghostty_config_free = dlsym(ghostty_handle, "ghostty_config_free");
     LOAD_SYM(ghostty_config_load_default_files);
@@ -151,6 +153,11 @@ int tairi_ghostty_is_loaded(void) {
 int tairi_ghostty_init(uintptr_t argc, char **argv) {
     require_loaded();
     return p_ghostty_init(argc, argv);
+}
+
+ghostty_info_s tairi_ghostty_info(void) {
+    require_loaded();
+    return p_ghostty_info();
 }
 
 ghostty_config_t tairi_ghostty_config_new(void) {

@@ -21,6 +21,7 @@ final class GhosttyRuntime: ObservableObject {
     fileprivate let store: WorkspaceStore
     private var surfaces: [UUID: GhosttySurfaceView] = [:]
     private var appContexts: [UUID: AppContext] = [:]
+    private let actionAdapter = GhosttyActionAdapter()
     private var storeObserver: AnyCancellable?
     private var didInstallAppObservers = false
     private var lastInputTileID: UUID?
@@ -72,6 +73,17 @@ final class GhosttyRuntime: ObservableObject {
         if let error = tairi_ghostty_load(nil) {
             errorMessage = String(cString: error)
             TairiLog.write("ghostty load failed: \(errorMessage ?? "unknown")")
+            return
+        }
+
+        switch GhosttyRuntimeCompatibility.validateLoadedRuntime() {
+        case .success(let metadata):
+            TairiLog.write(
+                "ghostty runtime version=\(metadata.version) build_mode=\(metadata.buildMode.rawValue) header=\(GhosttyRuntimeCompatibility.headerSignature)"
+            )
+        case .failure(let error):
+            errorMessage = error.message
+            TairiLog.write(error.message)
             return
         }
 
@@ -227,7 +239,7 @@ final class GhosttyRuntime: ObservableObject {
     private func logAction(_ tag: ghostty_action_tag_e, tileID: UUID?, target: ghostty_target_s) {
         let targetLabel = target.tag == GHOSTTY_TARGET_SURFACE ? "surface" : "app"
         let tileLabel = tileID?.uuidString ?? "none"
-        TairiLog.write("ghostty action \(actionName(tag)) target=\(targetLabel) tile=\(tileLabel)")
+        TairiLog.write("ghostty action \(GhosttyActionAdapter.actionName(tag)) target=\(targetLabel) tile=\(tileLabel)")
     }
 
     private func shouldAcceptExit(for tileID: UUID, reason: String) -> Bool {
@@ -246,25 +258,6 @@ final class GhosttyRuntime: ObservableObject {
         return true
     }
 
-    private func actionName(_ tag: ghostty_action_tag_e) -> String {
-        switch tag {
-        case GHOSTTY_ACTION_QUIT: "quit"
-        case GHOSTTY_ACTION_NEW_WINDOW: "new_window"
-        case GHOSTTY_ACTION_NEW_TAB: "new_tab"
-        case GHOSTTY_ACTION_CLOSE_TAB: "close_tab"
-        case GHOSTTY_ACTION_NEW_SPLIT: "new_split"
-        case GHOSTTY_ACTION_CLOSE_ALL_WINDOWS: "close_all_windows"
-        case GHOSTTY_ACTION_GOTO_SPLIT: "goto_split"
-        case GHOSTTY_ACTION_SET_TITLE: "set_title"
-        case GHOSTTY_ACTION_PWD: "pwd"
-        case GHOSTTY_ACTION_CLOSE_WINDOW: "close_window"
-        case GHOSTTY_ACTION_OPEN_URL: "open_url"
-        case GHOSTTY_ACTION_SHOW_CHILD_EXITED: "show_child_exited"
-        case GHOSTTY_ACTION_COMMAND_FINISHED: "command_finished"
-        default: "tag_\(tag.rawValue)"
-        }
-    }
-
     private func tileID(for target: ghostty_target_s) -> UUID? {
         guard target.tag == GHOSTTY_TARGET_SURFACE else { return nil }
         guard let userdata = tairi_ghostty_surface_userdata(target.target.surface) else { return nil }
@@ -275,64 +268,52 @@ final class GhosttyRuntime: ObservableObject {
     private func handle(action: ghostty_action_s, target: ghostty_target_s) -> Bool {
         let tileID = tileID(for: target)
         logAction(action.tag, tileID: tileID, target: target)
+        let event = actionAdapter.decode(action: action, tileID: tileID)
+        return handle(event: event)
+    }
 
-        switch action.tag {
-        case GHOSTTY_ACTION_NEW_WINDOW, GHOSTTY_ACTION_NEW_TAB, GHOSTTY_ACTION_NEW_SPLIT:
-            guard let tileID else { return true }
+    private func handle(event: GhosttyRuntimeEvent) -> Bool {
+        switch event {
+        case .createTile(let tileID):
             store.selectTile(tileID)
             _ = store.addTerminalTile(nextTo: tileID)
             return true
 
-        case GHOSTTY_ACTION_GOTO_SPLIT:
-            switch action.action.goto_split {
-            case GHOSTTY_GOTO_SPLIT_PREVIOUS, GHOSTTY_GOTO_SPLIT_LEFT:
-                store.selectAdjacentTile(offset: -1)
-            default:
-                store.selectAdjacentTile(offset: 1)
-            }
+        case .selectAdjacentTile(let offset):
+            store.selectAdjacentTile(offset: offset)
             if let selectedTileID = store.selectedTileID {
                 focus(tileID: selectedTileID)
             }
             return true
 
-        case GHOSTTY_ACTION_SET_TITLE:
-            guard let tileID, let title = action.action.set_title.title else { return true }
-            store.updateTitle(String(cString: title), for: tileID)
+        case .updateTitle(let tileID, let title):
+            store.updateTitle(title, for: tileID)
             return true
 
-        case GHOSTTY_ACTION_PWD:
-            guard let tileID, let pwd = action.action.pwd.pwd else { return true }
-            store.updatePWD(String(cString: pwd), for: tileID)
+        case .updatePWD(let tileID, let pwd):
+            store.updatePWD(pwd, for: tileID)
             return true
 
-        case GHOSTTY_ACTION_OPEN_URL:
-            guard let value = action.action.open_url.url else { return false }
-            let string = String(cString: value)
-            guard let url = URL(string: string) else { return false }
+        case .openURL(let url):
             NSWorkspace.shared.open(url)
             return true
 
-        case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
-            guard let tileID else { return true }
-            let exitCode = action.action.child_exited.exit_code
-            TairiLog.write("ghostty child exited tile=\(tileID.uuidString) exitCode=\(exitCode)")
-            guard shouldAcceptExit(for: tileID, reason: "show_child_exited") else {
+        case .childExited(let tileID, let exitCode, let reason):
+            TairiLog.write("ghostty child exited tile=\(tileID.uuidString) exitCode=\(exitCode) reason=\(reason.rawValue)")
+            guard shouldAcceptExit(for: tileID, reason: reason.rawValue) else {
                 return true
             }
             store.closeTile(tileID)
             return true
 
-        case GHOSTTY_ACTION_COMMAND_FINISHED:
-            if let tileID {
-                let exitCode = action.action.command_finished.exit_code
-                TairiLog.write("ghostty command finished tile=\(tileID.uuidString) exitCode=\(exitCode)")
-            }
+        case .commandFinished(let tileID, let exitCode):
+            TairiLog.write("ghostty command finished tile=\(tileID.uuidString) exitCode=\(exitCode)")
             return true
 
-        case GHOSTTY_ACTION_CLOSE_WINDOW, GHOSTTY_ACTION_CLOSE_TAB, GHOSTTY_ACTION_CLOSE_ALL_WINDOWS, GHOSTTY_ACTION_QUIT:
+        case .ignore:
             return true
 
-        default:
+        case .unhandled:
             return false
         }
     }

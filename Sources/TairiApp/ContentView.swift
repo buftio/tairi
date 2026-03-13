@@ -1,5 +1,14 @@
 import SwiftUI
 
+private enum ShellPalette {
+    static let windowBackground = Color(red: 0.94, green: 0.93, blue: 0.90)
+    static let sidebarBackground = Color.black.opacity(0.035)
+    static let divider = Color.black.opacity(0.15)
+    static let primaryText = Color.black.opacity(0.88)
+    static let secondaryText = Color.black.opacity(0.5)
+    static let actionBackground = Color.white.opacity(0.6)
+}
+
 struct WindowAccessor: NSViewRepresentable {
     let onResolve: (NSWindow) -> Void
 
@@ -29,11 +38,11 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            Divider().opacity(0.3)
+            Divider().overlay(ShellPalette.divider)
             mainPanel
         }
         .accessibilityIdentifier(TairiAccessibility.appRoot)
-        .background(Color(red: 0.94, green: 0.93, blue: 0.90))
+        .background(ShellPalette.windowBackground)
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
@@ -53,10 +62,11 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("tairi")
                     .font(.system(size: 28, weight: .bold, design: .serif))
+                    .foregroundStyle(ShellPalette.primaryText)
                 Text("appkit workspace canvas over live ghostty surfaces")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ShellPalette.secondaryText)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -101,14 +111,14 @@ struct ContentView: View {
         }
         .padding(18)
         .frame(width: 220)
-        .background(Color.black.opacity(0.035))
+        .background(ShellPalette.sidebarBackground)
         .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
     }
 
     private var mainPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Divider().opacity(0.15)
+            Divider().overlay(ShellPalette.divider)
             if let error = runtime.errorMessage {
                 unavailable(error)
             } else {
@@ -123,10 +133,11 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Workspace \(store.selectedWorkspace.title)")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ShellPalette.primaryText)
                     .accessibilityIdentifier(TairiAccessibility.workspaceTitle)
                 Text("tairi owns tile layout, focus, and drag resizing around live ghostty surfaces")
                     .font(.system(size: 12, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ShellPalette.secondaryText)
             }
             Spacer()
             if let selectedTile = store.selectedTile {
@@ -140,6 +151,7 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 260)
+                .environment(\.colorScheme, .light)
                 .accessibilityIdentifier(TairiAccessibility.widthPicker)
             }
         }
@@ -151,14 +163,15 @@ struct ContentView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(ShellPalette.primaryText)
                 Spacer()
                 Text(shortcut)
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ShellPalette.secondaryText)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.6)))
+            .background(RoundedRectangle(cornerRadius: 10).fill(ShellPalette.actionBackground))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier(for: title))
@@ -168,9 +181,10 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Ghostty runtime unavailable")
                 .font(.system(size: 20, weight: .bold, design: .serif))
+                .foregroundStyle(ShellPalette.primaryText)
             Text(error)
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ShellPalette.secondaryText)
                 .textSelection(.enabled)
         }
         .padding(28)
