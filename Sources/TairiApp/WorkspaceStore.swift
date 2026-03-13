@@ -22,153 +22,190 @@ final class WorkspaceStore: ObservableObject {
             case .wide: "Wide"
             }
         }
+
+        static func closest(to width: CGFloat) -> Self {
+            allCases.min(by: { abs($0.width - width) < abs($1.width - width) }) ?? .standard
+        }
     }
 
-    struct Session: Identifiable, Equatable {
+    enum SurfaceKind: String, Codable, Equatable {
+        case terminal
+    }
+
+    struct Surface: Equatable {
+        var kind: SurfaceKind
+
+        static let terminal = Surface(kind: .terminal)
+    }
+
+    struct Tile: Identifiable, Equatable {
         let id: UUID
         var title: String
         var pwd: String?
-        var width: WidthPreset
+        var width: CGFloat
         var createdAt: Date
+        var surface: Surface
 
-        init(id: UUID = UUID(), title: String = "shell", pwd: String? = nil, width: WidthPreset = .standard) {
+        init(
+            id: UUID = UUID(),
+            title: String = "shell",
+            pwd: String? = nil,
+            width: CGFloat = WidthPreset.standard.width,
+            createdAt: Date = .now,
+            surface: Surface = .terminal
+        ) {
             self.id = id
             self.title = title
             self.pwd = pwd
             self.width = width
-            self.createdAt = .now
+            self.createdAt = createdAt
+            self.surface = surface
         }
     }
 
     struct Workspace: Identifiable, Equatable {
         let id: UUID
         var title: String
-        var sessions: [Session]
+        var tiles: [Tile]
 
-        init(id: UUID = UUID(), title: String, sessions: [Session] = []) {
+        init(id: UUID = UUID(), title: String, tiles: [Tile] = []) {
             self.id = id
             self.title = title
-            self.sessions = sessions
+            self.tiles = tiles
         }
     }
 
+    static let minimumTileWidth: CGFloat = 420
+    static let maximumTileWidth: CGFloat = 1400
+
     @Published private(set) var workspaces: [Workspace]
     @Published var selectedWorkspaceID: UUID
-    @Published var selectedSessionID: UUID?
+    @Published var selectedTileID: UUID?
 
     init() {
         let first = Workspace(title: "01")
         let second = Workspace(title: "02")
-        self.workspaces = [first, second]
-        self.selectedWorkspaceID = first.id
-        let session = addSession()
-        self.selectedSessionID = session.id
+        workspaces = [first, second]
+        selectedWorkspaceID = first.id
+        let tile = addTerminalTile()
+        selectedTileID = tile.id
     }
 
     var selectedWorkspace: Workspace {
         workspaces.first(where: { $0.id == selectedWorkspaceID }) ?? workspaces[0]
     }
 
-    func sessions(in workspaceID: UUID) -> [Session] {
-        workspaces.first(where: { $0.id == workspaceID })?.sessions ?? []
+    var selectedTile: Tile? {
+        guard let selectedTileID else { return nil }
+        return tile(selectedTileID)
+    }
+
+    func tiles(in workspaceID: UUID) -> [Tile] {
+        workspaces.first(where: { $0.id == workspaceID })?.tiles ?? []
     }
 
     @discardableResult
-    func addSession(nextTo sessionID: UUID? = nil) -> Session {
-        let session = Session()
+    func addTerminalTile(nextTo tileID: UUID? = nil) -> Tile {
+        let tile = Tile()
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
-            return session
+            return tile
         }
 
-        if let sessionID,
-           let index = workspaces[workspaceIndex].sessions.firstIndex(where: { $0.id == sessionID }) {
-            workspaces[workspaceIndex].sessions.insert(session, at: index + 1)
+        if let tileID,
+           let index = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) {
+            workspaces[workspaceIndex].tiles.insert(tile, at: index + 1)
         } else {
-            workspaces[workspaceIndex].sessions.append(session)
+            workspaces[workspaceIndex].tiles.append(tile)
         }
 
-        selectedSessionID = session.id
+        selectedTileID = tile.id
         normalize()
-        return session
+        return tile
     }
 
     func selectWorkspace(_ workspaceID: UUID) {
         guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
         selectedWorkspaceID = workspaceID
-        selectedSessionID = sessions(in: workspaceID).first?.id
+        selectedTileID = tiles(in: workspaceID).first?.id
         normalize()
     }
 
-    func selectSession(_ sessionID: UUID) {
-        selectedSessionID = sessionID
-        if let workspace = workspaceContaining(sessionID) {
+    func selectTile(_ tileID: UUID) {
+        selectedTileID = tileID
+        if let workspace = workspaceContaining(tileID) {
             selectedWorkspaceID = workspace.id
         }
     }
 
-    func selectAdjacentSession(offset: Int) {
-        let sessions = selectedWorkspace.sessions
-        guard !sessions.isEmpty else { return }
+    func selectAdjacentTile(offset: Int) {
+        let tiles = selectedWorkspace.tiles
+        guard !tiles.isEmpty else { return }
 
-        let currentIndex = selectedSessionID.flatMap { id in
-            sessions.firstIndex(where: { $0.id == id })
+        let currentIndex = selectedTileID.flatMap { id in
+            tiles.firstIndex(where: { $0.id == id })
         } ?? 0
 
-        let nextIndex = min(max(currentIndex + offset, 0), sessions.count - 1)
-        selectedSessionID = sessions[nextIndex].id
+        let nextIndex = min(max(currentIndex + offset, 0), tiles.count - 1)
+        selectedTileID = tiles[nextIndex].id
     }
 
     func selectAdjacentWorkspace(offset: Int) {
         guard let index = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else { return }
         let nextIndex = min(max(index + offset, 0), workspaces.count - 1)
         selectedWorkspaceID = workspaces[nextIndex].id
-        selectedSessionID = workspaces[nextIndex].sessions.first?.id
+        selectedTileID = workspaces[nextIndex].tiles.first?.id
         normalize()
     }
 
-    func setWidth(_ preset: WidthPreset, for sessionID: UUID) {
-        mutateSession(sessionID) { $0.width = preset }
+    func setWidth(_ preset: WidthPreset, for tileID: UUID) {
+        setWidth(preset.width, for: tileID)
     }
 
-    func updateTitle(_ title: String, for sessionID: UUID) {
-        mutateSession(sessionID) { $0.title = title.isEmpty ? "shell" : title }
+    func setWidth(_ width: CGFloat, for tileID: UUID) {
+        mutateTile(tileID) { tile in
+            tile.width = width.clamped(to: Self.minimumTileWidth...Self.maximumTileWidth)
+        }
     }
 
-    func updatePWD(_ pwd: String, for sessionID: UUID) {
-        mutateSession(sessionID) { $0.pwd = pwd }
+    func updateTitle(_ title: String, for tileID: UUID) {
+        mutateTile(tileID) { $0.title = title.isEmpty ? "shell" : title }
     }
 
-    func closeSession(_ sessionID: UUID) {
+    func updatePWD(_ pwd: String, for tileID: UUID) {
+        mutateTile(tileID) { $0.pwd = pwd }
+    }
+
+    func closeTile(_ tileID: UUID) {
         guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
-            workspace.sessions.contains(where: { $0.id == sessionID })
+            workspace.tiles.contains(where: { $0.id == tileID })
         }) else {
             return
         }
 
-        workspaces[workspaceIndex].sessions.removeAll(where: { $0.id == sessionID })
-        if selectedSessionID == sessionID {
-            selectedSessionID = workspaces[workspaceIndex].sessions.first?.id
+        workspaces[workspaceIndex].tiles.removeAll(where: { $0.id == tileID })
+        if selectedTileID == tileID {
+            selectedTileID = workspaces[workspaceIndex].tiles.first?.id
         }
         normalize()
     }
 
-    func session(_ sessionID: UUID) -> Session? {
-        workspaces.flatMap(\.sessions).first(where: { $0.id == sessionID })
+    func tile(_ tileID: UUID) -> Tile? {
+        workspaces.flatMap(\.tiles).first(where: { $0.id == tileID })
     }
 
-    private func mutateSession(_ sessionID: UUID, transform: (inout Session) -> Void) {
+    private func mutateTile(_ tileID: UUID, transform: (inout Tile) -> Void) {
         for workspaceIndex in workspaces.indices {
-            guard let sessionIndex = workspaces[workspaceIndex].sessions.firstIndex(where: { $0.id == sessionID }) else {
+            guard let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
                 continue
             }
-            transform(&workspaces[workspaceIndex].sessions[sessionIndex])
+            transform(&workspaces[workspaceIndex].tiles[tileIndex])
             return
         }
     }
 
-    private func workspaceContaining(_ sessionID: UUID) -> Workspace? {
+    private func workspaceContaining(_ tileID: UUID) -> Workspace? {
         workspaces.first(where: { workspace in
-            workspace.sessions.contains(where: { $0.id == sessionID })
+            workspace.tiles.contains(where: { $0.id == tileID })
         })
     }
 
@@ -176,7 +213,7 @@ final class WorkspaceStore: ObservableObject {
         var next: [Workspace] = []
 
         for workspace in workspaces {
-            let shouldKeep = !workspace.sessions.isEmpty || workspace.id == selectedWorkspaceID
+            let shouldKeep = !workspace.tiles.isEmpty || workspace.id == selectedWorkspaceID
             if shouldKeep {
                 next.append(workspace)
             }
@@ -188,13 +225,13 @@ final class WorkspaceStore: ObservableObject {
             selectedWorkspaceID = fallback.id
         }
 
-        let placeholderCount = next.filter { $0.sessions.isEmpty }.count
+        let placeholderCount = next.filter { $0.tiles.isEmpty }.count
         if placeholderCount == 0 {
             next.append(Workspace(title: String(format: "%02d", next.count + 1)))
         } else if placeholderCount > 1 {
             var keptPlaceholder = false
             next.removeAll { workspace in
-                guard workspace.sessions.isEmpty else { return false }
+                guard workspace.tiles.isEmpty else { return false }
                 if workspace.id == selectedWorkspaceID && !keptPlaceholder {
                     keptPlaceholder = true
                     return false
@@ -211,6 +248,20 @@ final class WorkspaceStore: ObservableObject {
             next[index].title = String(format: "%02d", index + 1)
         }
 
+        if !next.contains(where: { $0.id == selectedWorkspaceID }) {
+            selectedWorkspaceID = next[0].id
+        }
+
+        if let selectedTileID, tile(selectedTileID) == nil {
+            self.selectedTileID = next.first(where: { $0.id == selectedWorkspaceID })?.tiles.first?.id
+        }
+
         workspaces = next
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }

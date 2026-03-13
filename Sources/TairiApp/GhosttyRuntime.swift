@@ -1,36 +1,66 @@
 import AppKit
+import Combine
 import Foundation
 import GhosttyDyn
 
 @MainActor
 final class GhosttyRuntime: ObservableObject {
-    private final class WeakSurface {
-        weak var value: GhosttySurfaceView?
-        init(_ value: GhosttySurfaceView?) { self.value = value }
+    private final class AppContext {
+        weak var runtime: GhosttyRuntime?
+        let tileID: UUID
+        var app: ghostty_app_t?
+
+        init(runtime: GhosttyRuntime, tileID: UUID) {
+            self.runtime = runtime
+            self.tileID = tileID
+        }
     }
 
     @Published private(set) var errorMessage: String?
-    private(set) var app: ghostty_app_t?
 
-    private let store: WorkspaceStore
-    private var surfaces: [UUID: WeakSurface] = [:]
+    fileprivate let store: WorkspaceStore
+    private var surfaces: [UUID: GhosttySurfaceView] = [:]
+    private var appContexts: [UUID: AppContext] = [:]
+    private var storeObserver: AnyCancellable?
+    private var didInstallAppObservers = false
+    private var lastInputTileID: UUID?
+    private var lastInputAt: Date?
 
     init(store: WorkspaceStore) {
         self.store = store
+        observeStore()
         bootstrap()
     }
 
-    func register(surfaceView: GhosttySurfaceView, sessionID: UUID) {
-        surfaces[sessionID] = WeakSurface(surfaceView)
+    func app(for tileID: UUID) -> ghostty_app_t? {
+        if let app = appContexts[tileID]?.app {
+            return app
+        }
+        return createApp(for: tileID)
     }
 
-    func unregister(sessionID: UUID) {
-        surfaces.removeValue(forKey: sessionID)
+    func attachSurface(tileID: UUID, to containerView: NSView) {
+        let surfaceView = surfaceView(for: tileID)
+        if surfaceView.superview !== containerView {
+            surfaceView.removeFromSuperview()
+            containerView.addSubview(surfaceView)
+        }
+        surfaceView.frame = containerView.bounds
+        surfaceView.autoresizingMask = [.width, .height]
     }
 
-    func focus(sessionID: UUID) {
-        store.selectSession(sessionID)
-        surfaces[sessionID]?.value?.focusSurface()
+    func detachSurface(tileID: UUID) {
+        surfaces[tileID]?.removeFromSuperview()
+    }
+
+    func focus(tileID: UUID) {
+        store.selectTile(tileID)
+        surfaces[tileID]?.focusSurface()
+    }
+
+    func recordInput(for tileID: UUID) {
+        lastInputTileID = tileID
+        lastInputAt = Date()
     }
 
     private func bootstrap() {
@@ -51,10 +81,49 @@ final class GhosttyRuntime: ObservableObject {
             return
         }
 
+        installAppObserversIfNeeded()
+    }
+
+    private func installAppObserversIfNeeded() {
+        guard !didInstallAppObservers else { return }
+        didInstallAppObservers = true
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.setAllAppsFocused(true)
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.setAllAppsFocused(false)
+            }
+        }
+    }
+
+    private func setAllAppsFocused(_ focused: Bool) {
+        for context in appContexts.values {
+            if let app = context.app {
+                tairi_ghostty_app_set_focus(app, focused)
+            }
+        }
+    }
+
+    private func createApp(for tileID: UUID) -> ghostty_app_t? {
+        guard errorMessage == nil else { return nil }
+
         guard let config = tairi_ghostty_config_new() else {
             errorMessage = "ghostty_config_new failed"
             TairiLog.write(errorMessage ?? "ghostty_config_new failed")
-            return
+            return nil
         }
         defer { tairi_ghostty_config_free(config) }
 
@@ -62,8 +131,10 @@ final class GhosttyRuntime: ObservableObject {
         tairi_ghostty_config_load_recursive_files(config)
         tairi_ghostty_config_finalize(config)
 
+        let context = AppContext(runtime: self, tileID: tileID)
+        let retainedContext = Unmanaged.passRetained(context)
         var runtimeConfig = ghostty_runtime_config_s(
-            userdata: Unmanaged.passUnretained(self).toOpaque(),
+            userdata: retainedContext.toOpaque(),
             supports_selection_clipboard: true,
             wakeup_cb: Self.wakeup,
             action_cb: Self.action,
@@ -74,33 +145,16 @@ final class GhosttyRuntime: ObservableObject {
         )
 
         guard let app = tairi_ghostty_app_new(&runtimeConfig, config) else {
+            retainedContext.release()
             errorMessage = "ghostty_app_new failed"
             TairiLog.write(errorMessage ?? "ghostty_app_new failed")
-            return
+            return nil
         }
 
-        self.app = app
-        TairiLog.write("ghostty app created")
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.didBecomeActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let app = self.app else { return }
-                tairi_ghostty_app_set_focus(app, true)
-            }
-        }
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.didResignActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, let app = self.app else { return }
-                tairi_ghostty_app_set_focus(app, false)
-            }
-        }
+        context.app = app
+        appContexts[tileID] = context
+        TairiLog.write("ghostty app created tile=\(tileID.uuidString)")
+        return app
     }
 
     private func configureBundledGhosttyPaths() {
@@ -135,46 +189,120 @@ final class GhosttyRuntime: ObservableObject {
         }
     }
 
-    private func sessionID(for target: ghostty_target_s) -> UUID? {
-        guard target.tag == GHOSTTY_TARGET_SURFACE else { return nil }
-        guard let userdata = tairi_ghostty_surface_userdata(target.target.surface) else { return nil }
-        let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-        return view.sessionID
+    private func observeStore() {
+        storeObserver = store.$workspaces
+            .map { workspaces in
+                Set(workspaces.flatMap(\.tiles).map(\.id))
+            }
+            .sink { [weak self] liveTileIDs in
+                guard let self else { return }
+                let retiredTileIDs = Set(self.surfaces.keys).subtracting(liveTileIDs)
+                for tileID in retiredTileIDs {
+                    self.disposeSurface(tileID: tileID)
+                }
+            }
     }
 
-    private func handle(action: ghostty_action_s, target: ghostty_target_s) -> Bool {
-        guard let sessionID = sessionID(for: target) else {
+    private func surfaceView(for tileID: UUID) -> GhosttySurfaceView {
+        if let surfaceView = surfaces[tileID] {
+            return surfaceView
+        }
+
+        let surfaceView = GhosttySurfaceView(runtime: self, tileID: tileID)
+        surfaces[tileID] = surfaceView
+        return surfaceView
+    }
+
+    private func disposeSurface(tileID: UUID) {
+        guard let surfaceView = surfaces.removeValue(forKey: tileID) else { return }
+        surfaceView.dispose()
+
+        guard let context = appContexts.removeValue(forKey: tileID) else { return }
+        if let app = context.app {
+            tairi_ghostty_app_free(app)
+        }
+        Unmanaged.passUnretained(context).release()
+    }
+
+    private func logAction(_ tag: ghostty_action_tag_e, tileID: UUID?, target: ghostty_target_s) {
+        let targetLabel = target.tag == GHOSTTY_TARGET_SURFACE ? "surface" : "app"
+        let tileLabel = tileID?.uuidString ?? "none"
+        TairiLog.write("ghostty action \(actionName(tag)) target=\(targetLabel) tile=\(tileLabel)")
+    }
+
+    private func shouldAcceptExit(for tileID: UUID, reason: String) -> Bool {
+        guard lastInputTileID == tileID, let lastInputAt else {
+            TairiLog.write("ghostty ignored \(reason) for tile=\(tileID.uuidString) owner=\(lastInputTileID?.uuidString ?? "none")")
             return false
         }
 
+        let age = Date().timeIntervalSince(lastInputAt)
+        guard age <= 2 else {
+            TairiLog.write("ghostty ignored \(reason) for tile=\(tileID.uuidString) input_age=\(String(format: "%.3f", age))")
+            return false
+        }
+
+        TairiLog.write("ghostty accepted \(reason) for tile=\(tileID.uuidString) input_age=\(String(format: "%.3f", age))")
+        return true
+    }
+
+    private func actionName(_ tag: ghostty_action_tag_e) -> String {
+        switch tag {
+        case GHOSTTY_ACTION_QUIT: "quit"
+        case GHOSTTY_ACTION_NEW_WINDOW: "new_window"
+        case GHOSTTY_ACTION_NEW_TAB: "new_tab"
+        case GHOSTTY_ACTION_CLOSE_TAB: "close_tab"
+        case GHOSTTY_ACTION_NEW_SPLIT: "new_split"
+        case GHOSTTY_ACTION_CLOSE_ALL_WINDOWS: "close_all_windows"
+        case GHOSTTY_ACTION_GOTO_SPLIT: "goto_split"
+        case GHOSTTY_ACTION_SET_TITLE: "set_title"
+        case GHOSTTY_ACTION_PWD: "pwd"
+        case GHOSTTY_ACTION_CLOSE_WINDOW: "close_window"
+        case GHOSTTY_ACTION_OPEN_URL: "open_url"
+        case GHOSTTY_ACTION_SHOW_CHILD_EXITED: "show_child_exited"
+        case GHOSTTY_ACTION_COMMAND_FINISHED: "command_finished"
+        default: "tag_\(tag.rawValue)"
+        }
+    }
+
+    private func tileID(for target: ghostty_target_s) -> UUID? {
+        guard target.tag == GHOSTTY_TARGET_SURFACE else { return nil }
+        guard let userdata = tairi_ghostty_surface_userdata(target.target.surface) else { return nil }
+        let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
+        return view.tileID
+    }
+
+    private func handle(action: ghostty_action_s, target: ghostty_target_s) -> Bool {
+        let tileID = tileID(for: target)
+        logAction(action.tag, tileID: tileID, target: target)
+
         switch action.tag {
         case GHOSTTY_ACTION_NEW_WINDOW, GHOSTTY_ACTION_NEW_TAB, GHOSTTY_ACTION_NEW_SPLIT:
-            store.selectSession(sessionID)
-            _ = store.addSession(nextTo: sessionID)
+            guard let tileID else { return true }
+            store.selectTile(tileID)
+            _ = store.addTerminalTile(nextTo: tileID)
             return true
 
         case GHOSTTY_ACTION_GOTO_SPLIT:
             switch action.action.goto_split {
             case GHOSTTY_GOTO_SPLIT_PREVIOUS, GHOSTTY_GOTO_SPLIT_LEFT:
-                store.selectAdjacentSession(offset: -1)
+                store.selectAdjacentTile(offset: -1)
             default:
-                store.selectAdjacentSession(offset: 1)
+                store.selectAdjacentTile(offset: 1)
             }
-            if let selected = store.selectedSessionID {
-                focus(sessionID: selected)
+            if let selectedTileID = store.selectedTileID {
+                focus(tileID: selectedTileID)
             }
             return true
 
         case GHOSTTY_ACTION_SET_TITLE:
-            if let title = action.action.set_title.title {
-                store.updateTitle(String(cString: title), for: sessionID)
-            }
+            guard let tileID, let title = action.action.set_title.title else { return true }
+            store.updateTitle(String(cString: title), for: tileID)
             return true
 
         case GHOSTTY_ACTION_PWD:
-            if let pwd = action.action.pwd.pwd {
-                store.updatePWD(String(cString: pwd), for: sessionID)
-            }
+            guard let tileID, let pwd = action.action.pwd.pwd else { return true }
+            store.updatePWD(String(cString: pwd), for: tileID)
             return true
 
         case GHOSTTY_ACTION_OPEN_URL:
@@ -184,19 +312,24 @@ final class GhosttyRuntime: ObservableObject {
             NSWorkspace.shared.open(url)
             return true
 
-        case GHOSTTY_ACTION_CLOSE_WINDOW, GHOSTTY_ACTION_CLOSE_TAB:
-            if target.tag == GHOSTTY_TARGET_SURFACE {
-                store.closeSession(sessionID)
+        case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
+            guard let tileID else { return true }
+            let exitCode = action.action.child_exited.exit_code
+            TairiLog.write("ghostty child exited tile=\(tileID.uuidString) exitCode=\(exitCode)")
+            guard shouldAcceptExit(for: tileID, reason: "show_child_exited") else {
                 return true
             }
-            // Our UI manages a single app window with many independent
-            // terminal columns, so app-level Ghostty close requests should
-            // not tear down every surface just because one shell exited.
+            store.closeTile(tileID)
             return true
 
-        case GHOSTTY_ACTION_CLOSE_ALL_WINDOWS, GHOSTTY_ACTION_QUIT:
-            // Swallow Ghostty-level app shutdown actions. The host app owns
-            // lifecycle; terminals exiting should only affect their column.
+        case GHOSTTY_ACTION_COMMAND_FINISHED:
+            if let tileID {
+                let exitCode = action.action.command_finished.exit_code
+                TairiLog.write("ghostty command finished tile=\(tileID.uuidString) exitCode=\(exitCode)")
+            }
+            return true
+
+        case GHOSTTY_ACTION_CLOSE_WINDOW, GHOSTTY_ACTION_CLOSE_TAB, GHOSTTY_ACTION_CLOSE_ALL_WINDOWS, GHOSTTY_ACTION_QUIT:
             return true
 
         default:
@@ -204,14 +337,13 @@ final class GhosttyRuntime: ObservableObject {
         }
     }
 
-    private static func instance(from pointer: UnsafeMutableRawPointer?) -> GhosttyRuntime {
-        Unmanaged<GhosttyRuntime>.fromOpaque(pointer!).takeUnretainedValue()
-    }
-
     private static let wakeup: ghostty_runtime_wakeup_cb = { userdata in
-        let runtime = instance(from: userdata)
+        guard let userdata else { return }
+        let opaque = UInt(bitPattern: userdata)
         DispatchQueue.main.async {
-            if let app = runtime.app {
+            guard let rawPointer = UnsafeMutableRawPointer(bitPattern: opaque) else { return }
+            let context = Unmanaged<AppContext>.fromOpaque(rawPointer).takeUnretainedValue()
+            if let app = context.app {
                 tairi_ghostty_app_tick(app)
             }
         }
@@ -219,7 +351,8 @@ final class GhosttyRuntime: ObservableObject {
 
     private static let action: ghostty_runtime_action_cb = { app, target, action in
         guard let userdata = tairi_ghostty_app_userdata(app) else { return false }
-        let runtime = instance(from: userdata)
+        let context = Unmanaged<AppContext>.fromOpaque(userdata).takeUnretainedValue()
+        guard let runtime = context.runtime else { return false }
         return runtime.handle(action: action, target: target)
     }
 
@@ -254,9 +387,23 @@ final class GhosttyRuntime: ObservableObject {
         NSPasteboard.general.setString(String(cString: data), forType: .string)
     }
 
-    private static let closeSurface: ghostty_runtime_close_surface_cb = { userdata, _ in
+    private static let closeSurface: ghostty_runtime_close_surface_cb = { userdata, processAlive in
         guard let userdata else { return }
         let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-        view.runtime.store.closeSession(view.sessionID)
+        let processExited = view.surface.map(tairi_ghostty_surface_process_exited) ?? false
+        TairiLog.write(
+            "ghostty close_surface tile=\(view.tileID.uuidString) processAlive=\(processAlive) processExited=\(processExited)"
+        )
+
+        guard processExited else {
+            TairiLog.write("ghostty close_surface ignored for tile=\(view.tileID.uuidString)")
+            return
+        }
+
+        guard view.runtime.shouldAcceptExit(for: view.tileID, reason: "close_surface") else {
+            return
+        }
+
+        view.runtime.store.closeTile(view.tileID)
     }
 }

@@ -17,7 +17,9 @@ let package = Package(
         ),
         .executableTarget(
             name: "TairiApp",
-            dependencies: ["GhosttyDyn"],
+            dependencies: [
+                "GhosttyDyn",
+            ],
             path: "Sources/TairiApp",
             linkerSettings: [
                 .unsafeFlags([

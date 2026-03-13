@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 import GhosttyDyn
-import SwiftUI
 
 extension NSEvent {
     var ghosttyCharacters: String? {
@@ -21,7 +20,7 @@ extension NSEvent {
 @MainActor
 final class GhosttySurfaceView: NSView {
     let runtime: GhosttyRuntime
-    let sessionID: UUID
+    let tileID: UUID
 
     private(set) var surface: ghostty_surface_t?
     private var trackingAreaRef: NSTrackingArea?
@@ -29,12 +28,12 @@ final class GhosttySurfaceView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    init(runtime: GhosttyRuntime, sessionID: UUID) {
+    init(runtime: GhosttyRuntime, tileID: UUID) {
         self.runtime = runtime
-        self.sessionID = sessionID
+        self.tileID = tileID
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 640))
 
-        let app = runtime.app
+        let app = runtime.app(for: tileID)
         var config = tairi_ghostty_surface_config_new()
         config.platform_tag = GHOSTTY_PLATFORM_MACOS
         config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
@@ -47,12 +46,12 @@ final class GhosttySurfaceView: NSView {
             let workingDirectory = FileManager.default.currentDirectoryPath
             workingDirectory.withCString { path in
                 config.working_directory = path
-                config.context = GHOSTTY_SURFACE_CONTEXT_SPLIT
+                config.wait_after_command = true
+                config.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
                 surface = tairi_ghostty_surface_new(app, &config)
             }
         }
 
-        runtime.register(surfaceView: self, sessionID: sessionID)
         syncScaleAndSize()
     }
 
@@ -62,7 +61,7 @@ final class GhosttySurfaceView: NSView {
     }
 
     func dispose() {
-        runtime.unregister(sessionID: sessionID)
+        removeFromSuperview()
         if let surface {
             tairi_ghostty_surface_free(surface)
             self.surface = nil
@@ -78,7 +77,7 @@ final class GhosttySurfaceView: NSView {
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result, let surface {
-            runtime.focus(sessionID: sessionID)
+            runtime.focus(tileID: tileID)
             tairi_ghostty_surface_set_focus(surface, true)
         }
         return result
@@ -123,6 +122,7 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        runtime.recordInput(for: tileID)
         focusSurface()
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT)
     }
@@ -132,6 +132,7 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        runtime.recordInput(for: tileID)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_RIGHT)
     }
 
@@ -159,6 +160,7 @@ final class GhosttySurfaceView: NSView {
 
     override func keyDown(with event: NSEvent) {
         guard let surface else { return }
+        runtime.recordInput(for: tileID)
 
         var key = ghostty_input_key_s()
         key.action = GHOSTTY_ACTION_PRESS
@@ -240,24 +242,5 @@ final class GhosttySurfaceView: NSView {
         if flags.contains(.command) { value |= GHOSTTY_MODS_SUPER.rawValue }
         if flags.contains(.capsLock) { value |= GHOSTTY_MODS_CAPS.rawValue }
         return ghostty_input_mods_e(rawValue: value)
-    }
-}
-
-struct GhosttyTerminalView: NSViewRepresentable {
-    let runtime: GhosttyRuntime
-    let sessionID: UUID
-
-    func makeNSView(context: Context) -> GhosttySurfaceView {
-        GhosttySurfaceView(runtime: runtime, sessionID: sessionID)
-    }
-
-    func updateNSView(_ nsView: GhosttySurfaceView, context: Context) {
-        if runtime.errorMessage == nil, nsView.sessionID == sessionID {
-            return
-        }
-    }
-
-    static func dismantleNSView(_ nsView: GhosttySurfaceView, coordinator: ()) {
-        nsView.dispose()
     }
 }

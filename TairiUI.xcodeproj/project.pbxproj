@@ -1,0 +1,389 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		106BCBA119030F4EE65E6D42 /* UITestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14310B953C198856E2B01E9E /* UITestHost.swift */; };
+		920835E1CE5C4A59CCBA489E /* TairiUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D83AAC5A91E08C6768B65D /* TairiUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		54F8B04DDA88CBFC0921B36E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B9A6F6E89CF6B763F25E6A31 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9A2A3F15CEBDAEA40857A76D;
+			remoteInfo = UITestHost;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0EFC707144213D17ABF515BC /* UITestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UITestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		14310B953C198856E2B01E9E /* UITestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestHost.swift; sourceTree = "<group>"; };
+		8304B417C4E5F186FB70CA4B /* TairiUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TairiUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9DE1BB9688CF4F77A85EB68C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F2D83AAC5A91E08C6768B65D /* TairiUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TairiUITests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		104F4B6A1627868C7E2FD0C3 /* TairiUITests */ = {
+			isa = PBXGroup;
+			children = (
+				F2D83AAC5A91E08C6768B65D /* TairiUITests.swift */,
+			);
+			name = TairiUITests;
+			path = Tests/TairiUITests;
+			sourceTree = "<group>";
+		};
+		5BDA7278A4520A09D8D18ACC /* UITestHost */ = {
+			isa = PBXGroup;
+			children = (
+				9DE1BB9688CF4F77A85EB68C /* Info.plist */,
+				14310B953C198856E2B01E9E /* UITestHost.swift */,
+			);
+			path = UITestHost;
+			sourceTree = "<group>";
+		};
+		6D749E99172FC3D2BB8BA338 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8304B417C4E5F186FB70CA4B /* TairiUITests.xctest */,
+				0EFC707144213D17ABF515BC /* UITestHost.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BCDBC3FE726691B7643148CD = {
+			isa = PBXGroup;
+			children = (
+				104F4B6A1627868C7E2FD0C3 /* TairiUITests */,
+				5BDA7278A4520A09D8D18ACC /* UITestHost */,
+				6D749E99172FC3D2BB8BA338 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9A2A3F15CEBDAEA40857A76D /* UITestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 801E97CA0718B1917E530134 /* Build configuration list for PBXNativeTarget "UITestHost" */;
+			buildPhases = (
+				4646F75920DE33A871CD630B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = UITestHost;
+			packageProductDependencies = (
+			);
+			productName = UITestHost;
+			productReference = 0EFC707144213D17ABF515BC /* UITestHost.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CCC40398DC9E5839C367022D /* TairiUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0E9D18865C29A936DE95A9B4 /* Build configuration list for PBXNativeTarget "TairiUITests" */;
+			buildPhases = (
+				10BCE5033E7274E65320258E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1404C20C8F08FE1F7F54A706 /* PBXTargetDependency */,
+			);
+			name = TairiUITests;
+			packageProductDependencies = (
+			);
+			productName = TairiUITests;
+			productReference = 8304B417C4E5F186FB70CA4B /* TairiUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B9A6F6E89CF6B763F25E6A31 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					CCC40398DC9E5839C367022D = {
+						TestTargetID = 9A2A3F15CEBDAEA40857A76D;
+					};
+				};
+			};
+			buildConfigurationList = A60D42F0703435E977F22BE7 /* Build configuration list for PBXProject "TairiUI" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = BCDBC3FE726691B7643148CD;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6D749E99172FC3D2BB8BA338 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CCC40398DC9E5839C367022D /* TairiUITests */,
+				9A2A3F15CEBDAEA40857A76D /* UITestHost */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		10BCE5033E7274E65320258E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				920835E1CE5C4A59CCBA489E /* TairiUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4646F75920DE33A871CD630B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				106BCBA119030F4EE65E6D42 /* UITestHost.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1404C20C8F08FE1F7F54A706 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9A2A3F15CEBDAEA40857A76D /* UITestHost */;
+			targetProxy = 54F8B04DDA88CBFC0921B36E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2DD9A9D4AE05BFB4D0E92518 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = UITestHost/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.UITestHost;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		2E1C2FB1E422AD8ADDDB3956 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = UITestHost/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.UITestHost;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		7560A74410A2E36609D3A9CB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TairiUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.TairiUITests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = UITestHost;
+			};
+			name = Release;
+		};
+		BA2E6F38BC3E37D376F590E3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		CD50B6786FE2FC6CF7135982 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TairiUITests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.TairiUITests;
+				SDKROOT = macosx;
+				TEST_TARGET_NAME = UITestHost;
+			};
+			name = Debug;
+		};
+		D0AB06F28D0271BFB314C71F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0E9D18865C29A936DE95A9B4 /* Build configuration list for PBXNativeTarget "TairiUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CD50B6786FE2FC6CF7135982 /* Debug */,
+				7560A74410A2E36609D3A9CB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		801E97CA0718B1917E530134 /* Build configuration list for PBXNativeTarget "UITestHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2DD9A9D4AE05BFB4D0E92518 /* Debug */,
+				2E1C2FB1E422AD8ADDDB3956 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A60D42F0703435E977F22BE7 /* Build configuration list for PBXProject "TairiUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0AB06F28D0271BFB314C71F /* Debug */,
+				BA2E6F38BC3E37D376F590E3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B9A6F6E89CF6B763F25E6A31 /* Project object */;
+}

@@ -21,18 +21,18 @@ struct TairiApp: App {
         }
         .commands {
             CommandMenu("Workspace") {
-                Button("New Terminal Column") {
-                    _ = store.addSession(nextTo: store.selectedSessionID)
+                Button("New Tile") {
+                    _ = store.addTerminalTile(nextTo: store.selectedTileID)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
 
-                Button("Previous Column") {
-                    store.selectAdjacentSession(offset: -1)
+                Button("Previous Tile") {
+                    store.selectAdjacentTile(offset: -1)
                 }
                 .keyboardShortcut(.leftArrow, modifiers: [.command, .control])
 
-                Button("Next Column") {
-                    store.selectAdjacentSession(offset: 1)
+                Button("Next Tile") {
+                    store.selectAdjacentTile(offset: 1)
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .control])
 

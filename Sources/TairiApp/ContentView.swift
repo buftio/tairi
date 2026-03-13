@@ -32,6 +32,7 @@ struct ContentView: View {
             Divider().opacity(0.3)
             mainPanel
         }
+        .accessibilityIdentifier(TairiAccessibility.appRoot)
         .background(Color(red: 0.94, green: 0.93, blue: 0.90))
         .onAppear {
             NSApp.setActivationPolicy(.regular)
@@ -52,7 +53,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("tairi")
                     .font(.system(size: 28, weight: .bold, design: .serif))
-                Text("scrollable terminal workspaces")
+                Text("appkit workspace canvas over live ghostty surfaces")
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
@@ -67,7 +68,7 @@ struct ContentView: View {
                             Text(workspace.title)
                                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             Spacer()
-                            Text("\(workspace.sessions.count)")
+                            Text("\(workspace.tiles.count)")
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
@@ -80,14 +81,15 @@ struct ContentView: View {
                         .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : Color.black)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
                 }
             }
 
             Spacer()
 
             VStack(alignment: .leading, spacing: 10) {
-                actionButton("New column", shortcut: "cmd+n") {
-                    _ = store.addSession(nextTo: store.selectedSessionID)
+                actionButton("New tile", shortcut: "cmd+n") {
+                    _ = store.addTerminalTile(nextTo: store.selectedTileID)
                 }
                 actionButton("Prev workspace", shortcut: "cmd+[") {
                     store.selectAdjacentWorkspace(offset: -1)
@@ -100,6 +102,7 @@ struct ContentView: View {
         .padding(18)
         .frame(width: 220)
         .background(Color.black.opacity(0.035))
+        .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
     }
 
     private var mainPanel: some View {
@@ -109,9 +112,10 @@ struct ContentView: View {
             if let error = runtime.errorMessage {
                 unavailable(error)
             } else {
-                strip
+                WorkspaceCanvasView(store: store, runtime: runtime)
             }
         }
+        .accessibilityIdentifier(TairiAccessibility.mainPanel)
     }
 
     private var header: some View {
@@ -119,15 +123,16 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Workspace \(store.selectedWorkspace.title)")
                     .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                Text("new terminals append as columns and never resize the existing strip")
+                    .accessibilityIdentifier(TairiAccessibility.workspaceTitle)
+                Text("tairi owns tile layout, focus, and drag resizing around live ghostty surfaces")
                     .font(.system(size: 12, weight: .regular, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            if let selected = store.selectedSessionID, let session = store.session(selected) {
+            if let selectedTile = store.selectedTile {
                 Picker("Width", selection: Binding(
-                    get: { session.width },
-                    set: { store.setWidth($0, for: selected) }
+                    get: { WorkspaceStore.WidthPreset.closest(to: selectedTile.width) },
+                    set: { store.setWidth($0, for: selectedTile.id) }
                 )) {
                     ForEach(WorkspaceStore.WidthPreset.allCases, id: \.self) { preset in
                         Text(preset.label).tag(preset)
@@ -135,64 +140,10 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 260)
+                .accessibilityIdentifier(TairiAccessibility.widthPicker)
             }
         }
         .padding(18)
-    }
-
-    private var strip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 22) {
-                    ForEach(store.selectedWorkspace.sessions) { session in
-                        terminalCard(session)
-                            .id(session.id)
-                    }
-                }
-                .padding(22)
-            }
-            .onChange(of: store.selectedSessionID) { sessionID in
-                guard let sessionID else { return }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    proxy.scrollTo(sessionID, anchor: .center)
-                }
-            }
-        }
-    }
-
-    private func terminalCard(_ session: WorkspaceStore.Session) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(session.title)
-                        .lineLimit(1)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    Text(session.pwd ?? FileManager.default.currentDirectoryPath)
-                        .lineLimit(1)
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Circle()
-                    .fill(store.selectedSessionID == session.id ? Color.green : Color.black.opacity(0.18))
-                    .frame(width: 8, height: 8)
-            }
-            .padding(14)
-            .background(Color.black.opacity(0.04))
-
-            GhosttyTerminalView(runtime: runtime, sessionID: session.id)
-                .background(Color.black)
-                .frame(width: session.width.width, height: 620)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(store.selectedSessionID == session.id ? Color.black : Color.black.opacity(0.12), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.08), radius: 22, x: 0, y: 18)
-        .onTapGesture {
-            runtime.focus(sessionID: session.id)
-        }
     }
 
     private func actionButton(_ title: String, shortcut: String, action: @escaping () -> Void) -> some View {
@@ -210,6 +161,7 @@ struct ContentView: View {
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.6)))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier(for: title))
     }
 
     private func unavailable(_ error: String) -> some View {
@@ -223,5 +175,19 @@ struct ContentView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityIdentifier(TairiAccessibility.runtimeError)
+    }
+
+    private func accessibilityIdentifier(for title: String) -> String {
+        switch title {
+        case "New tile":
+            TairiAccessibility.newTileButton
+        case "Prev workspace":
+            TairiAccessibility.previousWorkspaceButton
+        case "Next workspace":
+            TairiAccessibility.nextWorkspaceButton
+        default:
+            title
+        }
     }
 }

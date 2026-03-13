@@ -1,0 +1,60 @@
+name: TairiUI
+options:
+  bundleIdPrefix: dev.buft.tairi
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGNING_REQUIRED: NO
+targets:
+  UITestHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: UITestHost
+    info:
+      path: UITestHost/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleDisplayName: UITestHost
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: dev.buft.tairi.UITestHost
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: UITestHost
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "14.0"
+        NSHighResolutionCapable: true
+        NSPrincipalClass: NSApplication
+  TairiUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/TairiUITests
+    info:
+      path: TairiUITests/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundleIdentifier: dev.buft.tairi.TairiUITests
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: TairiUITests
+        CFBundlePackageType: BNDL
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+    dependencies:
+      - target: UITestHost
+schemes:
+  TairiUI:
+    build:
+      targets:
+        UITestHost: all
+        TairiUITests:
+          - test
+    test:
+      gatherCoverageData: false
+      targets:
+        - name: TairiUITests
