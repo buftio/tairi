@@ -1,0 +1,12 @@
+.DS_Store
+
+.local/
+.build/
+dist/
+
+.swiftpm/
+Package.resolved
+
+*.xcuserstate
+*.swp
+*.tmp
