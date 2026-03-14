@@ -123,7 +123,7 @@ final class GhosttySurfaceView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         runtime.recordInput(for: tileID)
-        focusSurface()
+        runtime.focus(tileID: tileID, transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT)
     }
 
@@ -133,6 +133,7 @@ final class GhosttySurfaceView: NSView {
 
     override func rightMouseDown(with event: NSEvent) {
         runtime.recordInput(for: tileID)
+        runtime.focus(tileID: tileID, transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_RIGHT)
     }
 
@@ -170,6 +171,12 @@ final class GhosttySurfaceView: NSView {
 
     override func keyDown(with event: NSEvent) {
         if let canvasDocumentView = workspaceCanvasDocumentView(),
+           let tileOffset = tileNavigationOffset(for: event),
+           canvasDocumentView.handleTileKeyNavigation(offset: tileOffset, from: tileID) {
+            return
+        }
+
+        if let canvasDocumentView = workspaceCanvasDocumentView(),
            let workspaceOffset = workspaceNavigationOffset(for: event),
            canvasDocumentView.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) {
             return
@@ -200,7 +207,7 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func keyUp(with event: NSEvent) {
-        if workspaceNavigationOffset(for: event) != nil {
+        if workspaceNavigationOffset(for: event) != nil || tileNavigationOffset(for: event) != nil {
             return
         }
 
@@ -274,6 +281,21 @@ final class GhosttySurfaceView: NSView {
         case 126:
             return -1
         case 125:
+            return 1
+        default:
+            return nil
+        }
+    }
+
+    private func tileNavigationOffset(for event: NSEvent) -> Int? {
+        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
+        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard activeModifiers.contains(requiredModifiers) else { return nil }
+
+        switch event.keyCode {
+        case 123:
+            return -1
+        case 124:
             return 1
         default:
             return nil

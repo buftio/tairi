@@ -1,12 +1,27 @@
 import SwiftUI
 
+private enum LayoutMetrics {
+    static let sidebarWidth: CGFloat = 240
+    static let sidebarLeadingInset: CGFloat = 11
+    static let sidebarTopInset: CGFloat = 9
+    static let sidebarBottomInset: CGFloat = 11
+    static let sidebarCornerRadius: CGFloat = 19
+    static let controlCornerRadius: CGFloat = 8
+    static let trafficLightsLeadingInset: CGFloat = 14
+    static let trafficLightsTopInset: CGFloat = 20
+    static let trafficLightsSpacing: CGFloat = 6
+}
+
 private enum ShellPalette {
-    static let windowBackground = Color(red: 0.94, green: 0.93, blue: 0.90)
-    static let sidebarBackground = Color.black.opacity(0.035)
-    static let divider = Color.black.opacity(0.15)
-    static let primaryText = Color.black.opacity(0.88)
-    static let secondaryText = Color.black.opacity(0.5)
-    static let actionBackground = Color.white.opacity(0.6)
+    static let windowBackgroundTop = Color(red: 0.96, green: 0.95, blue: 0.92)
+    static let windowBackgroundBottom = Color(red: 0.91, green: 0.90, blue: 0.86)
+    static let primaryText = Color.black.opacity(0.84)
+    static let secondaryText = Color.black.opacity(0.48)
+    static let sidebarStroke = Color.white.opacity(0.70)
+    static let sidebarShadow = Color.black.opacity(0.10)
+    static let actionBackground = Color.white.opacity(0.28)
+    static let activeWorkspace = Color.black.opacity(0.88)
+    static let inactiveWorkspace = Color.black.opacity(0.05)
 }
 
 struct WindowAccessor: NSViewRepresentable {
@@ -33,16 +48,20 @@ struct WindowAccessor: NSViewRepresentable {
 
 struct ContentView: View {
     @EnvironmentObject private var store: WorkspaceStore
+    @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider().overlay(ShellPalette.divider)
+        ZStack(alignment: .topLeading) {
             mainPanel
+            sidebar
+                .padding(.leading, LayoutMetrics.sidebarLeadingInset)
+                .padding(.top, LayoutMetrics.sidebarTopInset)
+                .padding(.bottom, LayoutMetrics.sidebarBottomInset)
         }
         .accessibilityIdentifier(TairiAccessibility.appRoot)
-        .background(ShellPalette.windowBackground)
+        .background(windowBackground)
+        .ignoresSafeArea()
         .onAppear {
             NSApp.setActivationPolicy(.regular)
             NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
@@ -51,6 +70,7 @@ struct ContentView: View {
         }
         .background(
             WindowAccessor { window in
+                configure(window: window)
                 window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)
             }
@@ -72,7 +92,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(store.workspaces) { workspace in
                     Button {
-                        store.selectWorkspace(workspace.id)
+                        interactionController.selectWorkspace(workspace.id)
                     } label: {
                         HStack {
                             Text(workspace.title)
@@ -85,10 +105,10 @@ struct ContentView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(workspace.id == store.selectedWorkspaceID ? Color.black : Color.black.opacity(0.06))
+                            RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
+                                .fill(workspace.id == store.selectedWorkspaceID ? ShellPalette.activeWorkspace : ShellPalette.inactiveWorkspace)
                         )
-                        .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : Color.black)
+                        .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : ShellPalette.primaryText)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
@@ -102,60 +122,52 @@ struct ContentView: View {
                     _ = store.addTerminalTile(nextTo: store.selectedTileID)
                 }
                 actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
-                    store.selectAdjacentWorkspace(offset: -1)
+                    interactionController.selectAdjacentWorkspace(offset: -1)
+                    if let selectedTileID = store.selectedTileID {
+                        runtime.focusSurface(tileID: selectedTileID)
+                    }
                 }
                 actionButton("Next workspace", shortcut: "opt+cmd+↓") {
-                    store.selectAdjacentWorkspace(offset: 1)
+                    interactionController.selectAdjacentWorkspace(offset: 1)
+                    if let selectedTileID = store.selectedTileID {
+                        runtime.focusSurface(tileID: selectedTileID)
+                    }
                 }
             }
+
         }
-        .padding(18)
-        .frame(width: 220)
-        .background(ShellPalette.sidebarBackground)
+        .padding(.horizontal, 11)
+        .padding(.top, 62)
+        .padding(.bottom, 16)
+        .frame(width: LayoutMetrics.sidebarWidth)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(sidebarBackground)
+        .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .stroke(ShellPalette.sidebarStroke, lineWidth: 1)
+        )
+        .shadow(color: ShellPalette.sidebarShadow, radius: 30, x: 0, y: 18)
         .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
     }
 
     private var mainPanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-            Divider().overlay(ShellPalette.divider)
+        Group {
             if let error = runtime.errorMessage {
                 unavailable(error)
             } else {
-                WorkspaceCanvasView(store: store, runtime: runtime)
+                WorkspaceCanvasView(store: store, interactionController: interactionController, runtime: runtime)
             }
+        }
+        .overlay(alignment: .topLeading) {
+            Text("Workspace \(store.selectedWorkspace.title)")
+                .font(.system(size: 1))
+                .foregroundStyle(.clear)
+                .accessibilityIdentifier(TairiAccessibility.workspaceTitle)
+                .padding(.top, 1)
+                .padding(.leading, 1)
         }
         .accessibilityIdentifier(TairiAccessibility.mainPanel)
-    }
-
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Workspace \(store.selectedWorkspace.title)")
-                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(ShellPalette.primaryText)
-                    .accessibilityIdentifier(TairiAccessibility.workspaceTitle)
-                Text("tairi owns tile layout, focus, and drag resizing around live ghostty surfaces")
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
-                    .foregroundStyle(ShellPalette.secondaryText)
-            }
-            Spacer()
-            if let selectedTile = store.selectedTile {
-                Picker("Width", selection: Binding(
-                    get: { WorkspaceStore.WidthPreset.closest(to: selectedTile.width) },
-                    set: { store.setWidth($0, for: selectedTile.id) }
-                )) {
-                    ForEach(WorkspaceStore.WidthPreset.allCases, id: \.self) { preset in
-                        Text(preset.label).tag(preset)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 260)
-                .environment(\.colorScheme, .light)
-                .accessibilityIdentifier(TairiAccessibility.widthPicker)
-            }
-        }
-        .padding(18)
     }
 
     private func actionButton(_ title: String, shortcut: String, action: @escaping () -> Void) -> some View {
@@ -171,10 +183,48 @@ struct ContentView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(ShellPalette.actionBackground))
+            .background(RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius).fill(ShellPalette.actionBackground))
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier(for: title))
+    }
+
+    private var windowBackground: some View {
+        LinearGradient(
+            colors: [ShellPalette.windowBackgroundTop, ShellPalette.windowBackgroundBottom],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var sidebarBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.44),
+                            Color.white.opacity(0.16)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.34),
+                            Color.clear,
+                            Color.white.opacity(0.08)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        }
     }
 
     private func unavailable(_ error: String) -> some View {
@@ -202,6 +252,33 @@ struct ContentView: View {
             TairiAccessibility.nextWorkspaceButton
         default:
             title
+        }
+    }
+
+    private func configure(window: NSWindow) {
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = false
+        window.styleMask.insert(.fullSizeContentView)
+        window.toolbar = nil
+        if #available(macOS 11.0, *) {
+            window.titlebarSeparatorStyle = .none
+        }
+        positionTrafficLights(in: window)
+    }
+
+    private func positionTrafficLights(in window: NSWindow) {
+        let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
+        guard let buttonContainer = buttons.first?.superview else { return }
+
+        let startX = LayoutMetrics.sidebarLeadingInset + LayoutMetrics.trafficLightsLeadingInset
+        let y = buttonContainer.bounds.height - LayoutMetrics.trafficLightsTopInset - (buttons.first?.frame.height ?? 0)
+
+        var x = startX
+        for button in buttons {
+            button.setFrameOrigin(NSPoint(x: x, y: y))
+            x += button.frame.width + LayoutMetrics.trafficLightsSpacing
         }
     }
 }

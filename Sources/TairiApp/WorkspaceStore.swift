@@ -1,6 +1,7 @@
 import Foundation
 
 enum WorkspaceCanvasLayoutMetrics {
+    static let stripLeadingInset: CGFloat = 248
     static let horizontalPadding: CGFloat = 22
     static let verticalPadding: CGFloat = 22
     static let tileSpacing: CGFloat = 22
@@ -251,7 +252,7 @@ final class WorkspaceStore: ObservableObject {
     private func nearestTileID(to visibleMidX: CGFloat, in workspace: Workspace) -> UUID? {
         guard !workspace.tiles.isEmpty else { return nil }
 
-        var x = WorkspaceCanvasLayoutMetrics.horizontalPadding
+        var x = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
         var bestTileID: UUID?
         var bestDistance = CGFloat.greatestFiniteMagnitude
 
@@ -269,14 +270,23 @@ final class WorkspaceStore: ObservableObject {
     }
 
     private func centeredOffset(for tileID: UUID, in workspace: Workspace, viewportWidth: CGFloat) -> CGFloat {
+        let anchorX = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+
+        if workspace.tiles.first?.id == tileID {
+            return 0
+        }
+
         guard let tileFrame = tileFrame(for: tileID, in: workspace) else {
             return workspace.horizontalOffset
         }
-        return tileFrame.midX - (viewportWidth / 2)
+
+        let targetOffset = tileFrame.minX - anchorX
+        let maxOffset = max(contentWidth(for: workspace) - viewportWidth, 0)
+        return targetOffset.clamped(to: 0...maxOffset)
     }
 
     private func tileFrame(for tileID: UUID, in workspace: Workspace) -> CGRect? {
-        var x = WorkspaceCanvasLayoutMetrics.horizontalPadding
+        var x = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
 
         for tile in workspace.tiles {
             let frame = CGRect(x: x, y: 0, width: tile.width, height: WorkspaceCanvasLayoutMetrics.minimumTileHeight)
@@ -295,7 +305,10 @@ final class WorkspaceStore: ObservableObject {
             partialResult + tile.width
         }
         let spacing = CGFloat(max(workspace.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
-        return (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2) + tileWidths + spacing
+        return WorkspaceCanvasLayoutMetrics.stripLeadingInset
+            + (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2)
+            + tileWidths
+            + spacing
     }
 
     private func normalize() {

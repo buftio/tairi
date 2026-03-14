@@ -90,7 +90,7 @@ final class WorkspaceTileHostView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        runtime.focus(tileID: tileID)
+        runtime.focus(tileID: tileID, transition: .animatedReveal)
         super.mouseDown(with: event)
     }
 
@@ -115,6 +115,7 @@ final class WorkspaceTileHostView: NSView {
 
 @MainActor
 final class WorkspaceTileResizeHandleView: NSView {
+    private let interactionController: WorkspaceInteractionController
     private let store: WorkspaceStore
     private let gripView = NSView()
 
@@ -125,7 +126,8 @@ final class WorkspaceTileResizeHandleView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(store: WorkspaceStore, tileID: UUID) {
+    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, tileID: UUID) {
+        self.interactionController = interactionController
         self.store = store
         self.tileID = tileID
         super.init(frame: .zero)
@@ -163,7 +165,7 @@ final class WorkspaceTileResizeHandleView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        store.selectTile(tileID)
+        interactionController.selectTile(tileID)
         setAccessibilityIdentifier(TairiAccessibility.tileResizeHandle(tileID))
         dragStartX = event.locationInWindow.x
         startingWidth = store.tile(tileID)?.width ?? WorkspaceStore.WidthPreset.standard.width

@@ -19,6 +19,7 @@ final class GhosttyRuntime: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     fileprivate let store: WorkspaceStore
+    private let interactionController: WorkspaceInteractionController
     private var surfaces: [UUID: GhosttySurfaceView] = [:]
     private var appContexts: [UUID: AppContext] = [:]
     private let actionAdapter = GhosttyActionAdapter()
@@ -27,8 +28,9 @@ final class GhosttyRuntime: ObservableObject {
     private var lastInputTileID: UUID?
     private var lastInputAt: Date?
 
-    init(store: WorkspaceStore) {
+    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController) {
         self.store = store
+        self.interactionController = interactionController
         observeStore()
         bootstrap()
     }
@@ -54,8 +56,12 @@ final class GhosttyRuntime: ObservableObject {
         surfaces[tileID]?.removeFromSuperview()
     }
 
-    func focus(tileID: UUID) {
-        store.selectTile(tileID)
+    func focus(tileID: UUID, transition: WorkspaceInteractionController.TileTransition = .immediate) {
+        interactionController.selectTile(tileID, transition: transition)
+        focusSurface(tileID: tileID)
+    }
+
+    func focusSurface(tileID: UUID) {
         surfaces[tileID]?.focusSurface()
     }
 
@@ -275,14 +281,14 @@ final class GhosttyRuntime: ObservableObject {
     private func handle(event: GhosttyRuntimeEvent) -> Bool {
         switch event {
         case .createTile(let tileID):
-            store.selectTile(tileID)
+            interactionController.selectTile(tileID)
             _ = store.addTerminalTile(nextTo: tileID)
             return true
 
         case .selectAdjacentTile(let offset):
-            store.selectAdjacentTile(offset: offset)
+            interactionController.selectAdjacentTile(offset: offset)
             if let selectedTileID = store.selectedTileID {
-                focus(tileID: selectedTileID)
+                focusSurface(tileID: selectedTileID)
             }
             return true
 

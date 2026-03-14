@@ -3,10 +3,11 @@ import SwiftUI
 
 struct WorkspaceCanvasView: NSViewRepresentable {
     @ObservedObject var store: WorkspaceStore
+    @ObservedObject var interactionController: WorkspaceInteractionController
     @ObservedObject var runtime: GhosttyRuntime
 
     func makeNSView(context: Context) -> WorkspaceCanvasContainerView {
-        WorkspaceCanvasContainerView(store: store, runtime: runtime)
+        WorkspaceCanvasContainerView(store: store, interactionController: interactionController, runtime: runtime)
     }
 
     func updateNSView(_ nsView: WorkspaceCanvasContainerView, context: Context) {
@@ -15,7 +16,8 @@ struct WorkspaceCanvasView: NSViewRepresentable {
             workspaces: store.workspaces,
             selectedWorkspaceID: store.selectedWorkspaceID,
             selectedTileID: store.selectedTileID,
-            allTileIDs: allTileIDs
+            allTileIDs: allTileIDs,
+            canvasTransition: interactionController.canvasTransition
         )
     }
 }
@@ -26,9 +28,14 @@ final class WorkspaceCanvasContainerView: NSView {
     private let documentView: WorkspaceCanvasDocumentView
     private var lastSelectedTileID: UUID?
     private var lastSelectedWorkspaceID: UUID?
+    private var lastCanvasTransitionID: Int?
 
-    init(store: WorkspaceStore, runtime: GhosttyRuntime) {
-        documentView = WorkspaceCanvasDocumentView(store: store, runtime: runtime)
+    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
+        documentView = WorkspaceCanvasDocumentView(
+            store: store,
+            interactionController: interactionController,
+            runtime: runtime
+        )
         super.init(frame: .zero)
 
         wantsLayer = true
@@ -66,7 +73,8 @@ final class WorkspaceCanvasContainerView: NSView {
         workspaces: [WorkspaceStore.Workspace],
         selectedWorkspaceID: UUID,
         selectedTileID: UUID?,
-        allTileIDs: Set<UUID>
+        allTileIDs: Set<UUID>,
+        canvasTransition: WorkspaceInteractionController.CanvasTransition?
     ) {
         documentView.update(
             workspaces: workspaces,
@@ -76,8 +84,13 @@ final class WorkspaceCanvasContainerView: NSView {
         )
         documentView.viewportSize = scrollView.contentView.bounds.size
 
-        if lastSelectedTileID != selectedTileID, let selectedTileID {
-            documentView.revealTile(selectedTileID)
+        if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
+            documentView.revealTile(canvasTransition.tileID, animated: canvasTransition.animated)
+            lastCanvasTransitionID = canvasTransition.id
+        } else if lastSelectedWorkspaceID == selectedWorkspaceID,
+                  lastSelectedTileID != selectedTileID,
+                  let selectedTileID {
+            documentView.revealTile(selectedTileID, animated: false)
         }
 
         if lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID {
@@ -96,7 +109,9 @@ final class WorkspaceCanvasDocumentView: NSView {
     }
 
     private let store: WorkspaceStore
+    private let interactionController: WorkspaceInteractionController
     private let runtime: GhosttyRuntime
+    private let animator = WorkspaceCanvasAnimator()
 
     private var workspaces: [WorkspaceStore.Workspace] = []
     private var selectedWorkspaceID: UUID?
@@ -117,12 +132,16 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(store: WorkspaceStore, runtime: GhosttyRuntime) {
+    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
         self.store = store
+        self.interactionController = interactionController
         self.runtime = runtime
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        animator.onChange = { [weak self] in
+            self?.needsLayout = true
+        }
     }
 
     @available(*, unavailable)
@@ -147,6 +166,8 @@ final class WorkspaceCanvasDocumentView: NSView {
             view.removeFromSuperview()
             tileViews.removeValue(forKey: tileID)
         }
+
+        animator.pruneOffsets(workspaces: workspaces)
 
         for (tileID, handle) in resizeHandles where !handleIDs.contains(tileID) {
             handle.removeFromSuperview()
@@ -173,6 +194,8 @@ final class WorkspaceCanvasDocumentView: NSView {
             handle.tileID = tile.id
         }
 
+        animator.syncRenderedHorizontalOffsets(for: workspaces)
+
         needsLayout = true
     }
 
@@ -186,7 +209,9 @@ final class WorkspaceCanvasDocumentView: NSView {
 
         for (workspaceIndex, workspace) in workspaces.enumerated() {
             let rowOriginY = CGFloat(workspaceIndex) * (rowHeight + WorkspaceCanvasLayoutMetrics.rowSpacing)
-            var x = WorkspaceCanvasLayoutMetrics.horizontalPadding - workspace.horizontalOffset
+            var x = WorkspaceCanvasLayoutMetrics.stripLeadingInset
+                + WorkspaceCanvasLayoutMetrics.horizontalPadding
+                - animator.effectiveHorizontalOffset(for: workspace)
 
             for (tileIndex, tile) in workspace.tiles.enumerated() {
                 guard let tileView = tileViews[tile.id] else { continue }
@@ -219,9 +244,10 @@ final class WorkspaceCanvasDocumentView: NSView {
         }
     }
 
-    func revealTile(_ tileID: UUID) {
+    func revealTile(_ tileID: UUID, animated: Bool) {
         guard viewportSize.width > 0 else { return }
-        store.revealTile(tileID, viewportWidth: viewportSize.width)
+        animator.queueReveal(for: tileID, animated: animated, in: workspaces)
+        interactionController.revealTile(tileID, viewportWidth: viewportSize.width)
     }
 
     func scrollWorkspaceToVisible(_ workspaceID: UUID, animated: Bool = true) {
@@ -265,13 +291,25 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     func handleWorkspaceKeyNavigation(offset: Int, from tileID: UUID) -> Bool {
         guard let tile = store.tile(tileID), viewportSize.width > 0 else { return false }
-        store.selectTile(tile.id)
+        interactionController.selectTile(tile.id)
         return navigateWorkspace(offset: offset, preferredVisibleMidX: visibleMidX(for: store.selectedWorkspace))
+    }
+
+    func handleTileKeyNavigation(offset: Int, from tileID: UUID) -> Bool {
+        guard store.tile(tileID) != nil else { return false }
+        interactionController.selectTile(tileID)
+        interactionController.selectAdjacentTile(offset: offset, transition: .animatedReveal)
+        guard let selectedTileID = store.selectedTileID else { return false }
+        runtime.focusSurface(tileID: selectedTileID)
+        return true
     }
 
     private func handleHorizontalScroll(_ event: NSEvent) -> Bool {
         guard viewportSize.width > 0, abs(event.scrollingDeltaX) > 0 else { return false }
-        store.scrollSelectedWorkspaceHorizontally(deltaX: -event.scrollingDeltaX, viewportWidth: viewportSize.width)
+        interactionController.scrollSelectedWorkspaceHorizontally(
+            deltaX: -event.scrollingDeltaX,
+            viewportWidth: viewportSize.width
+        )
         return true
     }
 
@@ -313,10 +351,10 @@ final class WorkspaceCanvasDocumentView: NSView {
 
         let targetWorkspace = workspaces[nextIndex]
         let targetVisibleMidX = preferredVisibleMidX ?? visibleMidX(for: targetWorkspace)
-        store.selectAdjacentWorkspace(offset: offset, preferredVisibleMidX: targetVisibleMidX)
+        interactionController.selectAdjacentWorkspace(offset: offset, preferredVisibleMidX: targetVisibleMidX)
 
         if let selectedTileID = store.selectedTileID {
-            runtime.focus(tileID: selectedTileID)
+            runtime.focusSurface(tileID: selectedTileID)
         } else {
             window?.makeFirstResponder(enclosingScrollView)
         }
@@ -375,7 +413,11 @@ final class WorkspaceCanvasDocumentView: NSView {
     }
 
     private func makeResizeHandle(for tileID: UUID) -> WorkspaceTileResizeHandleView {
-        let handle = WorkspaceTileResizeHandleView(store: store, tileID: tileID)
+        let handle = WorkspaceTileResizeHandleView(
+            store: store,
+            interactionController: interactionController,
+            tileID: tileID
+        )
         resizeHandles[tileID] = handle
         addSubview(handle)
         return handle
