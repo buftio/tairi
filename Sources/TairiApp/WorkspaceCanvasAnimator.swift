@@ -4,6 +4,7 @@ import Foundation
 final class WorkspaceCanvasAnimator {
     private enum Metrics {
         static let horizontalRevealAnimationDuration: TimeInterval = 0.2
+        static let stripLeadingInsetAnimationDuration: TimeInterval = 0.28
     }
 
     var onChange: (() -> Void)?
@@ -15,6 +16,11 @@ final class WorkspaceCanvasAnimator {
     private var horizontalRevealAnimationTargetOffset: CGFloat = 0
     private var horizontalRevealAnimationStartedAt = Date.distantPast
     private var horizontalRevealAnimationTimer: Timer?
+    private var renderedStripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    private var stripLeadingInsetAnimationStartValue = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    private var stripLeadingInsetAnimationTargetValue = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    private var stripLeadingInsetAnimationStartedAt = Date.distantPast
+    private var stripLeadingInsetAnimationTimer: Timer?
 
     func pruneOffsets(workspaces: [WorkspaceStore.Workspace]) {
         renderedHorizontalOffsets = renderedHorizontalOffsets.filter { entry in
@@ -35,6 +41,13 @@ final class WorkspaceCanvasAnimator {
 
     func effectiveHorizontalOffset(for workspace: WorkspaceStore.Workspace) -> CGFloat {
         renderedHorizontalOffsets[workspace.id] ?? workspace.horizontalOffset
+    }
+
+    func effectiveStripLeadingInset(sidebarHidden: Bool) -> CGFloat {
+        if stripLeadingInsetAnimationTimer != nil {
+            return renderedStripLeadingInset
+        }
+        return WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: sidebarHidden)
     }
 
     func syncRenderedHorizontalOffsets(for workspaces: [WorkspaceStore.Workspace]) {
@@ -67,6 +80,24 @@ final class WorkspaceCanvasAnimator {
 
         startHorizontalRevealAnimation(for: workspace.id, from: startOffset, to: targetOffset)
         self.pendingAnimatedRevealWorkspaceID = nil
+    }
+
+    func syncRenderedStripLeadingInset(sidebarHidden: Bool, animated: Bool) {
+        let targetInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: sidebarHidden)
+        guard abs(renderedStripLeadingInset - targetInset) > 0.5 else {
+            renderedStripLeadingInset = targetInset
+            stopStripLeadingInsetAnimation()
+            return
+        }
+
+        guard animated else {
+            renderedStripLeadingInset = targetInset
+            stopStripLeadingInsetAnimation()
+            onChange?()
+            return
+        }
+
+        startStripLeadingInsetAnimation(to: targetInset)
     }
 
     private func startHorizontalRevealAnimation(for workspaceID: UUID, from startOffset: CGFloat, to targetOffset: CGFloat) {
@@ -109,5 +140,44 @@ final class WorkspaceCanvasAnimator {
         horizontalRevealAnimationTimer?.invalidate()
         horizontalRevealAnimationTimer = nil
         animatingWorkspaceID = nil
+    }
+
+    private func startStripLeadingInsetAnimation(to targetInset: CGFloat) {
+        if stripLeadingInsetAnimationTimer != nil,
+           abs(stripLeadingInsetAnimationTargetValue - targetInset) <= 0.5 {
+            return
+        }
+
+        stripLeadingInsetAnimationStartValue = renderedStripLeadingInset
+        stripLeadingInsetAnimationTargetValue = targetInset
+        stripLeadingInsetAnimationStartedAt = Date()
+
+        stripLeadingInsetAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.stepStripLeadingInsetAnimation()
+            }
+        }
+        stripLeadingInsetAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stepStripLeadingInsetAnimation() {
+        let elapsed = Date().timeIntervalSince(stripLeadingInsetAnimationStartedAt)
+        let progress = min(max(elapsed / Metrics.stripLeadingInsetAnimationDuration, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        renderedStripLeadingInset = stripLeadingInsetAnimationStartValue
+            + (stripLeadingInsetAnimationTargetValue - stripLeadingInsetAnimationStartValue) * eased
+        onChange?()
+
+        if progress >= 1 {
+            stopStripLeadingInsetAnimation()
+        }
+    }
+
+    private func stopStripLeadingInsetAnimation() {
+        renderedStripLeadingInset = stripLeadingInsetAnimationTargetValue
+        stripLeadingInsetAnimationTimer?.invalidate()
+        stripLeadingInsetAnimationTimer = nil
     }
 }

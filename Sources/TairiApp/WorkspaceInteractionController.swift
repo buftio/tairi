@@ -5,12 +5,17 @@ final class WorkspaceInteractionController: ObservableObject {
     enum TileTransition {
         case immediate
         case animatedReveal
+        case preserveViewport
     }
 
     struct CanvasTransition: Equatable {
+        enum Kind: Equatable {
+            case reveal(tileID: UUID, animated: Bool)
+            case preserveViewport
+        }
+
         let id: Int
-        let tileID: UUID
-        let animated: Bool
+        let kind: Kind
     }
 
     @Published private(set) var canvasTransition: CanvasTransition?
@@ -22,12 +27,28 @@ final class WorkspaceInteractionController: ObservableObject {
         self.store = store
     }
 
-    func selectWorkspace(_ workspaceID: UUID, preferredVisibleMidX: CGFloat? = nil) {
-        store.selectWorkspace(workspaceID, preferredVisibleMidX: preferredVisibleMidX)
+    func selectWorkspace(
+        _ workspaceID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) {
+        store.selectWorkspace(
+            workspaceID,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
+        )
     }
 
-    func selectAdjacentWorkspace(offset: Int, preferredVisibleMidX: CGFloat? = nil) {
-        store.selectAdjacentWorkspace(offset: offset, preferredVisibleMidX: preferredVisibleMidX)
+    func selectAdjacentWorkspace(
+        offset: Int,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) {
+        store.selectAdjacentWorkspace(
+            offset: offset,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
+        )
     }
 
     func selectTile(_ tileID: UUID, transition: TileTransition = .immediate) {
@@ -37,7 +58,7 @@ final class WorkspaceInteractionController: ObservableObject {
         guard previousTileID != tileID || transition == .animatedReveal else {
             return
         }
-        publishReveal(for: tileID, animated: transition == .animatedReveal)
+        publishTransition(for: tileID, transition: transition)
     }
 
     func selectAdjacentTile(offset: Int, transition: TileTransition = .immediate) {
@@ -47,22 +68,50 @@ final class WorkspaceInteractionController: ObservableObject {
         guard let selectedTileID = store.selectedTileID, previousTileID != selectedTileID else {
             return
         }
-        publishReveal(for: selectedTileID, animated: transition == .animatedReveal)
+        publishTransition(for: selectedTileID, transition: transition)
     }
 
-    func scrollSelectedWorkspaceHorizontally(deltaX: CGFloat, viewportWidth: CGFloat) {
-        store.scrollSelectedWorkspaceHorizontally(deltaX: deltaX, viewportWidth: viewportWidth)
+    @discardableResult
+    func addTerminalTile(nextTo tileID: UUID? = nil, transition: TileTransition = .preserveViewport) -> WorkspaceStore.Tile {
+        let tile = store.addTerminalTile(nextTo: tileID)
+        publishTransition(for: tile.id, transition: transition)
+        return tile
     }
 
-    func revealTile(_ tileID: UUID, viewportWidth: CGFloat) {
-        store.revealTile(tileID, viewportWidth: viewportWidth)
+    func scrollSelectedWorkspaceHorizontally(
+        deltaX: CGFloat,
+        viewportWidth: CGFloat,
+        stripLeadingInset: CGFloat
+    ) {
+        store.scrollSelectedWorkspaceHorizontally(
+            deltaX: deltaX,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
     }
 
-    private func publishReveal(for tileID: UUID, animated: Bool) {
+    func revealTile(_ tileID: UUID, viewportWidth: CGFloat, stripLeadingInset: CGFloat) {
+        store.revealTile(
+            tileID,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
+    }
+
+    private func publishTransition(for tileID: UUID, transition: TileTransition) {
+        let kind: CanvasTransition.Kind
+        switch transition {
+        case .immediate:
+            kind = .reveal(tileID: tileID, animated: false)
+        case .animatedReveal:
+            kind = .reveal(tileID: tileID, animated: true)
+        case .preserveViewport:
+            kind = .preserveViewport
+        }
+
         canvasTransition = CanvasTransition(
             id: nextTransitionID,
-            tileID: tileID,
-            animated: animated
+            kind: kind
         )
         nextTransitionID += 1
     }

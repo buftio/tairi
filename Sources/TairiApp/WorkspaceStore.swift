@@ -1,7 +1,7 @@
 import Foundation
 
 enum WorkspaceCanvasLayoutMetrics {
-    static let stripLeadingInset: CGFloat = 248
+    static let visibleStripLeadingInset: CGFloat = 248
     static let horizontalPadding: CGFloat = 22
     static let verticalPadding: CGFloat = 22
     static let tileSpacing: CGFloat = 22
@@ -9,6 +9,10 @@ enum WorkspaceCanvasLayoutMetrics {
     static let resizeHandleWidth: CGFloat = 18
     static let resizeHandleInset: CGFloat = 28
     static let rowSpacing: CGFloat = 22
+
+    static func stripLeadingInset(sidebarHidden: Bool) -> CGFloat {
+        sidebarHidden ? 0 : visibleStripLeadingInset
+    }
 }
 
 @MainActor
@@ -136,10 +140,18 @@ final class WorkspaceStore: ObservableObject {
         return tile
     }
 
-    func selectWorkspace(_ workspaceID: UUID, preferredVisibleMidX: CGFloat? = nil) {
+    func selectWorkspace(
+        _ workspaceID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) {
         guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
         selectedWorkspaceID = workspaceID
-        selectedTileID = preferredTileID(in: workspaceID, preferredVisibleMidX: preferredVisibleMidX)
+        selectedTileID = preferredTileID(
+            in: workspaceID,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
+        )
         normalize()
     }
 
@@ -162,31 +174,66 @@ final class WorkspaceStore: ObservableObject {
         selectedTileID = tiles[nextIndex].id
     }
 
-    func selectAdjacentWorkspace(offset: Int, preferredVisibleMidX: CGFloat? = nil) {
+    func selectAdjacentWorkspace(
+        offset: Int,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) {
         guard let index = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else { return }
         let nextIndex = min(max(index + offset, 0), workspaces.count - 1)
         let workspaceID = workspaces[nextIndex].id
         selectedWorkspaceID = workspaceID
-        selectedTileID = preferredTileID(in: workspaceID, preferredVisibleMidX: preferredVisibleMidX)
+        selectedTileID = preferredTileID(
+            in: workspaceID,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
+        )
         normalize()
     }
 
-    func scrollSelectedWorkspaceHorizontally(deltaX: CGFloat, viewportWidth: CGFloat) {
-        setHorizontalOffset(selectedWorkspace.horizontalOffset + deltaX, for: selectedWorkspaceID, viewportWidth: viewportWidth)
+    func scrollSelectedWorkspaceHorizontally(
+        deltaX: CGFloat,
+        viewportWidth: CGFloat,
+        stripLeadingInset: CGFloat
+    ) {
+        setHorizontalOffset(
+            selectedWorkspace.horizontalOffset + deltaX,
+            for: selectedWorkspaceID,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
     }
 
-    func setHorizontalOffset(_ offset: CGFloat, for workspaceID: UUID, viewportWidth: CGFloat) {
+    func setHorizontalOffset(
+        _ offset: CGFloat,
+        for workspaceID: UUID,
+        viewportWidth: CGFloat,
+        stripLeadingInset: CGFloat
+    ) {
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
-        let maxOffset = max(contentWidth(for: workspaces[workspaceIndex]) - viewportWidth, 0)
+        let maxOffset = max(
+            contentWidth(for: workspaces[workspaceIndex], stripLeadingInset: stripLeadingInset) - viewportWidth,
+            0
+        )
         let clampedOffset = offset.clamped(to: 0...maxOffset)
         guard workspaces[workspaceIndex].horizontalOffset != clampedOffset else { return }
         workspaces[workspaceIndex].horizontalOffset = clampedOffset
     }
 
-    func revealTile(_ tileID: UUID, viewportWidth: CGFloat) {
+    func revealTile(_ tileID: UUID, viewportWidth: CGFloat, stripLeadingInset: CGFloat) {
         guard let workspace = workspaceContaining(tileID) else { return }
-        let targetOffset = centeredOffset(for: tileID, in: workspace, viewportWidth: viewportWidth)
-        setHorizontalOffset(targetOffset, for: workspace.id, viewportWidth: viewportWidth)
+        let targetOffset = centeredOffset(
+            for: tileID,
+            in: workspace,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
+        setHorizontalOffset(
+            targetOffset,
+            for: workspace.id,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
     }
 
     func setWidth(_ preset: WidthPreset, for tileID: UUID) {
@@ -241,18 +288,30 @@ final class WorkspaceStore: ObservableObject {
         })
     }
 
-    private func preferredTileID(in workspaceID: UUID, preferredVisibleMidX: CGFloat?) -> UUID? {
+    private func preferredTileID(
+        in workspaceID: UUID,
+        preferredVisibleMidX: CGFloat?,
+        stripLeadingInset: CGFloat
+    ) -> UUID? {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return nil }
         guard let preferredVisibleMidX else {
             return workspace.tiles.first?.id
         }
-        return nearestTileID(to: preferredVisibleMidX, in: workspace) ?? workspace.tiles.first?.id
+        return nearestTileID(
+            to: preferredVisibleMidX,
+            in: workspace,
+            stripLeadingInset: stripLeadingInset
+        ) ?? workspace.tiles.first?.id
     }
 
-    private func nearestTileID(to visibleMidX: CGFloat, in workspace: Workspace) -> UUID? {
+    private func nearestTileID(
+        to visibleMidX: CGFloat,
+        in workspace: Workspace,
+        stripLeadingInset: CGFloat
+    ) -> UUID? {
         guard !workspace.tiles.isEmpty else { return nil }
 
-        var x = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+        var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
         var bestTileID: UUID?
         var bestDistance = CGFloat.greatestFiniteMagnitude
 
@@ -269,24 +328,29 @@ final class WorkspaceStore: ObservableObject {
         return bestTileID
     }
 
-    private func centeredOffset(for tileID: UUID, in workspace: Workspace, viewportWidth: CGFloat) -> CGFloat {
-        let anchorX = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+    private func centeredOffset(
+        for tileID: UUID,
+        in workspace: Workspace,
+        viewportWidth: CGFloat,
+        stripLeadingInset: CGFloat
+    ) -> CGFloat {
+        let anchorX = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
 
         if workspace.tiles.first?.id == tileID {
             return 0
         }
 
-        guard let tileFrame = tileFrame(for: tileID, in: workspace) else {
+        guard let tileFrame = tileFrame(for: tileID, in: workspace, stripLeadingInset: stripLeadingInset) else {
             return workspace.horizontalOffset
         }
 
         let targetOffset = tileFrame.minX - anchorX
-        let maxOffset = max(contentWidth(for: workspace) - viewportWidth, 0)
+        let maxOffset = max(contentWidth(for: workspace, stripLeadingInset: stripLeadingInset) - viewportWidth, 0)
         return targetOffset.clamped(to: 0...maxOffset)
     }
 
-    private func tileFrame(for tileID: UUID, in workspace: Workspace) -> CGRect? {
-        var x = WorkspaceCanvasLayoutMetrics.stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+    private func tileFrame(for tileID: UUID, in workspace: Workspace, stripLeadingInset: CGFloat) -> CGRect? {
+        var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
 
         for tile in workspace.tiles {
             let frame = CGRect(x: x, y: 0, width: tile.width, height: WorkspaceCanvasLayoutMetrics.minimumTileHeight)
@@ -299,13 +363,13 @@ final class WorkspaceStore: ObservableObject {
         return nil
     }
 
-    private func contentWidth(for workspace: Workspace) -> CGFloat {
+    private func contentWidth(for workspace: Workspace, stripLeadingInset: CGFloat) -> CGFloat {
         guard !workspace.tiles.isEmpty else { return 0 }
         let tileWidths = workspace.tiles.reduce(CGFloat.zero) { partialResult, tile in
             partialResult + tile.width
         }
         let spacing = CGFloat(max(workspace.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
-        return WorkspaceCanvasLayoutMetrics.stripLeadingInset
+        return stripLeadingInset
             + (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2)
             + tileWidths
             + spacing

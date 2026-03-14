@@ -50,14 +50,12 @@ struct ContentView: View {
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
+    @EnvironmentObject private var chromeController: WindowChromeController
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             mainPanel
             sidebar
-                .padding(.leading, LayoutMetrics.sidebarLeadingInset)
-                .padding(.top, LayoutMetrics.sidebarTopInset)
-                .padding(.bottom, LayoutMetrics.sidebarBottomInset)
         }
         .accessibilityIdentifier(TairiAccessibility.appRoot)
         .background(windowBackground)
@@ -79,15 +77,9 @@ struct ContentView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("tairi")
-                    .font(.system(size: 28, weight: .bold, design: .serif))
-                    .foregroundStyle(ShellPalette.primaryText)
-                Text("appkit workspace canvas over live ghostty surfaces")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .textCase(.uppercase)
-                    .foregroundStyle(ShellPalette.secondaryText)
-            }
+            Text("tairi")
+                .font(.system(size: 28, weight: .bold, design: .serif))
+                .foregroundStyle(ShellPalette.primaryText)
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(store.workspaces) { workspace in
@@ -119,7 +111,10 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 actionButton("New tile", shortcut: "cmd+n") {
-                    _ = store.addTerminalTile(nextTo: store.selectedTileID)
+                    _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
+                    if let selectedTileID = store.selectedTileID {
+                        runtime.focusSurface(tileID: selectedTileID)
+                    }
                 }
                 actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
                     interactionController.selectAdjacentWorkspace(offset: -1)
@@ -137,7 +132,7 @@ struct ContentView: View {
 
         }
         .padding(.horizontal, 11)
-        .padding(.top, 62)
+        .padding(.top, 38)
         .padding(.bottom, 16)
         .frame(width: LayoutMetrics.sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .top)
@@ -148,6 +143,13 @@ struct ContentView: View {
                 .stroke(ShellPalette.sidebarStroke, lineWidth: 1)
         )
         .shadow(color: ShellPalette.sidebarShadow, radius: 30, x: 0, y: 18)
+        .padding(.leading, LayoutMetrics.sidebarLeadingInset)
+        .padding(.top, LayoutMetrics.sidebarTopInset)
+        .padding(.bottom, LayoutMetrics.sidebarBottomInset)
+        .opacity(chromeController.isSidebarHidden ? 0 : 1)
+        .offset(x: chromeController.isSidebarHidden ? -(LayoutMetrics.sidebarWidth + LayoutMetrics.sidebarLeadingInset + 24) : 0)
+        .allowsHitTesting(!chromeController.isSidebarHidden)
+        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: chromeController.isSidebarHidden)
         .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
     }
 
@@ -156,7 +158,12 @@ struct ContentView: View {
             if let error = runtime.errorMessage {
                 unavailable(error)
             } else {
-                WorkspaceCanvasView(store: store, interactionController: interactionController, runtime: runtime)
+                WorkspaceCanvasView(
+                    store: store,
+                    interactionController: interactionController,
+                    runtime: runtime,
+                    sidebarHidden: chromeController.isSidebarHidden
+                )
             }
         }
         .overlay(alignment: .topLeading) {
@@ -279,6 +286,39 @@ struct ContentView: View {
         for button in buttons {
             button.setFrameOrigin(NSPoint(x: x, y: y))
             x += button.frame.width + LayoutMetrics.trafficLightsSpacing
+        }
+
+        syncTrafficLights(buttons)
+    }
+
+    private func syncTrafficLights(_ buttons: [NSButton]) {
+        let shouldHide = chromeController.isSidebarHidden
+        let targetAlpha: CGFloat = shouldHide ? 0 : 1
+        let needsUpdate = buttons.contains { button in
+            abs(button.alphaValue - targetAlpha) > 0.01 || button.isEnabled == shouldHide
+        }
+
+        guard needsUpdate else { return }
+
+        if !shouldHide {
+            for button in buttons {
+                button.isEnabled = true
+                if button.alphaValue < 0.99 {
+                    button.alphaValue = 0
+                }
+            }
+        } else {
+            for button in buttons {
+                button.isEnabled = false
+            }
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for button in buttons {
+                button.animator().alphaValue = targetAlpha
+            }
         }
     }
 }
