@@ -1,5 +1,15 @@
 import Foundation
 
+enum WorkspaceCanvasLayoutMetrics {
+    static let horizontalPadding: CGFloat = 22
+    static let verticalPadding: CGFloat = 22
+    static let tileSpacing: CGFloat = 22
+    static let minimumTileHeight: CGFloat = 320
+    static let resizeHandleWidth: CGFloat = 18
+    static let resizeHandleInset: CGFloat = 28
+    static let rowSpacing: CGFloat = 22
+}
+
 @MainActor
 final class WorkspaceStore: ObservableObject {
     enum WidthPreset: String, CaseIterable, Codable {
@@ -67,11 +77,13 @@ final class WorkspaceStore: ObservableObject {
         let id: UUID
         var title: String
         var tiles: [Tile]
+        var horizontalOffset: CGFloat
 
-        init(id: UUID = UUID(), title: String, tiles: [Tile] = []) {
+        init(id: UUID = UUID(), title: String, tiles: [Tile] = [], horizontalOffset: CGFloat = 0) {
             self.id = id
             self.title = title
             self.tiles = tiles
+            self.horizontalOffset = horizontalOffset
         }
     }
 
@@ -123,10 +135,10 @@ final class WorkspaceStore: ObservableObject {
         return tile
     }
 
-    func selectWorkspace(_ workspaceID: UUID) {
+    func selectWorkspace(_ workspaceID: UUID, preferredVisibleMidX: CGFloat? = nil) {
         guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
         selectedWorkspaceID = workspaceID
-        selectedTileID = tiles(in: workspaceID).first?.id
+        selectedTileID = preferredTileID(in: workspaceID, preferredVisibleMidX: preferredVisibleMidX)
         normalize()
     }
 
@@ -149,12 +161,31 @@ final class WorkspaceStore: ObservableObject {
         selectedTileID = tiles[nextIndex].id
     }
 
-    func selectAdjacentWorkspace(offset: Int) {
+    func selectAdjacentWorkspace(offset: Int, preferredVisibleMidX: CGFloat? = nil) {
         guard let index = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else { return }
         let nextIndex = min(max(index + offset, 0), workspaces.count - 1)
-        selectedWorkspaceID = workspaces[nextIndex].id
-        selectedTileID = workspaces[nextIndex].tiles.first?.id
+        let workspaceID = workspaces[nextIndex].id
+        selectedWorkspaceID = workspaceID
+        selectedTileID = preferredTileID(in: workspaceID, preferredVisibleMidX: preferredVisibleMidX)
         normalize()
+    }
+
+    func scrollSelectedWorkspaceHorizontally(deltaX: CGFloat, viewportWidth: CGFloat) {
+        setHorizontalOffset(selectedWorkspace.horizontalOffset + deltaX, for: selectedWorkspaceID, viewportWidth: viewportWidth)
+    }
+
+    func setHorizontalOffset(_ offset: CGFloat, for workspaceID: UUID, viewportWidth: CGFloat) {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        let maxOffset = max(contentWidth(for: workspaces[workspaceIndex]) - viewportWidth, 0)
+        let clampedOffset = offset.clamped(to: 0...maxOffset)
+        guard workspaces[workspaceIndex].horizontalOffset != clampedOffset else { return }
+        workspaces[workspaceIndex].horizontalOffset = clampedOffset
+    }
+
+    func revealTile(_ tileID: UUID, viewportWidth: CGFloat) {
+        guard let workspace = workspaceContaining(tileID) else { return }
+        let targetOffset = centeredOffset(for: tileID, in: workspace, viewportWidth: viewportWidth)
+        setHorizontalOffset(targetOffset, for: workspace.id, viewportWidth: viewportWidth)
     }
 
     func setWidth(_ preset: WidthPreset, for tileID: UUID) {
@@ -207,6 +238,64 @@ final class WorkspaceStore: ObservableObject {
         workspaces.first(where: { workspace in
             workspace.tiles.contains(where: { $0.id == tileID })
         })
+    }
+
+    private func preferredTileID(in workspaceID: UUID, preferredVisibleMidX: CGFloat?) -> UUID? {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return nil }
+        guard let preferredVisibleMidX else {
+            return workspace.tiles.first?.id
+        }
+        return nearestTileID(to: preferredVisibleMidX, in: workspace) ?? workspace.tiles.first?.id
+    }
+
+    private func nearestTileID(to visibleMidX: CGFloat, in workspace: Workspace) -> UUID? {
+        guard !workspace.tiles.isEmpty else { return nil }
+
+        var x = WorkspaceCanvasLayoutMetrics.horizontalPadding
+        var bestTileID: UUID?
+        var bestDistance = CGFloat.greatestFiniteMagnitude
+
+        for tile in workspace.tiles {
+            let tileMidX = x + (tile.width / 2)
+            let distance = abs(tileMidX - visibleMidX)
+            if distance < bestDistance {
+                bestDistance = distance
+                bestTileID = tile.id
+            }
+            x += tile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+        }
+
+        return bestTileID
+    }
+
+    private func centeredOffset(for tileID: UUID, in workspace: Workspace, viewportWidth: CGFloat) -> CGFloat {
+        guard let tileFrame = tileFrame(for: tileID, in: workspace) else {
+            return workspace.horizontalOffset
+        }
+        return tileFrame.midX - (viewportWidth / 2)
+    }
+
+    private func tileFrame(for tileID: UUID, in workspace: Workspace) -> CGRect? {
+        var x = WorkspaceCanvasLayoutMetrics.horizontalPadding
+
+        for tile in workspace.tiles {
+            let frame = CGRect(x: x, y: 0, width: tile.width, height: WorkspaceCanvasLayoutMetrics.minimumTileHeight)
+            if tile.id == tileID {
+                return frame
+            }
+            x += tile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+        }
+
+        return nil
+    }
+
+    private func contentWidth(for workspace: Workspace) -> CGFloat {
+        guard !workspace.tiles.isEmpty else { return 0 }
+        let tileWidths = workspace.tiles.reduce(CGFloat.zero) { partialResult, tile in
+            partialResult + tile.width
+        }
+        let spacing = CGFloat(max(workspace.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
+        return (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2) + tileWidths + spacing
     }
 
     private func normalize() {

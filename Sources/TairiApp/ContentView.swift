@@ -101,10 +101,10 @@ struct ContentView: View {
                 actionButton("New tile", shortcut: "cmd+n") {
                     _ = store.addTerminalTile(nextTo: store.selectedTileID)
                 }
-                actionButton("Prev workspace", shortcut: "cmd+[") {
+                actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
                     store.selectAdjacentWorkspace(offset: -1)
                 }
-                actionButton("Next workspace", shortcut: "cmd+]") {
+                actionButton("Next workspace", shortcut: "opt+cmd+↓") {
                     store.selectAdjacentWorkspace(offset: 1)
                 }
             }

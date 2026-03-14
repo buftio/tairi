@@ -39,12 +39,12 @@ struct TairiApp: App {
                 Button("Previous Workspace") {
                     store.selectAdjacentWorkspace(offset: -1)
                 }
-                .keyboardShortcut("[", modifiers: [.command])
+                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
 
                 Button("Next Workspace") {
                     store.selectAdjacentWorkspace(offset: 1)
                 }
-                .keyboardShortcut("]", modifiers: [.command])
+                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
             }
         }
     }

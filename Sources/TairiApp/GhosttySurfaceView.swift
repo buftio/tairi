@@ -153,12 +153,28 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        if let canvasDocumentView = workspaceCanvasDocumentView(), canvasDocumentView.handleScrollWheel(event) {
+            return
+        }
+
         guard let surface else { return }
-        let mods = ghosttyMods(from: event.modifierFlags)
-        tairi_ghostty_surface_mouse_scroll(surface, event.scrollingDeltaX, event.scrollingDeltaY, Int32(bitPattern: mods.rawValue))
+        var deltaX = event.scrollingDeltaX
+        var deltaY = event.scrollingDeltaY
+        if event.hasPreciseScrollingDeltas {
+            deltaX *= 2
+            deltaY *= 2
+        }
+
+        tairi_ghostty_surface_mouse_scroll(surface, deltaX, deltaY, ghosttyScrollMods(from: event))
     }
 
     override func keyDown(with event: NSEvent) {
+        if let canvasDocumentView = workspaceCanvasDocumentView(),
+           let workspaceOffset = workspaceNavigationOffset(for: event),
+           canvasDocumentView.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) {
+            return
+        }
+
         guard let surface else { return }
         runtime.recordInput(for: tileID)
 
@@ -184,6 +200,10 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func keyUp(with event: NSEvent) {
+        if workspaceNavigationOffset(for: event) != nil {
+            return
+        }
+
         guard let surface else { return }
 
         var key = ghostty_input_key_s()
@@ -215,7 +235,7 @@ final class GhosttySurfaceView: NSView {
         guard let surface else { return }
         let point = convert(event.locationInWindow, from: nil)
         let mods = ghosttyMods(from: event.modifierFlags)
-        tairi_ghostty_surface_mouse_pos(surface, point.x, point.y, mods)
+        tairi_ghostty_surface_mouse_pos(surface, point.x, bounds.height - point.y, mods)
     }
 
     private func syncScaleAndSize() {
@@ -232,6 +252,51 @@ final class GhosttySurfaceView: NSView {
             return
         }
         tairi_ghostty_surface_set_display_id(surface, screenNumber.uint32Value)
+    }
+
+    private func workspaceCanvasDocumentView() -> WorkspaceCanvasDocumentView? {
+        var ancestor = superview
+        while let view = ancestor {
+            if let documentView = view as? WorkspaceCanvasDocumentView {
+                return documentView
+            }
+            ancestor = view.superview
+        }
+        return nil
+    }
+
+    private func workspaceNavigationOffset(for event: NSEvent) -> Int? {
+        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
+        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard activeModifiers.contains(requiredModifiers) else { return nil }
+
+        switch event.keyCode {
+        case 126:
+            return -1
+        case 125:
+            return 1
+        default:
+            return nil
+        }
+    }
+
+    private func ghosttyScrollMods(from event: NSEvent) -> ghostty_input_scroll_mods_t {
+        var value: Int32 = 0
+        if event.hasPreciseScrollingDeltas {
+            value |= 0b0000_0001
+        }
+        value |= Int32(ghosttyMomentum(from: event.momentumPhase).rawValue) << 1
+        return value
+    }
+
+    private func ghosttyMomentum(from phase: NSEvent.Phase) -> ghostty_input_mouse_momentum_e {
+        if phase.contains(.began) { return GHOSTTY_MOUSE_MOMENTUM_BEGAN }
+        if phase.contains(.stationary) { return GHOSTTY_MOUSE_MOMENTUM_STATIONARY }
+        if phase.contains(.changed) { return GHOSTTY_MOUSE_MOMENTUM_CHANGED }
+        if phase.contains(.ended) { return GHOSTTY_MOUSE_MOMENTUM_ENDED }
+        if phase.contains(.cancelled) { return GHOSTTY_MOUSE_MOMENTUM_CANCELLED }
+        if phase.contains(.mayBegin) { return GHOSTTY_MOUSE_MOMENTUM_MAY_BEGIN }
+        return GHOSTTY_MOUSE_MOMENTUM_NONE
     }
 
     private func ghosttyMods(from flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
