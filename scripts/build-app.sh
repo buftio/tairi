@@ -9,6 +9,8 @@ BUILD_DIR="$ROOT/.build/debug"
 DIST_DIR="$ROOT/dist"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
 GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
+APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
+APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
 
 if [[ ! -d "$ROOT/Vendor/Ghostty" ]]; then
   echo "No vendored Ghostty runtime found. Run scripts/vendor-ghostty.sh first." >&2
@@ -23,11 +25,20 @@ fi
 
 swift build --package-path "$ROOT"
 
+if [[ -d "$APP_DIR" ]]; then
+  if command -v trash >/dev/null 2>&1; then
+    trash "$APP_DIR"
+  else
+    rm -rf "$APP_DIR"
+  fi
+fi
+
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
 
 cp "$BUILD_DIR/tairi" "$APP_DIR/Contents/MacOS/tairi"
 cp -R "$VERSION_DIR/GhosttyRuntime.app" "$GHOSTTY_APP_DIR"
 cp -R "$VERSION_DIR/GhosttyRuntime.app/Contents/Resources/ghostty" "$APP_DIR/Contents/Resources/"
+"$ROOT/scripts/render-app-icon.sh" "$APP_ICON_SOURCE" "$APP_ICON_PATH"
 
 cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -40,6 +51,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
   <string>tairi</string>
   <key>CFBundleIdentifier</key>
   <string>dev.buft.tairi</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
@@ -58,7 +71,8 @@ cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
 </plist>
 EOF
 
-codesign --force --deep --sign - "$GHOSTTY_APP_DIR" >/dev/null 2>&1 || true
-codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
+codesign --force --deep --sign - "$GHOSTTY_APP_DIR"
+codesign --force --deep --sign - "$APP_DIR"
+codesign --verify --deep --strict "$APP_DIR"
 
 echo "Built $APP_DIR using vendored Ghostty from $VERSION_DIR"
