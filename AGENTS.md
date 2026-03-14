@@ -34,3 +34,8 @@ end tell
 APPLESCRIPT
 cat /tmp/tairi-e2e.txt
 ```
+
+# cmux
+
+cmux is oss app which as well it's loated in ~/p/oss/cmux
+consult with it's source in
