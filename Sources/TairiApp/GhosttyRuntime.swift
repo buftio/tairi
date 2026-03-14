@@ -282,7 +282,7 @@ final class GhosttyRuntime: ObservableObject {
         switch event {
         case .createTile(let tileID):
             interactionController.selectTile(tileID)
-            _ = store.addTerminalTile(nextTo: tileID)
+            _ = interactionController.addTerminalTile(nextTo: tileID, transition: .preserveViewport)
             return true
 
         case .selectAdjacentTile(let offset):

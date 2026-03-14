@@ -6,6 +6,7 @@ struct TairiApp: App {
     @StateObject private var store: WorkspaceStore
     @StateObject private var interactionController: WorkspaceInteractionController
     @StateObject private var runtime: GhosttyRuntime
+    @StateObject private var chromeController: WindowChromeController
 
     init() {
         let store = WorkspaceStore()
@@ -13,6 +14,7 @@ struct TairiApp: App {
         _store = StateObject(wrappedValue: store)
         _interactionController = StateObject(wrappedValue: interactionController)
         _runtime = StateObject(wrappedValue: GhosttyRuntime(store: store, interactionController: interactionController))
+        _chromeController = StateObject(wrappedValue: WindowChromeController())
     }
 
     var body: some Scene {
@@ -21,13 +23,17 @@ struct TairiApp: App {
                 .environmentObject(store)
                 .environmentObject(interactionController)
                 .environmentObject(runtime)
+                .environmentObject(chromeController)
                 .frame(minWidth: 1080, minHeight: 720)
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandMenu("Workspace") {
                 Button("New Tile") {
-                    _ = store.addTerminalTile(nextTo: store.selectedTileID)
+                    _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
+                    if let selectedTileID = store.selectedTileID {
+                        runtime.focusSurface(tileID: selectedTileID)
+                    }
                 }
                 .keyboardShortcut("n", modifiers: [.command])
 
@@ -62,6 +68,13 @@ struct TairiApp: App {
                     }
                 }
                 .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+
+                Divider()
+
+                Button(chromeController.isSidebarHidden ? "Show Sidebar" : "Hide Sidebar") {
+                    chromeController.toggleSidebarVisibility()
+                }
+                .keyboardShortcut("b", modifiers: [.command, .option])
             }
         }
     }
