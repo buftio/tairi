@@ -25,6 +25,7 @@ DECLARE_SYM(ghostty_init, int, (uintptr_t, char **));
 DECLARE_SYM(ghostty_info, ghostty_info_s, (void));
 DECLARE_SYM(ghostty_config_new, ghostty_config_t, (void));
 DECLARE_SYM(ghostty_config_free, void, (ghostty_config_t));
+DECLARE_SYM(ghostty_config_load_file, void, (ghostty_config_t, const char *));
 DECLARE_SYM(ghostty_config_load_default_files, void, (ghostty_config_t));
 DECLARE_SYM(ghostty_config_load_recursive_files, void, (ghostty_config_t));
 DECLARE_SYM(ghostty_config_finalize, void, (ghostty_config_t));
@@ -32,9 +33,12 @@ DECLARE_SYM(ghostty_app_new, ghostty_app_t, (const ghostty_runtime_config_s *, g
 DECLARE_SYM(ghostty_app_free, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_tick, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_set_focus, void, (ghostty_app_t, bool));
+DECLARE_SYM(ghostty_app_update_config, void, (ghostty_app_t, ghostty_config_t));
 DECLARE_SYM(ghostty_app_userdata, void *, (ghostty_app_t));
 DECLARE_SYM(ghostty_surface_config_new, ghostty_surface_config_s, (void));
+DECLARE_SYM(ghostty_surface_inherited_config, ghostty_surface_config_s, (ghostty_surface_t, ghostty_surface_context_e));
 DECLARE_SYM(ghostty_surface_new, ghostty_surface_t, (ghostty_app_t, const ghostty_surface_config_s *));
+DECLARE_SYM(ghostty_surface_update_config, void, (ghostty_surface_t, ghostty_config_t));
 DECLARE_SYM(ghostty_surface_free, void, (ghostty_surface_t));
 DECLARE_SYM(ghostty_surface_userdata, void *, (ghostty_surface_t));
 DECLARE_SYM(ghostty_surface_size, ghostty_surface_size_s, (ghostty_surface_t));
@@ -115,6 +119,7 @@ const char *tairi_ghostty_load(const char *binary_path) {
     LOAD_SYM(ghostty_info);
     LOAD_SYM(ghostty_config_new);
     p_ghostty_config_free = dlsym(ghostty_handle, "ghostty_config_free");
+    LOAD_SYM(ghostty_config_load_file);
     LOAD_SYM(ghostty_config_load_default_files);
     LOAD_SYM(ghostty_config_load_recursive_files);
     LOAD_SYM(ghostty_config_finalize);
@@ -122,9 +127,12 @@ const char *tairi_ghostty_load(const char *binary_path) {
     LOAD_SYM(ghostty_app_free);
     LOAD_SYM(ghostty_app_tick);
     LOAD_SYM(ghostty_app_set_focus);
+    LOAD_SYM(ghostty_app_update_config);
     LOAD_SYM(ghostty_app_userdata);
     LOAD_SYM(ghostty_surface_config_new);
+    LOAD_SYM(ghostty_surface_inherited_config);
     LOAD_SYM(ghostty_surface_new);
+    LOAD_SYM(ghostty_surface_update_config);
     LOAD_SYM(ghostty_surface_free);
     LOAD_SYM(ghostty_surface_userdata);
     LOAD_SYM(ghostty_surface_size);
@@ -172,6 +180,11 @@ void tairi_ghostty_config_free(ghostty_config_t config) {
     }
 }
 
+void tairi_ghostty_config_load_file(ghostty_config_t config, const char *path) {
+    require_loaded();
+    p_ghostty_config_load_file(config, path);
+}
+
 void tairi_ghostty_config_load_default_files(ghostty_config_t config) {
     require_loaded();
     p_ghostty_config_load_default_files(config);
@@ -210,6 +223,11 @@ void tairi_ghostty_app_set_focus(ghostty_app_t app, bool focused) {
     p_ghostty_app_set_focus(app, focused);
 }
 
+void tairi_ghostty_app_update_config(ghostty_app_t app, ghostty_config_t config) {
+    require_loaded();
+    p_ghostty_app_update_config(app, config);
+}
+
 void *tairi_ghostty_app_userdata(ghostty_app_t app) {
     require_loaded();
     return p_ghostty_app_userdata(app);
@@ -220,12 +238,25 @@ ghostty_surface_config_s tairi_ghostty_surface_config_new(void) {
     return p_ghostty_surface_config_new();
 }
 
+ghostty_surface_config_s tairi_ghostty_surface_inherited_config(
+    ghostty_surface_t surface,
+    ghostty_surface_context_e context
+) {
+    require_loaded();
+    return p_ghostty_surface_inherited_config(surface, context);
+}
+
 ghostty_surface_t tairi_ghostty_surface_new(
     ghostty_app_t app,
     const ghostty_surface_config_s *config
 ) {
     require_loaded();
     return p_ghostty_surface_new(app, config);
+}
+
+void tairi_ghostty_surface_update_config(ghostty_surface_t surface, ghostty_config_t config) {
+    require_loaded();
+    p_ghostty_surface_update_config(surface, config);
 }
 
 void tairi_ghostty_surface_free(ghostty_surface_t surface) {

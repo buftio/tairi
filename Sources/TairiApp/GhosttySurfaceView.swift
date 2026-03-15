@@ -49,7 +49,7 @@ final class GhosttySurfaceView: NSView {
         config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2)
 
         if let app {
-            let workingDirectory = FileManager.default.currentDirectoryPath
+            let workingDirectory = runtime.workingDirectory(for: tileID)
             workingDirectory.withCString { path in
                 config.working_directory = path
                 config.wait_after_command = true

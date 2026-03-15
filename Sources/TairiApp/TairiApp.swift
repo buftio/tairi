@@ -31,7 +31,11 @@ struct TairiApp: App {
         .commands {
             CommandMenu("Workspace") {
                 Button("New Tile") {
-                    _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
+                    _ = interactionController.addTerminalTile(
+                        nextTo: store.selectedTileID,
+                        workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
+                        transition: .preserveViewport
+                    )
                     if let selectedTileID = store.selectedTileID {
                         runtime.focusSurface(tileID: selectedTileID)
                     }

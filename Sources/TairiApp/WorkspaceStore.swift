@@ -99,12 +99,12 @@ final class WorkspaceStore: ObservableObject {
     @Published var selectedWorkspaceID: UUID
     @Published var selectedTileID: UUID?
 
-    init() {
+    init(initialTerminalWorkingDirectory: String = TerminalWorkingDirectory.defaultInitialLaunchDirectory()) {
         let first = Workspace(title: "01")
         let second = Workspace(title: "02")
         workspaces = [first, second]
         selectedWorkspaceID = first.id
-        let tile = addTerminalTile()
+        let tile = addTerminalTile(workingDirectory: initialTerminalWorkingDirectory)
         selectedTileID = tile.id
     }
 
@@ -122,8 +122,8 @@ final class WorkspaceStore: ObservableObject {
     }
 
     @discardableResult
-    func addTerminalTile(nextTo tileID: UUID? = nil) -> Tile {
-        let tile = Tile()
+    func addTerminalTile(nextTo tileID: UUID? = nil, workingDirectory: String? = nil) -> Tile {
+        let tile = Tile(pwd: resolveWorkingDirectoryForNewTile(nextTo: tileID, workingDirectory: workingDirectory))
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
             return tile
         }
@@ -138,6 +138,26 @@ final class WorkspaceStore: ObservableObject {
         selectedTileID = tile.id
         normalize()
         return tile
+    }
+
+    private func resolveWorkingDirectoryForNewTile(nextTo tileID: UUID?, workingDirectory: String?) -> String {
+        if let workingDirectory, !workingDirectory.isEmpty {
+            return workingDirectory
+        }
+
+        if let tileID,
+           let pwd = tile(tileID)?.pwd,
+           !pwd.isEmpty {
+            return pwd
+        }
+
+        if let selectedTileID,
+           let pwd = tile(selectedTileID)?.pwd,
+           !pwd.isEmpty {
+            return pwd
+        }
+
+        return TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
     }
 
     func selectWorkspace(

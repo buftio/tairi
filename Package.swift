@@ -28,5 +28,12 @@ let package = Package(
                 ]),
             ]
         ),
+        .testTarget(
+            name: "TairiAppTests",
+            dependencies: [
+                "TairiApp",
+            ],
+            path: "Tests/TairiAppTests"
+        ),
     ]
 )

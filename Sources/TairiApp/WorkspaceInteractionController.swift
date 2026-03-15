@@ -72,8 +72,12 @@ final class WorkspaceInteractionController: ObservableObject {
     }
 
     @discardableResult
-    func addTerminalTile(nextTo tileID: UUID? = nil, transition: TileTransition = .preserveViewport) -> WorkspaceStore.Tile {
-        let tile = store.addTerminalTile(nextTo: tileID)
+    func addTerminalTile(
+        nextTo tileID: UUID? = nil,
+        workingDirectory: String? = nil,
+        transition: TileTransition = .preserveViewport
+    ) -> WorkspaceStore.Tile {
+        let tile = store.addTerminalTile(nextTo: tileID, workingDirectory: workingDirectory)
         publishTransition(for: tile.id, transition: transition)
         return tile
     }

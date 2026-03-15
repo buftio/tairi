@@ -133,7 +133,11 @@ struct ContentView: View {
     private var sidebarActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             actionButton("New tile", shortcut: "cmd+n") {
-                _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
+                _ = interactionController.addTerminalTile(
+                    nextTo: store.selectedTileID,
+                    workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
+                    transition: .preserveViewport
+                )
                 if let selectedTileID = store.selectedTileID {
                     runtime.focusSurface(tileID: selectedTileID)
                 }

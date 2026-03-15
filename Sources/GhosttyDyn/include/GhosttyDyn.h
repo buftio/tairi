@@ -15,6 +15,7 @@ ghostty_info_s tairi_ghostty_info(void);
 
 ghostty_config_t tairi_ghostty_config_new(void);
 void tairi_ghostty_config_free(ghostty_config_t config);
+void tairi_ghostty_config_load_file(ghostty_config_t config, const char *path);
 void tairi_ghostty_config_load_default_files(ghostty_config_t config);
 void tairi_ghostty_config_load_recursive_files(ghostty_config_t config);
 void tairi_ghostty_config_finalize(ghostty_config_t config);
@@ -26,13 +27,19 @@ ghostty_app_t tairi_ghostty_app_new(
 void tairi_ghostty_app_free(ghostty_app_t app);
 void tairi_ghostty_app_tick(ghostty_app_t app);
 void tairi_ghostty_app_set_focus(ghostty_app_t app, bool focused);
+void tairi_ghostty_app_update_config(ghostty_app_t app, ghostty_config_t config);
 void *tairi_ghostty_app_userdata(ghostty_app_t app);
 
 ghostty_surface_config_s tairi_ghostty_surface_config_new(void);
+ghostty_surface_config_s tairi_ghostty_surface_inherited_config(
+    ghostty_surface_t surface,
+    ghostty_surface_context_e context
+);
 ghostty_surface_t tairi_ghostty_surface_new(
     ghostty_app_t app,
     const ghostty_surface_config_s *config
 );
+void tairi_ghostty_surface_update_config(ghostty_surface_t surface, ghostty_config_t config);
 void tairi_ghostty_surface_free(ghostty_surface_t surface);
 void *tairi_ghostty_surface_userdata(ghostty_surface_t surface);
 ghostty_surface_size_s tairi_ghostty_surface_size(ghostty_surface_t surface);

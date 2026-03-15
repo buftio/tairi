@@ -70,6 +70,18 @@ final class GhosttyRuntime: ObservableObject {
         surfaces[tileID]?.focusSurface()
     }
 
+    func workingDirectory(for tileID: UUID) -> String {
+        store.tile(tileID)?.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
+    }
+
+    func spawnWorkingDirectory(for tileID: UUID?) -> String {
+        guard let tileID else {
+            return TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
+        }
+
+        return inheritedWorkingDirectory(for: tileID) ?? workingDirectory(for: tileID)
+    }
+
     func recordInput(for tileID: UUID) {
         lastInputTileID = tileID
         lastInputAt = Date()
@@ -302,7 +314,11 @@ final class GhosttyRuntime: ObservableObject {
         switch event {
         case .createTile(let tileID):
             interactionController.selectTile(tileID)
-            _ = interactionController.addTerminalTile(nextTo: tileID, transition: .preserveViewport)
+            _ = interactionController.addTerminalTile(
+                nextTo: tileID,
+                workingDirectory: spawnWorkingDirectory(for: tileID),
+                transition: .preserveViewport
+            )
             return true
 
         case .selectAdjacentTile(let offset):
@@ -342,6 +358,17 @@ final class GhosttyRuntime: ObservableObject {
         case .unhandled:
             return false
         }
+    }
+
+    private func inheritedWorkingDirectory(for tileID: UUID) -> String? {
+        guard let surface = surfaces[tileID]?.surface else {
+            return nil
+        }
+
+        let inheritedConfig = tairi_ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)
+        guard let workingDirectory = inheritedConfig.working_directory else { return nil }
+
+        return String(validatingCString: workingDirectory)
     }
 
     private static let wakeup: ghostty_runtime_wakeup_cb = { userdata in

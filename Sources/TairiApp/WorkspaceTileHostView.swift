@@ -96,7 +96,7 @@ final class WorkspaceTileHostView: NSView {
 
     func update(tile: WorkspaceStore.Tile, selected: Bool) {
         titleField.stringValue = tile.title
-        pathField.stringValue = tile.pwd ?? FileManager.default.currentDirectoryPath
+        pathField.stringValue = tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
         setAccessibilityLabel("Workspace tile \(tile.title)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
