@@ -19,6 +19,8 @@ struct WorkspaceCanvasView: NSViewRepresentable {
             selectedTileID: store.selectedTileID,
             allTileIDs: allTileIDs,
             canvasTransition: interactionController.canvasTransition,
+            tileCloseAnimation: interactionController.tileCloseAnimation,
+            tileOpenAnimation: interactionController.tileOpenAnimation,
             sidebarHidden: sidebarHidden
         )
     }
@@ -31,8 +33,11 @@ final class WorkspaceCanvasContainerView: NSView {
     private var lastSelectedTileID: UUID?
     private var lastSelectedWorkspaceID: UUID?
     private var lastCanvasTransitionID: Int?
+    private var lastTileCloseAnimationID: Int?
+    private var lastTileOpenAnimationID: Int?
     private var currentSelectedWorkspaceID: UUID?
     private var currentSelectedTileID: UUID?
+    private var currentSidebarHidden = false
     private var shouldSuppressFallbackReveal = false
     private var hasStabilizedInitialViewport = false
     private var lastSidebarHidden: Bool?
@@ -74,23 +79,7 @@ final class WorkspaceCanvasContainerView: NSView {
         super.layout()
         scrollView.frame = bounds
         documentView.viewportSize = scrollView.contentView.bounds.size
-
-        guard !hasStabilizedInitialViewport,
-              scrollView.contentView.bounds.width > 0,
-              scrollView.contentView.bounds.height > 0,
-              let currentSelectedWorkspaceID else {
-            return
-        }
-
-        if let currentSelectedTileID {
-            documentView.revealTile(currentSelectedTileID, animated: false)
-        }
-        documentView.scrollWorkspaceToVisible(
-            currentSelectedWorkspaceID,
-            preserveHorizontalOrigin: false,
-            animated: false
-        )
-        hasStabilizedInitialViewport = true
+        stabilizeInitialViewportIfNeeded()
     }
 
     func update(
@@ -99,10 +88,13 @@ final class WorkspaceCanvasContainerView: NSView {
         selectedTileID: UUID?,
         allTileIDs: Set<UUID>,
         canvasTransition: WorkspaceInteractionController.CanvasTransition?,
+        tileCloseAnimation: WorkspaceInteractionController.TileCloseAnimation?,
+        tileOpenAnimation: WorkspaceInteractionController.TileOpenAnimation?,
         sidebarHidden: Bool
     ) {
         currentSelectedWorkspaceID = selectedWorkspaceID
         currentSelectedTileID = selectedTileID
+        currentSidebarHidden = sidebarHidden
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
@@ -130,6 +122,16 @@ final class WorkspaceCanvasContainerView: NSView {
             shouldSuppressFallbackReveal = false
         }
 
+        if let tileCloseAnimation, tileCloseAnimation.id != lastTileCloseAnimationID {
+            documentView.animateTileClose(tileCloseAnimation)
+            lastTileCloseAnimationID = tileCloseAnimation.id
+        }
+
+        if let tileOpenAnimation, tileOpenAnimation.id != lastTileOpenAnimationID {
+            documentView.animateTileOpen(tileOpenAnimation)
+            lastTileOpenAnimationID = tileOpenAnimation.id
+        }
+
         if lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID {
             documentView.scrollWorkspaceToVisible(
                 selectedWorkspaceID,
@@ -139,6 +141,7 @@ final class WorkspaceCanvasContainerView: NSView {
         }
 
         documentView.layoutSubtreeIfNeeded()
+        stabilizeInitialViewportIfNeeded()
         if lastSidebarHidden == true, !sidebarHidden {
             documentView.ensureSelectedTileClearsSidebar(animated: !TairiEnvironment.isUITesting)
         }
@@ -147,12 +150,33 @@ final class WorkspaceCanvasContainerView: NSView {
         lastSelectedWorkspaceID = selectedWorkspaceID
         lastSidebarHidden = sidebarHidden
     }
+
+    private func stabilizeInitialViewportIfNeeded() {
+        guard !hasStabilizedInitialViewport,
+              scrollView.contentView.bounds.width > 0,
+              scrollView.contentView.bounds.height > 0,
+              let currentSelectedWorkspaceID else {
+            return
+        }
+
+        if let currentSelectedTileID {
+            documentView.revealTile(currentSelectedTileID, animated: false)
+        }
+
+        documentView.scrollWorkspaceToVisible(
+            currentSelectedWorkspaceID,
+            preserveHorizontalOrigin: false,
+            animated: false
+        )
+        hasStabilizedInitialViewport = true
+    }
 }
 
 @MainActor
 final class WorkspaceCanvasDocumentView: NSView {
     private enum Metrics {
         static let workspacePeek: CGFloat = 72
+        static let workspaceScrollAnimationDuration: TimeInterval = 0.22
     }
 
     private let store: WorkspaceStore
@@ -165,11 +189,17 @@ final class WorkspaceCanvasDocumentView: NSView {
     private var selectedTileID: UUID?
     private var tileViews: [UUID: WorkspaceTileHostView] = [:]
     private var resizeHandles: [UUID: WorkspaceTileResizeHandleView] = [:]
+    private var closingTileSnapshotView: WorkspaceClosingSnapshotView?
+    private var closingTileSnapshotAnimation: WorkspaceInteractionController.TileCloseAnimation?
     private var lastVerticalScrollEventAt = Date.distantPast
     private var lastDiscreteVerticalNavigationAt = Date.distantPast
     private var verticalScrollAccumulator: CGFloat = 0
     private var didNavigateDuringCurrentScrollGesture = false
     private var isSidebarHidden = false
+    private var workspaceScrollAnimationTimer: Timer?
+    private var workspaceScrollAnimationStartOrigin: NSPoint = .zero
+    private var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
+    private var workspaceScrollAnimationStartedAt = Date.distantPast
 
     private var targetStripLeadingInset: CGFloat {
         WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: isSidebarHidden)
@@ -273,16 +303,33 @@ final class WorkspaceCanvasDocumentView: NSView {
                 - animator.effectiveHorizontalOffset(for: workspace)
 
             for (tileIndex, tile) in workspace.tiles.enumerated() {
+                let gapWidth = animator.closingGapWidth(beforeTileAt: tileIndex, in: workspace.id)
+                layoutClosingTileSnapshotIfNeeded(
+                    workspaceID: workspace.id,
+                    insertionIndex: tileIndex,
+                    originX: x,
+                    rowOriginY: rowOriginY,
+                    tileHeight: tileHeight,
+                    gapWidth: gapWidth
+                )
+                x += gapWidth
                 guard let tileView = tileViews[tile.id] else { continue }
+                let renderedWidth = WorkspaceRowLayout.renderedTileWidth(
+                    for: tile,
+                    in: workspace,
+                    viewportWidth: viewportSize.width,
+                    stripLeadingInset: stripLeadingInset
+                )
+                let animatedWidth = animator.effectiveTileWidth(renderedWidth, for: tile.id)
                 tileView.frame = NSRect(
                     x: x,
                     y: rowOriginY + WorkspaceCanvasLayoutMetrics.verticalPadding,
-                    width: tile.width,
+                    width: animatedWidth,
                     height: tileHeight
                 )
 
                 if tileIndex < workspace.tiles.count - 1, let handle = resizeHandles[tile.id] {
-                    let handleCenterX = x + tile.width + (WorkspaceCanvasLayoutMetrics.tileSpacing / 2)
+                    let handleCenterX = x + animatedWidth + (WorkspaceCanvasLayoutMetrics.tileSpacing / 2)
                     handle.frame = NSRect(
                         x: handleCenterX - (WorkspaceCanvasLayoutMetrics.resizeHandleWidth / 2),
                         y: rowOriginY + WorkspaceCanvasLayoutMetrics.verticalPadding + WorkspaceCanvasLayoutMetrics.resizeHandleInset,
@@ -291,8 +338,18 @@ final class WorkspaceCanvasDocumentView: NSView {
                     )
                 }
 
-                x += tile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+                x += animatedWidth + WorkspaceCanvasLayoutMetrics.tileSpacing
             }
+
+            let trailingGapWidth = animator.closingGapWidth(beforeTileAt: workspace.tiles.count, in: workspace.id)
+            layoutClosingTileSnapshotIfNeeded(
+                workspaceID: workspace.id,
+                insertionIndex: workspace.tiles.count,
+                originX: x,
+                rowOriginY: rowOriginY,
+                tileHeight: tileHeight,
+                gapWidth: trailingGapWidth
+            )
         }
 
         let totalHeight = rowHeight * CGFloat(workspaces.count)
@@ -327,6 +384,17 @@ final class WorkspaceCanvasDocumentView: NSView {
         revealTile(selectedTileID, animated: animated)
     }
 
+    func closeTile(_ tileID: UUID, animated: Bool) {
+        let workspaceID = store.workspaceID(containing: tileID) ?? store.selectedWorkspaceID
+        runtime.closeTile(
+            tileID,
+            preferredVisibleMidX: visibleMidX(forWorkspaceID: workspaceID),
+            stripLeadingInset: targetStripLeadingInset,
+            transition: animated ? .animatedReveal : .immediate,
+            snapshotImage: tileViews[tileID]?.tairiSnapshotImage()
+        )
+    }
+
     func scrollWorkspaceToVisible(
         _ workspaceID: UUID,
         preserveHorizontalOrigin: Bool = true,
@@ -345,22 +413,7 @@ final class WorkspaceCanvasDocumentView: NSView {
             y: min(max(preferredOriginY, 0), maxOriginY)
         )
 
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                clipView.animator().setBoundsOrigin(targetOrigin)
-            } completionHandler: { [weak scrollView = enclosingScrollView] in
-                Task { @MainActor in
-                    if let scrollView {
-                        scrollView.reflectScrolledClipView(clipView)
-                    }
-                }
-            }
-        } else {
-            clipView.setBoundsOrigin(targetOrigin)
-            enclosingScrollView?.reflectScrolledClipView(clipView)
-        }
+        animateWorkspaceScroll(to: targetOrigin, in: clipView, animated: animated)
     }
 
     func handleScrollWheel(_ event: NSEvent) -> Bool {
@@ -452,6 +505,132 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     private func visibleMidX(for workspace: WorkspaceStore.Workspace) -> CGFloat {
         workspace.horizontalOffset + (viewportSize.width / 2)
+    }
+
+    func visibleMidX(forWorkspaceID workspaceID: UUID) -> CGFloat? {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return nil }
+        return visibleMidX(for: workspace)
+    }
+
+    var currentStripLeadingInset: CGFloat {
+        targetStripLeadingInset
+    }
+
+    func animateTileClose(_ animation: WorkspaceInteractionController.TileCloseAnimation) {
+        animator.queueClosingGap(
+            workspaceID: animation.workspaceID,
+            insertionIndex: animation.insertionIndex,
+            width: animation.gapWidth,
+            animated: animation.animated
+        )
+        closingTileSnapshotAnimation = animation
+
+        if let snapshotImage = animation.snapshotImage {
+            let snapshotView = closingTileSnapshotView ?? WorkspaceClosingSnapshotView(image: snapshotImage)
+            snapshotView.image = snapshotImage
+            snapshotView.isHidden = false
+            if snapshotView.superview !== self {
+                addSubview(snapshotView)
+            }
+            closingTileSnapshotView = snapshotView
+        } else {
+            closingTileSnapshotView?.removeFromSuperview()
+            closingTileSnapshotView = nil
+        }
+        needsLayout = true
+    }
+
+    func animateTileOpen(_ animation: WorkspaceInteractionController.TileOpenAnimation) {
+        animator.queueOpeningTile(
+            tileID: animation.tileID,
+            animated: animation.animated
+        )
+    }
+
+    private func layoutClosingTileSnapshotIfNeeded(
+        workspaceID: UUID,
+        insertionIndex: Int,
+        originX: CGFloat,
+        rowOriginY: CGFloat,
+        tileHeight: CGFloat,
+        gapWidth: CGFloat
+    ) {
+        guard let animation = closingTileSnapshotAnimation,
+              animation.workspaceID == workspaceID,
+              animation.insertionIndex == insertionIndex,
+              let closingTileSnapshotView else {
+            return
+        }
+
+        let snapshotWidth = min(animation.snapshotWidth, max(gapWidth, 0))
+        guard snapshotWidth > 0.5 else {
+            closingTileSnapshotView.isHidden = true
+            return
+        }
+
+        closingTileSnapshotView.isHidden = false
+        closingTileSnapshotView.alphaValue = max(min(snapshotWidth / max(animation.snapshotWidth, 1), 1), 0)
+        closingTileSnapshotView.frame = NSRect(
+            x: originX,
+            y: rowOriginY + WorkspaceCanvasLayoutMetrics.verticalPadding,
+            width: snapshotWidth,
+            height: tileHeight
+        )
+    }
+
+    private func animateWorkspaceScroll(to targetOrigin: NSPoint, in clipView: NSClipView, animated: Bool) {
+        let currentOrigin = clipView.bounds.origin
+        guard animated else {
+            stopWorkspaceScrollAnimation()
+            clipView.setBoundsOrigin(targetOrigin)
+            enclosingScrollView?.reflectScrolledClipView(clipView)
+            return
+        }
+
+        guard abs(currentOrigin.x - targetOrigin.x) > 0.5 || abs(currentOrigin.y - targetOrigin.y) > 0.5 else {
+            stopWorkspaceScrollAnimation()
+            clipView.setBoundsOrigin(targetOrigin)
+            enclosingScrollView?.reflectScrolledClipView(clipView)
+            return
+        }
+
+        workspaceScrollAnimationStartOrigin = currentOrigin
+        workspaceScrollAnimationTargetOrigin = targetOrigin
+        workspaceScrollAnimationStartedAt = Date()
+
+        workspaceScrollAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self, weak clipView] _ in
+            Task { @MainActor in
+                guard let self, let clipView else { return }
+                self.stepWorkspaceScrollAnimation(in: clipView)
+            }
+        }
+        workspaceScrollAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stepWorkspaceScrollAnimation(in clipView: NSClipView) {
+        let elapsed = Date().timeIntervalSince(workspaceScrollAnimationStartedAt)
+        let progress = min(max(elapsed / Metrics.workspaceScrollAnimationDuration, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        let currentOrigin = NSPoint(
+            x: workspaceScrollAnimationStartOrigin.x
+                + (workspaceScrollAnimationTargetOrigin.x - workspaceScrollAnimationStartOrigin.x) * eased,
+            y: workspaceScrollAnimationStartOrigin.y
+                + (workspaceScrollAnimationTargetOrigin.y - workspaceScrollAnimationStartOrigin.y) * eased
+        )
+
+        clipView.setBoundsOrigin(currentOrigin)
+        enclosingScrollView?.reflectScrolledClipView(clipView)
+
+        if progress >= 1 {
+            stopWorkspaceScrollAnimation()
+        }
+    }
+
+    private func stopWorkspaceScrollAnimation() {
+        workspaceScrollAnimationTimer?.invalidate()
+        workspaceScrollAnimationTimer = nil
     }
 
     private func currentTileHeight() -> CGFloat {

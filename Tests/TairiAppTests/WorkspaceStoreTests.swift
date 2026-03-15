@@ -56,4 +56,39 @@ final class WorkspaceStoreTests: XCTestCase {
 
         XCTAssertEqual(resolved, homeDirectory)
     }
+
+    func testSingleTileLayoutExpandsToViewport() throws {
+        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let tile = try XCTUnwrap(store.selectedTile)
+        let workspace = store.selectedWorkspace
+
+        let renderedWidth = WorkspaceRowLayout.renderedTileWidth(
+            for: tile,
+            in: workspace,
+            viewportWidth: 1_260,
+            stripLeadingInset: WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+        )
+
+        XCTAssertEqual(renderedWidth, 991, accuracy: 0.5)
+    }
+
+    func testClosingSelectedTileChoosesNeighborNearestVisibleCenter() throws {
+        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+
+        let middleTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+        let trailingNeighborTile = store.addTerminalTile(nextTo: middleTile.id, sessionID: UUID())
+        let farTrailingTile = store.addTerminalTile(nextTo: trailingNeighborTile.id, sessionID: UUID())
+
+        store.selectTile(middleTile.id)
+        let selectedTileID = store.closeTile(
+            middleTile.id,
+            preferredVisibleMidX: 10_000,
+            stripLeadingInset: WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+        )
+
+        XCTAssertEqual(selectedTileID, trailingNeighborTile.id)
+        XCTAssertEqual(store.selectedTileID, trailingNeighborTile.id)
+        XCTAssertNotEqual(store.selectedTileID, farTrailingTile.id)
+    }
 }

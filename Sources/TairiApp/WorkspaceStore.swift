@@ -290,23 +290,48 @@ final class WorkspaceStore: ObservableObject {
         mutateTile(tileID) { $0.pwd = pwd }
     }
 
-    func closeTile(_ tileID: UUID) {
+    @discardableResult
+    func closeTile(
+        _ tileID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) -> UUID? {
         guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
             workspace.tiles.contains(where: { $0.id == tileID })
         }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
-            return
+            return selectedTileID
         }
 
+        let workspaceID = workspaces[workspaceIndex].id
+        let wasSelectedTile = selectedTileID == tileID
+        let neighboringTileIDs = neighboringTileIDs(
+            aroundTileAt: tileIndex,
+            in: workspaces[workspaceIndex]
+        )
         workspaces[workspaceIndex].tiles.remove(at: tileIndex)
 
-        if selectedTileID == tileID {
-            selectedTileID = workspaces[workspaceIndex].tiles.first?.id
+        if wasSelectedTile {
+            selectedTileID = preferredNeighborTileID(
+                neighboringTileIDs,
+                in: workspaces[workspaceIndex],
+                preferredVisibleMidX: preferredVisibleMidX,
+                stripLeadingInset: stripLeadingInset
+            ) ?? preferredTileID(
+                in: workspaceID,
+                preferredVisibleMidX: preferredVisibleMidX,
+                stripLeadingInset: stripLeadingInset
+            ) ?? workspaces[workspaceIndex].tiles.first?.id
         }
         normalize()
+        return selectedTileID
     }
 
     func tile(_ tileID: UUID) -> Tile? {
         workspaces.flatMap(\.tiles).first(where: { $0.id == tileID })
+    }
+
+    func workspaceID(containing tileID: UUID) -> UUID? {
+        workspaceContaining(tileID)?.id
     }
 
     private func mutateTile(_ tileID: UUID, transform: (inout Tile) -> Void) {
@@ -363,6 +388,53 @@ final class WorkspaceStore: ObservableObject {
         }
 
         return bestTileID
+    }
+
+    private func neighboringTileIDs(aroundTileAt tileIndex: Int, in workspace: Workspace) -> [UUID] {
+        var tileIDs: [UUID] = []
+
+        if tileIndex > 0 {
+            tileIDs.append(workspace.tiles[tileIndex - 1].id)
+        }
+
+        if tileIndex + 1 < workspace.tiles.count {
+            tileIDs.append(workspace.tiles[tileIndex + 1].id)
+        }
+
+        return tileIDs
+    }
+
+    private func preferredNeighborTileID(
+        _ candidateTileIDs: [UUID],
+        in workspace: Workspace,
+        preferredVisibleMidX: CGFloat?,
+        stripLeadingInset: CGFloat
+    ) -> UUID? {
+        let existingTileIDs = candidateTileIDs.filter { candidateID in
+            workspace.tiles.contains(where: { $0.id == candidateID })
+        }
+        guard !existingTileIDs.isEmpty else { return nil }
+
+        guard let preferredVisibleMidX else {
+            return existingTileIDs.last ?? existingTileIDs.first
+        }
+
+        var bestTileID: UUID?
+        var bestDistance = CGFloat.greatestFiniteMagnitude
+
+        for candidateID in existingTileIDs {
+            guard let tileFrame = tileFrame(for: candidateID, in: workspace, stripLeadingInset: stripLeadingInset) else {
+                continue
+            }
+
+            let distance = abs(tileFrame.midX - preferredVisibleMidX)
+            if distance <= bestDistance {
+                bestDistance = distance
+                bestTileID = candidateID
+            }
+        }
+
+        return bestTileID ?? existingTileIDs.last ?? existingTileIDs.first
     }
 
     private func centeredOffset(

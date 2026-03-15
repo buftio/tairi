@@ -141,7 +141,22 @@ final class WorkspaceTileHostView: NSView {
 
     @objc
     private func closeTile() {
+        if let canvasDocumentView = workspaceCanvasDocumentView() {
+            canvasDocumentView.closeTile(tileID, animated: !TairiEnvironment.isUITesting)
+            return
+        }
         runtime.closeTile(tileID)
+    }
+
+    private func workspaceCanvasDocumentView() -> WorkspaceCanvasDocumentView? {
+        var ancestor = superview
+        while let view = ancestor {
+            if let documentView = view as? WorkspaceCanvasDocumentView {
+                return documentView
+            }
+            ancestor = view.superview
+        }
+        return nil
     }
 }
 

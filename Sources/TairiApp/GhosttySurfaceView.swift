@@ -19,6 +19,12 @@ extension NSEvent {
 
 @MainActor
 final class GhosttySurfaceView: NSView {
+    struct TileCloseContext {
+        let preferredVisibleMidX: CGFloat?
+        let stripLeadingInset: CGFloat
+        let snapshotImage: NSImage?
+    }
+
     let runtime: GhosttyRuntime
     let sessionID: UUID
 
@@ -354,6 +360,27 @@ final class GhosttySurfaceView: NSView {
             ancestor = view.superview
         }
         return nil
+    }
+
+    private func workspaceTileHostView() -> WorkspaceTileHostView? {
+        var ancestor = superview
+        while let view = ancestor {
+            if let tileHostView = view as? WorkspaceTileHostView {
+                return tileHostView
+            }
+            ancestor = view.superview
+        }
+        return nil
+    }
+
+    func closeContext(for tileID: UUID) -> TileCloseContext? {
+        guard let documentView = workspaceCanvasDocumentView() else { return nil }
+        let workspaceID = runtime.store.workspaceID(containing: tileID) ?? runtime.store.selectedWorkspaceID
+        return TileCloseContext(
+            preferredVisibleMidX: documentView.visibleMidX(forWorkspaceID: workspaceID),
+            stripLeadingInset: documentView.currentStripLeadingInset,
+            snapshotImage: workspaceTileHostView()?.tairiSnapshotImage()
+        )
     }
 
     private func workspaceNavigationOffset(for event: NSEvent) -> Int? {

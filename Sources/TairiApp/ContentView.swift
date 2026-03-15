@@ -136,7 +136,7 @@ struct ContentView: View {
                 _ = runtime.createTile(
                     nextTo: store.selectedTileID,
                     workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
-                    transition: .preserveViewport
+                    transition: .animatedReveal
                 )
                 if let selectedTileID = store.selectedTileID {
                     runtime.focusSurface(tileID: selectedTileID)

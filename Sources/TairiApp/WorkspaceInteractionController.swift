@@ -1,8 +1,8 @@
-import Foundation
+import AppKit
 
 @MainActor
 final class WorkspaceInteractionController: ObservableObject {
-    enum TileTransition {
+    enum TileTransition: Equatable {
         case immediate
         case animatedReveal
         case preserveViewport
@@ -18,7 +18,29 @@ final class WorkspaceInteractionController: ObservableObject {
         let kind: Kind
     }
 
+    struct TileCloseAnimation: Equatable {
+        let id: Int
+        let workspaceID: UUID
+        let insertionIndex: Int
+        let snapshotWidth: CGFloat
+        let gapWidth: CGFloat
+        let animated: Bool
+        let snapshotImage: NSImage?
+
+        static func == (lhs: TileCloseAnimation, rhs: TileCloseAnimation) -> Bool {
+            lhs.id == rhs.id
+        }
+    }
+
+    struct TileOpenAnimation: Equatable {
+        let id: Int
+        let tileID: UUID
+        let animated: Bool
+    }
+
     @Published private(set) var canvasTransition: CanvasTransition?
+    @Published private(set) var tileCloseAnimation: TileCloseAnimation?
+    @Published private(set) var tileOpenAnimation: TileOpenAnimation?
 
     private let store: WorkspaceStore
     private var nextTransitionID = 1
@@ -83,6 +105,14 @@ final class WorkspaceInteractionController: ObservableObject {
             workingDirectory: workingDirectory,
             sessionID: sessionID
         )
+        if transition != .preserveViewport {
+            tileOpenAnimation = TileOpenAnimation(
+                id: nextTransitionID,
+                tileID: tile.id,
+                animated: transition == .animatedReveal
+            )
+            nextTransitionID += 1
+        }
         publishTransition(for: tile.id, transition: transition)
         return tile
     }
@@ -105,6 +135,30 @@ final class WorkspaceInteractionController: ObservableObject {
             viewportWidth: viewportWidth,
             stripLeadingInset: stripLeadingInset
         )
+    }
+
+    func revealSelection(of tileID: UUID, transition: TileTransition = .immediate) {
+        publishTransition(for: tileID, transition: transition)
+    }
+
+    func animateTileClose(
+        workspaceID: UUID,
+        insertionIndex: Int,
+        snapshotWidth: CGFloat,
+        gapWidth: CGFloat,
+        animated: Bool,
+        snapshotImage: NSImage?
+    ) {
+        tileCloseAnimation = TileCloseAnimation(
+            id: nextTransitionID,
+            workspaceID: workspaceID,
+            insertionIndex: insertionIndex,
+            snapshotWidth: snapshotWidth,
+            gapWidth: gapWidth,
+            animated: animated,
+            snapshotImage: snapshotImage
+        )
+        nextTransitionID += 1
     }
 
     private func publishTransition(for tileID: UUID, transition: TileTransition) {

@@ -5,6 +5,21 @@ final class WorkspaceCanvasAnimator {
     private enum Metrics {
         static let horizontalRevealAnimationDuration: TimeInterval = 0.2
         static let stripLeadingInsetAnimationDuration: TimeInterval = 0.28
+        static let closingGapAnimationDuration: TimeInterval = 0.22
+        static let openingTileAnimationDuration: TimeInterval = 0.2
+    }
+
+    private struct ClosingGapAnimation {
+        let workspaceID: UUID
+        let insertionIndex: Int
+        let startWidth: CGFloat
+        let targetWidth: CGFloat
+        let startedAt: Date
+    }
+
+    private struct OpeningTileAnimation {
+        let tileID: UUID
+        let startedAt: Date
     }
 
     var onChange: (() -> Void)?
@@ -21,10 +36,28 @@ final class WorkspaceCanvasAnimator {
     private var stripLeadingInsetAnimationTargetValue = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     private var stripLeadingInsetAnimationStartedAt = Date.distantPast
     private var stripLeadingInsetAnimationTimer: Timer?
+    private var closingGapAnimation: ClosingGapAnimation?
+    private var renderedClosingGapWidth: CGFloat = 0
+    private var closingGapAnimationTimer: Timer?
+    private var openingTileAnimation: OpeningTileAnimation?
+    private var renderedOpeningTileProgress: CGFloat = 1
+    private var openingTileAnimationTimer: Timer?
 
     func pruneOffsets(workspaces: [WorkspaceStore.Workspace]) {
         renderedHorizontalOffsets = renderedHorizontalOffsets.filter { entry in
             workspaces.contains(where: { $0.id == entry.key })
+        }
+        if let closingGapAnimation,
+           !workspaces.contains(where: { $0.id == closingGapAnimation.workspaceID }) {
+            stopClosingGapAnimation()
+        }
+        if let openingTileAnimation {
+            let tileStillExists = workspaces.contains { workspace in
+                workspace.tiles.contains(where: { $0.id == openingTileAnimation.tileID })
+            }
+            if !tileStillExists {
+                stopOpeningTileAnimation()
+            }
         }
     }
 
@@ -48,6 +81,79 @@ final class WorkspaceCanvasAnimator {
             return renderedStripLeadingInset
         }
         return WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: sidebarHidden)
+    }
+
+    func queueClosingGap(
+        workspaceID: UUID,
+        insertionIndex: Int,
+        width: CGFloat,
+        animated: Bool
+    ) {
+        guard width > 0.5 else { return }
+
+        if !animated {
+            closingGapAnimation = nil
+            renderedClosingGapWidth = 0
+            stopClosingGapAnimation()
+            onChange?()
+            return
+        }
+
+        renderedClosingGapWidth = width
+        closingGapAnimation = ClosingGapAnimation(
+            workspaceID: workspaceID,
+            insertionIndex: insertionIndex,
+            startWidth: width,
+            targetWidth: 0,
+            startedAt: Date()
+        )
+
+        closingGapAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.stepClosingGapAnimation()
+            }
+        }
+        closingGapAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+        onChange?()
+    }
+
+    func closingGapWidth(beforeTileAt insertionIndex: Int, in workspaceID: UUID) -> CGFloat {
+        guard let closingGapAnimation,
+              closingGapAnimation.workspaceID == workspaceID,
+              closingGapAnimation.insertionIndex == insertionIndex else {
+            return 0
+        }
+        return renderedClosingGapWidth
+    }
+
+    func queueOpeningTile(tileID: UUID, animated: Bool) {
+        guard animated else {
+            stopOpeningTileAnimation()
+            onChange?()
+            return
+        }
+
+        renderedOpeningTileProgress = 0
+        openingTileAnimation = OpeningTileAnimation(tileID: tileID, startedAt: Date())
+
+        openingTileAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.stepOpeningTileAnimation()
+            }
+        }
+        openingTileAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+        onChange?()
+    }
+
+    func effectiveTileWidth(_ width: CGFloat, for tileID: UUID) -> CGFloat {
+        guard let openingTileAnimation, openingTileAnimation.tileID == tileID else {
+            return width
+        }
+        return width * renderedOpeningTileProgress
     }
 
     func syncRenderedHorizontalOffsets(for workspaces: [WorkspaceStore.Workspace]) {
@@ -179,5 +285,48 @@ final class WorkspaceCanvasAnimator {
         renderedStripLeadingInset = stripLeadingInsetAnimationTargetValue
         stripLeadingInsetAnimationTimer?.invalidate()
         stripLeadingInsetAnimationTimer = nil
+    }
+
+    private func stepClosingGapAnimation() {
+        guard let closingGapAnimation else { return }
+
+        let elapsed = Date().timeIntervalSince(closingGapAnimation.startedAt)
+        let progress = min(max(elapsed / Metrics.closingGapAnimationDuration, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        renderedClosingGapWidth = closingGapAnimation.startWidth
+            + (closingGapAnimation.targetWidth - closingGapAnimation.startWidth) * eased
+        onChange?()
+
+        if progress >= 1 {
+            stopClosingGapAnimation()
+        }
+    }
+
+    private func stopClosingGapAnimation() {
+        renderedClosingGapWidth = 0
+        closingGapAnimation = nil
+        closingGapAnimationTimer?.invalidate()
+        closingGapAnimationTimer = nil
+    }
+
+    private func stepOpeningTileAnimation() {
+        guard let openingTileAnimation else { return }
+
+        let elapsed = Date().timeIntervalSince(openingTileAnimation.startedAt)
+        let progress = min(max(elapsed / Metrics.openingTileAnimationDuration, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        renderedOpeningTileProgress = eased
+        onChange?()
+
+        if progress >= 1 {
+            stopOpeningTileAnimation()
+        }
+    }
+
+    private func stopOpeningTileAnimation() {
+        renderedOpeningTileProgress = 1
+        openingTileAnimation = nil
+        openingTileAnimationTimer?.invalidate()
+        openingTileAnimationTimer = nil
     }
 }

@@ -284,11 +284,12 @@ extension GhosttyRuntime {
         switch event {
         case .createTile(let sourceSessionID):
             let sourceTileID = attachedTileID(for: sourceSessionID)
-            _ = createTile(
+            let tile = createTile(
                 nextTo: sourceTileID,
                 workingDirectory: spawnWorkingDirectory(for: sourceTileID),
-                transition: .preserveViewport
+                transition: .animatedReveal
             )
+            focusSurface(tileID: tile.id)
             return true
 
         case .selectAdjacentTile(let offset):

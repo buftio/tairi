@@ -16,6 +16,14 @@ enum TerminateReason: String {
 
 @MainActor
 final class GhosttyRuntime: ObservableObject {
+    struct TileCloseAnimationContext {
+        let workspaceID: UUID
+        let insertionIndex: Int
+        let snapshotWidth: CGFloat
+        let gapWidth: CGFloat
+        let snapshotImage: NSImage?
+    }
+
     @Published var errorMessage: String?
 
     let store: WorkspaceStore
@@ -28,6 +36,7 @@ final class GhosttyRuntime: ObservableObject {
     private var didInstallAppObservers = false
     var lastInputTileID: UUID?
     var lastInputAt: Date?
+    private var pendingFocusedTileID: UUID?
 
     init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, settings: AppSettings) {
         self.store = store
@@ -52,7 +61,7 @@ final class GhosttyRuntime: ObservableObject {
     func createTile(
         nextTo tileID: UUID? = nil,
         workingDirectory: String? = nil,
-        transition: WorkspaceInteractionController.TileTransition = .preserveViewport
+        transition: WorkspaceInteractionController.TileTransition = .animatedReveal
     ) -> WorkspaceStore.Tile {
         let resolvedWorkingDirectory = workingDirectory ?? spawnWorkingDirectory(for: tileID)
         let sessionID = createSession(workingDirectory: resolvedWorkingDirectory)
@@ -96,6 +105,12 @@ final class GhosttyRuntime: ObservableObject {
         TairiLog.write(
             "ghostty session attached session=\(session.id.uuidString) tile=\(tileID.uuidString) container=\(TairiLog.objectID(containerView))"
         )
+
+        if pendingFocusedTileID == tileID {
+            DispatchQueue.main.async { [weak self] in
+                self?.focusSurface(tileID: tileID)
+            }
+        }
     }
 
     func detachTile(_ tileID: UUID, reason: DetachReason) {
@@ -119,12 +134,22 @@ final class GhosttyRuntime: ObservableObject {
         destroySession(sessionID: sessionID, reasonLabel: reason.rawValue, requestedTileID: tileID)
     }
 
-    func closeTile(_ tileID: UUID) {
+    func closeTile(
+        _ tileID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false),
+        transition: WorkspaceInteractionController.TileTransition = .animatedReveal,
+        snapshotImage: NSImage? = nil
+    ) {
+        let closeAnimationContext = tileCloseAnimationContext(for: tileID, snapshotImage: snapshotImage)
         terminateSession(for: tileID, reason: .userClosedTile)
-        store.closeTile(tileID)
-        if let selectedTileID = store.selectedTileID {
-            focusSurface(tileID: selectedTileID)
-        }
+        finishClosingTile(
+            tileID,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset,
+            transition: transition,
+            closeAnimationContext: closeAnimationContext
+        )
     }
 
     func terminateAllSessions(reason: TerminateReason) {
@@ -151,7 +176,43 @@ final class GhosttyRuntime: ObservableObject {
         ) else {
             return
         }
+        guard session.surfaceView.window != nil else {
+            pendingFocusedTileID = tileID
+            TairiLog.write("ghostty focus deferred tile=\(tileID.uuidString) session=\(session.id.uuidString)")
+            return
+        }
+        if pendingFocusedTileID == tileID {
+            pendingFocusedTileID = nil
+        }
         session.surfaceView.focusSurface()
+    }
+
+    func finishClosingTile(
+        _ tileID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false),
+        transition: WorkspaceInteractionController.TileTransition = .animatedReveal,
+        closeAnimationContext: TileCloseAnimationContext? = nil
+    ) {
+        if let closeAnimationContext {
+            interactionController.animateTileClose(
+                workspaceID: closeAnimationContext.workspaceID,
+                insertionIndex: closeAnimationContext.insertionIndex,
+                snapshotWidth: closeAnimationContext.snapshotWidth,
+                gapWidth: closeAnimationContext.gapWidth,
+                animated: transition == .animatedReveal,
+                snapshotImage: closeAnimationContext.snapshotImage
+            )
+        }
+        let selectedTileID = store.closeTile(
+            tileID,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
+        )
+        if let selectedTileID {
+            interactionController.revealSelection(of: selectedTileID, transition: transition)
+            focusSurface(tileID: selectedTileID)
+        }
     }
 
     func workingDirectory(for tileID: UUID) -> String {
@@ -177,6 +238,24 @@ final class GhosttyRuntime: ObservableObject {
 
     func attachedTileID(for sessionID: UUID) -> UUID? {
         sessionRegistry.session(id: sessionID)?.attachedTileID
+    }
+
+    func tileCloseAnimationContext(for tileID: UUID, snapshotImage: NSImage? = nil) -> TileCloseAnimationContext? {
+        guard let workspaceID = store.workspaceID(containing: tileID),
+              let workspace = store.workspaces.first(where: { $0.id == workspaceID }),
+              let tileIndex = workspace.tiles.firstIndex(where: { $0.id == tileID }) else {
+            return nil
+        }
+
+        let hasTrailingTile = tileIndex < workspace.tiles.count - 1
+        return TileCloseAnimationContext(
+            workspaceID: workspaceID,
+            insertionIndex: tileIndex,
+            snapshotWidth: workspace.tiles[tileIndex].width,
+            gapWidth: workspace.tiles[tileIndex].width
+                + (hasTrailingTile ? WorkspaceCanvasLayoutMetrics.tileSpacing : 0),
+            snapshotImage: snapshotImage
+        )
     }
 
     private func bootstrap() {
