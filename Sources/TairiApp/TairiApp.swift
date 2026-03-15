@@ -9,6 +9,7 @@ struct TairiApp: App {
     @StateObject private var chromeController: WindowChromeController
 
     init() {
+        TairiCrashReporter.shared.install()
         let store = WorkspaceStore()
         let interactionController = WorkspaceInteractionController(store: store)
         _store = StateObject(wrappedValue: store)

@@ -1,9 +1,7 @@
 import Foundation
 
 enum TairiLog {
-    private static var repoRoot: URL {
-        URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    }
+    private static let lock = NSLock()
 
     private static func timestamp() -> String {
         let formatter = ISO8601DateFormatter()
@@ -12,17 +10,17 @@ enum TairiLog {
     }
 
     private static var url: URL {
-        repoRoot
-            .appendingPathComponent(".local/logs/tairi.log")
+        TairiPaths.mainLogURL
     }
 
     static func write(_ message: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
         let line = "[\(timestamp())] \(message)\n"
         let data = Data(line.utf8)
         let path = url.path(percentEncoded: false)
-        let directory = url.deletingLastPathComponent().path(percentEncoded: false)
-
-        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        TairiPaths.ensureLogDirectories()
 
         if !FileManager.default.fileExists(atPath: path) {
             FileManager.default.createFile(atPath: path, contents: data)
@@ -33,5 +31,35 @@ enum TairiLog {
         defer { try? handle.close() }
         _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: data)
+    }
+
+    static func pointer(_ pointer: UnsafeRawPointer?) -> String {
+        guard let pointer else { return "nil" }
+        return String(format: "0x%016llx", UInt64(UInt(bitPattern: pointer)))
+    }
+
+    static func pointer(_ pointer: UnsafeMutableRawPointer?) -> String {
+        pointer.map { self.pointer(UnsafeRawPointer($0)) } ?? "nil"
+    }
+
+    static func objectID(_ object: AnyObject) -> String {
+        pointer(Unmanaged.passUnretained(object).toOpaque())
+    }
+
+    static func recentLines(limit: Int) -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard
+            let data = try? Data(contentsOf: url),
+            let contents = String(data: data, encoding: .utf8)
+        else {
+            return []
+        }
+
+        return contents
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .suffix(limit)
+            .map(String.init)
     }
 }

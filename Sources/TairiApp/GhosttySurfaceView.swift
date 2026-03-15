@@ -24,6 +24,11 @@ final class GhosttySurfaceView: NSView {
 
     private(set) var surface: ghostty_surface_t?
     private var trackingAreaRef: NSTrackingArea?
+    private var lastLoggedBounds = CGSize.zero
+    private var lastLoggedBacking = CGSize.zero
+    private var lastLoggedScale = CGSize.zero
+    private var lastLoggedDisplayID: UInt32?
+    private var lastLoggedWindowNumber: Int?
 
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -32,6 +37,7 @@ final class GhosttySurfaceView: NSView {
         self.runtime = runtime
         self.tileID = tileID
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 640))
+        logLifecycle("init begin frame=\(describe(size: frame.size))")
 
         let app = runtime.app(for: tileID)
         var config = tairi_ghostty_surface_config_new()
@@ -52,6 +58,10 @@ final class GhosttySurfaceView: NSView {
             }
         }
 
+        logLifecycle(
+            "init complete app=\(describeHandle(app)) surface=\(describeHandle(surface)) scaleFactor=\(String(format: "%.2f", config.scale_factor))"
+        )
+
         syncScaleAndSize()
     }
 
@@ -61,14 +71,17 @@ final class GhosttySurfaceView: NSView {
     }
 
     func dispose() {
+        logLifecycle("dispose begin surface=\(describeHandle(surface))")
         removeFromSuperview()
         if let surface {
             tairi_ghostty_surface_free(surface)
             self.surface = nil
         }
+        logLifecycle("dispose end surface=nil")
     }
 
     func focusSurface() {
+        logLifecycle("focus requested window=\(describe(window: window))")
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
         window?.makeFirstResponder(self)
@@ -77,6 +90,7 @@ final class GhosttySurfaceView: NSView {
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result, let surface {
+            logLifecycle("became first responder surface=\(describeHandle(surface))")
             runtime.focus(tileID: tileID)
             tairi_ghostty_surface_set_focus(surface, true)
         }
@@ -86,15 +100,28 @@ final class GhosttySurfaceView: NSView {
     override func resignFirstResponder() -> Bool {
         let result = super.resignFirstResponder()
         if result, let surface {
+            logLifecycle("resigned first responder surface=\(describeHandle(surface))")
             tairi_ghostty_surface_set_focus(surface, false)
         }
         return result
     }
 
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        logLifecycle("will move window from=\(describe(window: window)) to=\(describe(window: newWindow))")
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        logWindowChangeIfNeeded(reason: "did move to window")
         syncDisplayID()
         syncScaleAndSize()
+    }
+
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        let superviewID = superview.map { TairiLog.objectID($0) } ?? "nil"
+        logLifecycle("did move superview superview=\(superviewID)")
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -250,6 +277,20 @@ final class GhosttySurfaceView: NSView {
         let backing = convertToBacking(bounds)
         let xScale = bounds.width > 0 ? backing.width / bounds.width : 1
         let yScale = bounds.height > 0 ? backing.height / bounds.height : 1
+
+        let didChange =
+            lastLoggedBounds != bounds.size ||
+            lastLoggedBacking != backing.size ||
+            lastLoggedScale != CGSize(width: xScale, height: yScale)
+        if didChange {
+            logLifecycle(
+                "syncScaleAndSize surface=\(describeHandle(surface)) bounds=\(describe(size: bounds.size)) backing=\(describe(size: backing.size)) scale=\(String(format: "%.3f", xScale))x\(String(format: "%.3f", yScale))"
+            )
+            lastLoggedBounds = bounds.size
+            lastLoggedBacking = backing.size
+            lastLoggedScale = CGSize(width: xScale, height: yScale)
+        }
+
         tairi_ghostty_surface_set_content_scale(surface, xScale, yScale)
         tairi_ghostty_surface_set_size(surface, UInt32(max(backing.width, 1)), UInt32(max(backing.height, 1)))
     }
@@ -257,6 +298,12 @@ final class GhosttySurfaceView: NSView {
     private func syncDisplayID() {
         guard let surface, let screenNumber = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
             return
+        }
+        if lastLoggedDisplayID != screenNumber.uint32Value {
+            logLifecycle(
+                "syncDisplayID surface=\(describeHandle(surface)) displayID=\(screenNumber.uint32Value) window=\(describe(window: window))"
+            )
+            lastLoggedDisplayID = screenNumber.uint32Value
         }
         tairi_ghostty_surface_set_display_id(surface, screenNumber.uint32Value)
     }
@@ -329,5 +376,31 @@ final class GhosttySurfaceView: NSView {
         if flags.contains(.command) { value |= GHOSTTY_MODS_SUPER.rawValue }
         if flags.contains(.capsLock) { value |= GHOSTTY_MODS_CAPS.rawValue }
         return ghostty_input_mods_e(rawValue: value)
+    }
+
+    private func logLifecycle(_ message: String) {
+        TairiLog.write(
+            "ghostty surface tile=\(tileID.uuidString) view=\(TairiLog.objectID(self)) \(message)"
+        )
+    }
+
+    private func logWindowChangeIfNeeded(reason: String) {
+        let windowNumber = window?.windowNumber
+        guard lastLoggedWindowNumber != windowNumber else { return }
+        logLifecycle("\(reason) window=\(describe(window: window))")
+        lastLoggedWindowNumber = windowNumber
+    }
+
+    private func describeHandle(_ handle: UnsafeMutableRawPointer?) -> String {
+        TairiLog.pointer(handle)
+    }
+
+    private func describe(window: NSWindow?) -> String {
+        guard let window else { return "nil" }
+        return "#\(window.windowNumber)"
+    }
+
+    private func describe(size: CGSize) -> String {
+        "\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
     }
 }

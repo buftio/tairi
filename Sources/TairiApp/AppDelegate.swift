@@ -5,10 +5,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         activateApp()
+        DispatchQueue.main.async {
+            TairiCrashReporter.shared.presentPendingReportIfNeeded()
+        }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
         activateApp()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        TairiCrashReporter.shared.markCleanShutdown()
     }
 
     private func activateApp() {

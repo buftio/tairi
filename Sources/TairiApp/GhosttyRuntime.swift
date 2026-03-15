@@ -9,6 +9,7 @@ final class GhosttyRuntime: ObservableObject {
         weak var runtime: GhosttyRuntime?
         let tileID: UUID
         var app: ghostty_app_t?
+        var wakeupCount = 0
 
         init(runtime: GhosttyRuntime, tileID: UUID) {
             self.runtime = runtime
@@ -151,8 +152,12 @@ final class GhosttyRuntime: ObservableObject {
 
         let context = AppContext(runtime: self, tileID: tileID)
         let retainedContext = Unmanaged.passRetained(context)
+        let contextPointer = retainedContext.toOpaque()
+        TairiLog.write(
+            "ghostty creating app tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) selectedWorkspace=\(store.selectedWorkspaceID.uuidString) selectedTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
         var runtimeConfig = ghostty_runtime_config_s(
-            userdata: retainedContext.toOpaque(),
+            userdata: contextPointer,
             supports_selection_clipboard: true,
             wakeup_cb: Self.wakeup,
             action_cb: Self.action,
@@ -171,7 +176,9 @@ final class GhosttyRuntime: ObservableObject {
 
         context.app = app
         appContexts[tileID] = context
-        TairiLog.write("ghostty app created tile=\(tileID.uuidString)")
+        TairiLog.write(
+            "ghostty app created tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) app=\(Self.describeHandle(app))"
+        )
         return app
     }
 
@@ -233,12 +240,21 @@ final class GhosttyRuntime: ObservableObject {
 
     private func disposeSurface(tileID: UUID) {
         guard let surfaceView = surfaces.removeValue(forKey: tileID) else { return }
+        TairiLog.write(
+            "ghostty disposing tile=\(tileID.uuidString) surfaceView=\(TairiLog.objectID(surfaceView)) surface=\(GhosttyRuntime.describeHandle(surfaceView.surface))"
+        )
         surfaceView.dispose()
 
         guard let context = appContexts.removeValue(forKey: tileID) else { return }
+        let contextPointer = Unmanaged.passUnretained(context).toOpaque()
         if let app = context.app {
+            TairiLog.write(
+                "ghostty freeing app tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) app=\(Self.describeHandle(app)) wakeups=\(context.wakeupCount)"
+            )
             tairi_ghostty_app_free(app)
+            context.app = nil
         }
+        TairiLog.write("ghostty releasing context tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer))")
         Unmanaged.passUnretained(context).release()
     }
 
@@ -330,24 +346,51 @@ final class GhosttyRuntime: ObservableObject {
         DispatchQueue.main.async {
             guard let rawPointer = UnsafeMutableRawPointer(bitPattern: opaque) else { return }
             let context = Unmanaged<AppContext>.fromOpaque(rawPointer).takeUnretainedValue()
+            context.wakeupCount += 1
+            if context.wakeupCount <= 5 || context.wakeupCount == 10 || context.wakeupCount.isMultiple(of: 100) {
+                TairiLog.write(
+                    "ghostty wakeup tile=\(context.tileID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(rawPointer)) app=\(GhosttyRuntime.describeHandle(context.app))"
+                )
+            }
             if let app = context.app {
                 tairi_ghostty_app_tick(app)
+            } else if context.wakeupCount <= 5 {
+                TairiLog.write(
+                    "ghostty wakeup dropped tile=\(context.tileID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(rawPointer)) app=nil"
+                )
             }
         }
     }
 
     private static let action: ghostty_runtime_action_cb = { app, target, action in
-        guard let userdata = tairi_ghostty_app_userdata(app) else { return false }
+        guard let userdata = tairi_ghostty_app_userdata(app) else {
+            TairiLog.write("ghostty action dropped app=\(GhosttyRuntime.describeHandle(app)) reason=missing_userdata tag=\(action.tag.rawValue)")
+            return false
+        }
         let context = Unmanaged<AppContext>.fromOpaque(userdata).takeUnretainedValue()
-        guard let runtime = context.runtime else { return false }
+        guard let runtime = context.runtime else {
+            TairiLog.write(
+                "ghostty action dropped tile=\(context.tileID.uuidString) context=\(TairiLog.pointer(userdata)) app=\(GhosttyRuntime.describeHandle(app)) reason=runtime_nil tag=\(action.tag.rawValue)"
+            )
+            return false
+        }
         return runtime.handle(action: action, target: target)
     }
 
     private static let readClipboard: ghostty_runtime_read_clipboard_cb = { userdata, _, state in
-        guard let userdata else { return false }
+        guard let userdata else {
+            TairiLog.write("ghostty readClipboard dropped reason=missing_userdata")
+            return false
+        }
         let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-        guard let surface = view.surface else { return false }
-        guard let value = NSPasteboard.general.string(forType: .string) else { return false }
+        guard let surface = view.surface else {
+            TairiLog.write("ghostty readClipboard dropped tile=\(view.tileID.uuidString) reason=surface_nil")
+            return false
+        }
+        guard let value = NSPasteboard.general.string(forType: .string) else {
+            TairiLog.write("ghostty readClipboard empty tile=\(view.tileID.uuidString)")
+            return false
+        }
         value.withCString { ptr in
             tairi_ghostty_surface_complete_clipboard_request(surface, ptr, state, false)
         }
@@ -357,7 +400,10 @@ final class GhosttyRuntime: ObservableObject {
     private static let confirmReadClipboard: ghostty_runtime_confirm_read_clipboard_cb = { userdata, value, state, _ in
         guard let userdata, let value else { return }
         let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-        guard let surface = view.surface else { return }
+        guard let surface = view.surface else {
+            TairiLog.write("ghostty confirmReadClipboard dropped tile=\(view.tileID.uuidString) reason=surface_nil")
+            return
+        }
         tairi_ghostty_surface_complete_clipboard_request(surface, value, state, true)
     }
 
@@ -392,5 +438,9 @@ final class GhosttyRuntime: ObservableObject {
         }
 
         view.runtime.store.closeTile(view.tileID)
+    }
+
+    private static func describeHandle(_ handle: UnsafeMutableRawPointer?) -> String {
+        TairiLog.pointer(handle)
     }
 }
