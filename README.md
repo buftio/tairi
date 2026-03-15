@@ -20,6 +20,14 @@ For a distributable bundle:
 just app
 ```
 
+To build and install into Applications:
+
+```sh
+just install
+```
+
+If `/Applications` is not writable, the install script falls back to `~/Applications`.
+
 The bundled runtime is placed at:
 
 - `tairi.app/Contents/Frameworks/GhosttyRuntime.app`

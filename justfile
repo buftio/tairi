@@ -15,6 +15,9 @@ vendor-ghostty source="/Applications/Ghostty.app":
 bundle:
   ./scripts/build-app.sh
 
+install-app target="":
+  if [[ -n "{{target}}" ]]; then ./scripts/install-app.sh "{{target}}"; else ./scripts/install-app.sh; fi
+
 open-app:
   open dist/tairi.app
 
@@ -23,6 +26,7 @@ bundle-open:
   just open-app
 
 alias app := bundle-open
+alias install := install-app
 
 clean-dist:
   if [[ -d dist/tairi.app ]]; then trash dist/tairi.app; fi
