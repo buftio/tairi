@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct TairiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var settings: AppSettings
     @StateObject private var store: WorkspaceStore
     @StateObject private var interactionController: WorkspaceInteractionController
     @StateObject private var runtime: GhosttyRuntime
@@ -10,17 +11,26 @@ struct TairiApp: App {
 
     init() {
         TairiCrashReporter.shared.install()
+        let settings = AppSettings()
         let store = WorkspaceStore()
         let interactionController = WorkspaceInteractionController(store: store)
+        _settings = StateObject(wrappedValue: settings)
         _store = StateObject(wrappedValue: store)
         _interactionController = StateObject(wrappedValue: interactionController)
-        _runtime = StateObject(wrappedValue: GhosttyRuntime(store: store, interactionController: interactionController))
+        _runtime = StateObject(
+            wrappedValue: GhosttyRuntime(
+                store: store,
+                interactionController: interactionController,
+                settings: settings
+            )
+        )
         _chromeController = StateObject(wrappedValue: WindowChromeController())
     }
 
     var body: some Scene {
         WindowGroup("tairi") {
             ContentView()
+                .environmentObject(settings)
                 .environmentObject(store)
                 .environmentObject(interactionController)
                 .environmentObject(runtime)
@@ -81,6 +91,10 @@ struct TairiApp: App {
                 }
                 .keyboardShortcut("b", modifiers: [.command, .option])
             }
+        }
+        Settings {
+            SettingsView()
+                .environmentObject(settings)
         }
     }
 }

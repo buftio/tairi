@@ -52,7 +52,7 @@ final class GhosttySurfaceView: NSView {
             let workingDirectory = runtime.workingDirectory(for: tileID)
             workingDirectory.withCString { path in
                 config.working_directory = path
-                config.wait_after_command = true
+                config.wait_after_command = runtime.waitAfterCommandEnabled
                 config.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
                 surface = tairi_ghostty_surface_new(app, &config)
             }

@@ -21,19 +21,27 @@ final class GhosttyRuntime: ObservableObject {
 
     fileprivate let store: WorkspaceStore
     private let interactionController: WorkspaceInteractionController
+    private let settings: AppSettings
     private var surfaces: [UUID: GhosttySurfaceView] = [:]
     private var appContexts: [UUID: AppContext] = [:]
     private let actionAdapter = GhosttyActionAdapter()
     private var storeObserver: AnyCancellable?
+    private var settingsObserver: AnyCancellable?
     private var didInstallAppObservers = false
     private var lastInputTileID: UUID?
     private var lastInputAt: Date?
 
-    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController) {
+    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, settings: AppSettings) {
         self.store = store
         self.interactionController = interactionController
+        self.settings = settings
         observeStore()
+        observeSettings()
         bootstrap()
+    }
+
+    var waitAfterCommandEnabled: Bool {
+        settings.terminalExitBehavior.waitAfterCommandEnabled
     }
 
     func app(for tileID: UUID) -> ghostty_app_t? {
@@ -79,7 +87,11 @@ final class GhosttyRuntime: ObservableObject {
             return TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
         }
 
-        return inheritedWorkingDirectory(for: tileID) ?? workingDirectory(for: tileID)
+        if let liveDirectory = inheritedWorkingDirectory(for: tileID) {
+            return liveDirectory
+        }
+
+        return workingDirectory(for: tileID)
     }
 
     func recordInput(for tileID: UUID) {
@@ -154,48 +166,38 @@ final class GhosttyRuntime: ObservableObject {
 
     private func createApp(for tileID: UUID) -> ghostty_app_t? {
         guard errorMessage == nil else { return nil }
+        return withGhosttyConfig { config in
+            let context = AppContext(runtime: self, tileID: tileID)
+            let retainedContext = Unmanaged.passRetained(context)
+            let contextPointer = retainedContext.toOpaque()
+            TairiLog.write(
+                "ghostty creating app tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) selectedWorkspace=\(store.selectedWorkspaceID.uuidString) selectedTile=\(store.selectedTileID?.uuidString ?? "none")"
+            )
+            var runtimeConfig = ghostty_runtime_config_s(
+                userdata: contextPointer,
+                supports_selection_clipboard: true,
+                wakeup_cb: Self.wakeup,
+                action_cb: Self.action,
+                read_clipboard_cb: Self.readClipboard,
+                confirm_read_clipboard_cb: Self.confirmReadClipboard,
+                write_clipboard_cb: Self.writeClipboard,
+                close_surface_cb: Self.closeSurface
+            )
 
-        guard let config = tairi_ghostty_config_new() else {
-            errorMessage = "ghostty_config_new failed"
-            TairiLog.write(errorMessage ?? "ghostty_config_new failed")
-            return nil
+            guard let app = tairi_ghostty_app_new(&runtimeConfig, config) else {
+                retainedContext.release()
+                errorMessage = "ghostty_app_new failed"
+                TairiLog.write(errorMessage ?? "ghostty_app_new failed")
+                return nil
+            }
+
+            context.app = app
+            appContexts[tileID] = context
+            TairiLog.write(
+                "ghostty app created tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) app=\(Self.describeHandle(app))"
+            )
+            return app
         }
-        defer { tairi_ghostty_config_free(config) }
-
-        tairi_ghostty_config_load_default_files(config)
-        tairi_ghostty_config_load_recursive_files(config)
-        tairi_ghostty_config_finalize(config)
-
-        let context = AppContext(runtime: self, tileID: tileID)
-        let retainedContext = Unmanaged.passRetained(context)
-        let contextPointer = retainedContext.toOpaque()
-        TairiLog.write(
-            "ghostty creating app tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) selectedWorkspace=\(store.selectedWorkspaceID.uuidString) selectedTile=\(store.selectedTileID?.uuidString ?? "none")"
-        )
-        var runtimeConfig = ghostty_runtime_config_s(
-            userdata: contextPointer,
-            supports_selection_clipboard: true,
-            wakeup_cb: Self.wakeup,
-            action_cb: Self.action,
-            read_clipboard_cb: Self.readClipboard,
-            confirm_read_clipboard_cb: Self.confirmReadClipboard,
-            write_clipboard_cb: Self.writeClipboard,
-            close_surface_cb: Self.closeSurface
-        )
-
-        guard let app = tairi_ghostty_app_new(&runtimeConfig, config) else {
-            retainedContext.release()
-            errorMessage = "ghostty_app_new failed"
-            TairiLog.write(errorMessage ?? "ghostty_app_new failed")
-            return nil
-        }
-
-        context.app = app
-        appContexts[tileID] = context
-        TairiLog.write(
-            "ghostty app created tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer)) app=\(Self.describeHandle(app))"
-        )
-        return app
     }
 
     private func configureBundledGhosttyPaths() {
@@ -242,6 +244,67 @@ final class GhosttyRuntime: ObservableObject {
                     self.disposeSurface(tileID: tileID)
                 }
             }
+    }
+
+    private func observeSettings() {
+        settingsObserver = settings.$terminalExitBehavior
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] behavior in
+                self?.applyTerminalExitBehavior(behavior)
+            }
+    }
+
+    private func applyTerminalExitBehavior(_ behavior: TerminalExitBehavior) {
+        guard errorMessage == nil else { return }
+        TairiLog.write("ghostty updating terminalExitBehavior=\(behavior.rawValue)")
+
+        _ = withGhosttyConfig { config in
+            for context in appContexts.values {
+                if let app = context.app {
+                    tairi_ghostty_app_update_config(app, config)
+                }
+            }
+
+            for view in surfaces.values {
+                if let surface = view.surface {
+                    tairi_ghostty_surface_update_config(surface, config)
+                }
+            }
+
+            return ()
+        }
+    }
+
+    private func withGhosttyConfig<Result>(_ body: (ghostty_config_t) -> Result?) -> Result? {
+        guard let config = tairi_ghostty_config_new() else {
+            errorMessage = "ghostty_config_new failed"
+            TairiLog.write(errorMessage ?? "ghostty_config_new failed")
+            return nil
+        }
+        defer { tairi_ghostty_config_free(config) }
+
+        tairi_ghostty_config_load_default_files(config)
+        tairi_ghostty_config_load_recursive_files(config)
+        applyTairiOverrides(to: config)
+        tairi_ghostty_config_finalize(config)
+        return body(config)
+    }
+
+    private func applyTairiOverrides(to config: ghostty_config_t) {
+        let overrideURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tairi-\(UUID().uuidString).ghostty")
+        let overrideContents = "wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")\n"
+
+        do {
+            try overrideContents.write(to: overrideURL, atomically: true, encoding: .utf8)
+            defer { try? FileManager.default.removeItem(at: overrideURL) }
+
+            let path = overrideURL.path(percentEncoded: false)
+            path.withCString { tairi_ghostty_config_load_file(config, $0) }
+        } catch {
+            TairiLog.write("ghostty override write failed: \(error.localizedDescription)")
+        }
     }
 
     private func surfaceView(for tileID: UUID) -> GhosttySurfaceView {
@@ -366,9 +429,13 @@ final class GhosttyRuntime: ObservableObject {
         }
 
         let inheritedConfig = tairi_ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)
-        guard let workingDirectory = inheritedConfig.working_directory else { return nil }
+        guard let workingDirectory = inheritedConfig.working_directory,
+              let path = String(validatingCString: workingDirectory),
+              !path.isEmpty else {
+            return nil
+        }
 
-        return String(validatingCString: workingDirectory)
+        return path
     }
 
     private static let wakeup: ghostty_runtime_wakeup_cb = { userdata in
