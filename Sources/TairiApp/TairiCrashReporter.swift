@@ -29,8 +29,6 @@ final class TairiCrashReporter {
 
     nonisolated(unsafe) private static var signalMarkerPath: UnsafeMutablePointer<CChar>?
     private var didInstall = false
-    private var isPresentingPendingReport = false
-    private var pendingPresentationRetryScheduled = false
     private var pendingReportURL: URL?
 
     private init() {}
@@ -52,33 +50,6 @@ final class TairiCrashReporter {
         deleteItem(at: TairiPaths.signalMarkerURL)
         deleteItem(at: TairiPaths.exceptionMarkerURL)
         TairiLog.write("application terminated cleanly")
-    }
-
-    func presentPendingReportIfNeeded() {
-        guard let pendingReportURL else { return }
-        guard !isPresentingPendingReport else { return }
-        guard let window = pendingReportHostWindow() else {
-            schedulePendingReportPresentationRetry()
-            return
-        }
-
-        isPresentingPendingReport = true
-        pendingPresentationRetryScheduled = false
-        let alert = makePendingReportAlert(reportURL: pendingReportURL)
-        TairiLog.write("presenting pending crash report sheet window=\(describe(window: window))")
-
-        window.makeKeyAndOrderFront(nil)
-        alert.beginSheetModal(for: window) { [weak self] response in
-            guard let self else { return }
-
-            if response == .alertFirstButtonReturn {
-                NSWorkspace.shared.activateFileViewerSelecting([pendingReportURL])
-            }
-
-            self.pendingReportURL = nil
-            self.isPresentingPendingReport = false
-            TairiLog.write("dismissed pending crash report response=\(response.rawValue)")
-        }
     }
 
     private func archiveUnexpectedTerminationIfNeeded() {
@@ -223,54 +194,6 @@ final class TairiCrashReporter {
 
     private func deleteItem(at url: URL) {
         try? FileManager.default.removeItem(at: url)
-    }
-
-    private func makePendingReportAlert(reportURL: URL) -> NSAlert {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "tairi quit unexpectedly last time"
-        alert.informativeText = """
-        A crash report was saved to:
-        \(reportURL.path(percentEncoded: false))
-
-        Diagnostic reports may also be available in:
-        \(TairiPaths.diagnosticReportsDirectory.path(percentEncoded: false))
-        """
-        alert.addButton(withTitle: "Reveal Report")
-        alert.addButton(withTitle: "Dismiss")
-        return alert
-    }
-
-    private func pendingReportHostWindow() -> NSWindow? {
-        if let mainWindow = NSApp.mainWindow, isEligiblePendingReportHostWindow(mainWindow) {
-            return mainWindow
-        }
-
-        if let keyWindow = NSApp.keyWindow, isEligiblePendingReportHostWindow(keyWindow) {
-            return keyWindow
-        }
-
-        return NSApp.windows.first(where: isEligiblePendingReportHostWindow(_:))
-    }
-
-    private func isEligiblePendingReportHostWindow(_ window: NSWindow) -> Bool {
-        window.isVisible && !window.isMiniaturized && window.sheetParent == nil
-    }
-
-    private func schedulePendingReportPresentationRetry() {
-        guard pendingReportURL != nil else { return }
-        guard !pendingPresentationRetryScheduled else { return }
-
-        pendingPresentationRetryScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self else { return }
-            self.pendingPresentationRetryScheduled = false
-            self.presentPendingReportIfNeeded()
-        }
-    }
-
-    private func describe(window: NSWindow) -> String {
-        "#\(window.windowNumber)"
     }
 
     private func isoTimestamp(_ date: Date) -> String {
