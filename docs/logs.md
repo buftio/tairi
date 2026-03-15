@@ -1,0 +1,30 @@
+# Logs
+
+## Main files
+
+- Repo-local app log: `.local/logs/tairi.log`
+- Repo-local crash reports from the previous unexpected launch: `.local/logs/crash-reports/*.md`
+- macOS native crash dumps: `~/Library/Logs/DiagnosticReports/tairi-*.ips`
+
+## What they mean
+
+- `tairi.log` is the first place to look for app lifecycle and Ghostty runtime activity.
+- The Markdown crash report is a repo-local summary written on the next launch after an unexpected exit.
+- The macOS `.ips` report is the strongest signal when the OS recorded a native crash.
+
+## Normal shutdown vs unexpected exit
+
+- `application terminated cleanly` in `tairi.log` means the normal shutdown path ran.
+- If that line is missing, prefer the newest Markdown crash report over guessing.
+- If a Markdown crash report says `unexpected termination without a clean shutdown marker` and there is no new matching `.ips`, the app disappeared without a normal crash record.
+- That marker-only case can happen after `pkill`, force-quit, or replacing the running app during local verification.
+
+## Repro targets
+
+- Local dev: `just dev`
+- Packaged app: `just bundle` then `open -na dist/tairi.app`
+
+## When to prefer each
+
+- Use local dev for faster repro loops and debugger attach.
+- Use the packaged app when the bug may depend on bundle layout, embedded runtime, or codesigning.
