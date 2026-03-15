@@ -14,6 +14,12 @@ just vendor-ghostty
 just dev
 ```
 
+Custom startup strips can be passed through to the dev app:
+
+```sh
+just dev -- --strip 1,1,1 --strip 0.5,1
+```
+
 For a distributable bundle:
 
 ```sh

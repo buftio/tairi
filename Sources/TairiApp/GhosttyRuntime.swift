@@ -29,6 +29,7 @@ final class GhosttyRuntime: ObservableObject {
     let store: WorkspaceStore
     let interactionController: WorkspaceInteractionController
     let settings: AppSettings
+    let launchConfiguration: TairiLaunchConfiguration
     let actionAdapter = GhosttyActionAdapter()
     let sessionRegistry = GhosttySessionRegistry()
     var storeObserver: AnyCancellable?
@@ -38,10 +39,16 @@ final class GhosttyRuntime: ObservableObject {
     var lastInputAt: Date?
     private var pendingFocusedTileID: UUID?
 
-    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, settings: AppSettings) {
+    init(
+        store: WorkspaceStore,
+        interactionController: WorkspaceInteractionController,
+        settings: AppSettings,
+        launchConfiguration: TairiLaunchConfiguration
+    ) {
         self.store = store
         self.interactionController = interactionController
         self.settings = settings
+        self.launchConfiguration = launchConfiguration
         bootstrap()
         observeSettings()
         observeStore()
@@ -259,8 +266,15 @@ final class GhosttyRuntime: ObservableObject {
     }
 
     private func bootstrap() {
+        if let parseError = launchConfiguration.parseError {
+            errorMessage = parseError
+            TairiLog.write("launch configuration error: \(parseError)")
+            return
+        }
+
         configureBundledGhosttyPaths()
         TairiLog.write("bootstrap start")
+        TairiLog.write("launch strips=\(launchConfiguration.layoutSummary)")
         TairiLog.write("GHOSTTY_RESOURCES_DIR=\(ProcessInfo.processInfo.environment["GHOSTTY_RESOURCES_DIR"] ?? "unset")")
         TairiLog.write("TAIRI_BUNDLED_GHOSTTY_BIN=\(ProcessInfo.processInfo.environment["TAIRI_BUNDLED_GHOSTTY_BIN"] ?? "unset")")
 
@@ -281,7 +295,11 @@ final class GhosttyRuntime: ObservableObject {
             return
         }
 
-        if tairi_ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) != GHOSTTY_SUCCESS {
+        let didInitialize = launchConfiguration.withGhosttyArguments { argc, argv in
+            tairi_ghostty_init(argc, argv) == GHOSTTY_SUCCESS
+        }
+
+        if !didInitialize {
             errorMessage = "ghostty_init failed"
             TairiLog.write(errorMessage ?? "ghostty_init failed")
             return

@@ -6,8 +6,8 @@ default:
 build:
   swift build
 
-dev:
-  swift run tairi
+dev *args:
+  swift run tairi {{args}}
 
 dev-shell-diagnose:
   env TAIRI_TERMINAL_DIAG=1 swift run tairi

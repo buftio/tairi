@@ -104,17 +104,18 @@ final class WorkspaceStore: ObservableObject {
 
     init(
         initialTerminalWorkingDirectory: String = TerminalWorkingDirectory.defaultInitialLaunchDirectory(),
+        initialStrips: [TairiLaunchConfiguration.Strip] = TairiLaunchConfiguration.defaultStrips,
         initialTerminalSessionID: UUID = UUID()
     ) {
-        let first = Workspace(title: "01")
-        let second = Workspace(title: "02")
-        workspaces = [first, second]
-        selectedWorkspaceID = first.id
-        let tile = addTerminalTile(
-            workingDirectory: initialTerminalWorkingDirectory,
-            sessionID: initialTerminalSessionID
+        let initialState = Self.makeInitialState(
+            initialTerminalWorkingDirectory: initialTerminalWorkingDirectory,
+            initialStrips: initialStrips,
+            initialTerminalSessionID: initialTerminalSessionID
         )
-        selectedTileID = tile.id
+        workspaces = initialState.workspaces
+        selectedWorkspaceID = initialState.selectedWorkspaceID
+        selectedTileID = initialState.selectedTileID
+        normalize()
     }
 
     var selectedWorkspace: Workspace {

@@ -11,8 +11,11 @@ struct TairiApp: App {
 
     init() {
         TairiCrashReporter.shared.install()
+        let launchConfiguration = TairiLaunchConfiguration.fromProcessArguments()
         let settings = AppSettings()
-        let store = WorkspaceStore()
+        let store = WorkspaceStore(
+            initialStrips: launchConfiguration.resolvedInitialStrips
+        )
         let interactionController = WorkspaceInteractionController(store: store)
         _settings = StateObject(wrappedValue: settings)
         _store = StateObject(wrappedValue: store)
@@ -21,7 +24,8 @@ struct TairiApp: App {
             wrappedValue: GhosttyRuntime(
                 store: store,
                 interactionController: interactionController,
-                settings: settings
+                settings: settings,
+                launchConfiguration: launchConfiguration
             )
         )
         _chromeController = StateObject(wrappedValue: WindowChromeController())

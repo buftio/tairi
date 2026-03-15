@@ -41,6 +41,23 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(store.selectedTile).surface.terminalSessionID, sessionID)
     }
 
+    func testInitialStripsCreateOneWorkspacePerStripWithConfiguredWidths() throws {
+        let store = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: [
+                .init(tileWidthFactors: [1, 1, 1]),
+                .init(tileWidthFactors: [0.5, 1]),
+            ]
+        )
+
+        XCTAssertEqual(store.workspaces.count, 3)
+        XCTAssertEqual(store.workspaces[0].tiles.count, 3)
+        XCTAssertEqual(store.workspaces[1].tiles.count, 2)
+        XCTAssertTrue(store.workspaces[2].tiles.isEmpty)
+        XCTAssertEqual(store.workspaces[0].tiles[0].width, WorkspaceStore.WidthPreset.standard.width, accuracy: 0.001)
+        XCTAssertEqual(store.workspaces[1].tiles[0].width, WorkspaceStore.WidthPreset.standard.width * 0.5, accuracy: 0.001)
+    }
+
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
