@@ -272,44 +272,6 @@ final class GhosttySurfaceView: NSView {
         _ = tairi_ghostty_surface_key(surface, key)
     }
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.type == .keyDown, let surface else {
-            return super.performKeyEquivalent(with: event)
-        }
-
-        guard window?.firstResponder === self else {
-            return super.performKeyEquivalent(with: event)
-        }
-
-        var key = ghostty_input_key_s()
-        key.action = GHOSTTY_ACTION_PRESS
-        key.keycode = UInt32(event.keyCode)
-        key.mods = ghosttyMods(from: event.modifierFlags)
-        key.consumed_mods = ghosttyMods(from: event.modifierFlags.subtracting([.control, .command]))
-        key.composing = false
-
-        if let chars = event.characters(byApplyingModifiers: []), let scalar = chars.unicodeScalars.first {
-            key.unshifted_codepoint = scalar.value
-        }
-
-        var flags = ghostty_binding_flags_e(rawValue: 0)
-        if let text = event.ghosttyCharacters {
-            let isBinding = text.withCString { ptr in
-                key.text = ptr
-                return tairi_ghostty_surface_key_is_binding(surface, key, &flags)
-            }
-            if isBinding {
-                keyDown(with: event)
-                return true
-            }
-        } else if tairi_ghostty_surface_key_is_binding(surface, key, &flags) {
-            keyDown(with: event)
-            return true
-        }
-
-        return super.performKeyEquivalent(with: event)
-    }
-
     @IBAction func copy(_ sender: Any?) {
         performBindingAction("copy_to_clipboard")
     }
