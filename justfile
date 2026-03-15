@@ -9,6 +9,9 @@ build:
 dev:
   swift run tairi
 
+dev-shell-diagnose:
+  env TAIRI_TERMINAL_DIAG=1 swift run tairi
+
 vendor-ghostty source="/Applications/Ghostty.app":
   ./scripts/vendor-ghostty.sh "{{source}}"
 
@@ -33,3 +36,6 @@ clean-dist:
 rebuild-app:
   just clean-dist
   just bundle
+
+diagnose-claude mode="plain":
+  if [[ "{{mode}}" == "with-cmux-hooks" ]]; then ./scripts/diagnose-claude.sh --with-cmux-hooks; else ./scripts/diagnose-claude.sh --without-hooks; fi

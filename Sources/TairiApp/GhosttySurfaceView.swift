@@ -29,6 +29,16 @@ final class GhosttySurfaceView: NSView {
     private var lastLoggedScale = CGSize.zero
     private var lastLoggedDisplayID: UInt32?
     private var lastLoggedWindowNumber: Int?
+    private static let terminalDiagnosticCommand: String? = {
+        guard ProcessInfo.processInfo.environment["TAIRI_TERMINAL_DIAG"] == "1" else {
+            return nil
+        }
+
+        let command = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("scripts/diagnose-shell-session.zsh")
+            .path(percentEncoded: false)
+        return FileManager.default.isExecutableFile(atPath: command) ? command : nil
+    }()
 
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -54,7 +64,15 @@ final class GhosttySurfaceView: NSView {
                 config.working_directory = path
                 config.wait_after_command = runtime.waitAfterCommandEnabled
                 config.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
-                surface = tairi_ghostty_surface_new(app, &config)
+                if let command = Self.terminalDiagnosticCommand {
+                    TairiLog.write("ghostty diagnostic shell wrapper enabled tile=\(tileID.uuidString) command=\(command)")
+                    command.withCString { commandCString in
+                        config.command = commandCString
+                        surface = tairi_ghostty_surface_new(app, &config)
+                    }
+                } else {
+                    surface = tairi_ghostty_surface_new(app, &config)
+                }
             }
         }
 
@@ -254,6 +272,56 @@ final class GhosttySurfaceView: NSView {
         _ = tairi_ghostty_surface_key(surface, key)
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown, let surface else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        guard window?.firstResponder === self else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        var key = ghostty_input_key_s()
+        key.action = GHOSTTY_ACTION_PRESS
+        key.keycode = UInt32(event.keyCode)
+        key.mods = ghosttyMods(from: event.modifierFlags)
+        key.consumed_mods = ghosttyMods(from: event.modifierFlags.subtracting([.control, .command]))
+        key.composing = false
+
+        if let chars = event.characters(byApplyingModifiers: []), let scalar = chars.unicodeScalars.first {
+            key.unshifted_codepoint = scalar.value
+        }
+
+        var flags = ghostty_binding_flags_e(rawValue: 0)
+        if let text = event.ghosttyCharacters {
+            let isBinding = text.withCString { ptr in
+                key.text = ptr
+                return tairi_ghostty_surface_key_is_binding(surface, key, &flags)
+            }
+            if isBinding {
+                keyDown(with: event)
+                return true
+            }
+        } else if tairi_ghostty_surface_key_is_binding(surface, key, &flags) {
+            keyDown(with: event)
+            return true
+        }
+
+        return super.performKeyEquivalent(with: event)
+    }
+
+    @IBAction func copy(_ sender: Any?) {
+        performBindingAction("copy_to_clipboard")
+    }
+
+    @IBAction func paste(_ sender: Any?) {
+        performBindingAction("paste_from_clipboard")
+    }
+
+    @IBAction override func selectAll(_ sender: Any?) {
+        performBindingAction("select_all")
+    }
+
     private func sendMouseButton(
         _ event: NSEvent,
         state: ghostty_input_mouse_state_e,
@@ -376,6 +444,13 @@ final class GhosttySurfaceView: NSView {
         if flags.contains(.command) { value |= GHOSTTY_MODS_SUPER.rawValue }
         if flags.contains(.capsLock) { value |= GHOSTTY_MODS_CAPS.rawValue }
         return ghostty_input_mods_e(rawValue: value)
+    }
+
+    private func performBindingAction(_ action: String) {
+        guard let surface else { return }
+        action.withCString { ptr in
+            _ = tairi_ghostty_surface_binding_action(surface, ptr, uintptr_t(action.lengthOfBytes(using: .utf8)))
+        }
     }
 
     private func logLifecycle(_ message: String) {

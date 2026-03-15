@@ -30,6 +30,7 @@ final class GhosttyRuntime: ObservableObject {
     private var didInstallAppObservers = false
     private var lastInputTileID: UUID?
     private var lastInputAt: Date?
+    private var tileLifecycle: [UUID: GhosttyTileLifecycle] = [:]
 
     init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, settings: AppSettings) {
         self.store = store
@@ -338,6 +339,25 @@ final class GhosttyRuntime: ObservableObject {
         }
         TairiLog.write("ghostty releasing context tile=\(tileID.uuidString) context=\(TairiLog.pointer(contextPointer))")
         Unmanaged.passUnretained(context).release()
+        tileLifecycle.removeValue(forKey: tileID)
+    }
+
+    private func lifecycleSummary(for tileID: UUID, referenceDate: Date = Date()) -> String {
+        let currentTile = store.tile(tileID)
+        let lifecycle = tileLifecycle[tileID] ?? GhosttyTileLifecycle(
+            title: currentTile?.title ?? "shell",
+            pwd: currentTile?.pwd
+        )
+        return lifecycle.summary(referenceDate: referenceDate)
+    }
+
+    private func mutateLifecycle(for tileID: UUID, _ transform: (inout GhosttyTileLifecycle) -> Void) {
+        var lifecycle = tileLifecycle[tileID] ?? GhosttyTileLifecycle(
+            title: store.tile(tileID)?.title ?? "shell",
+            pwd: store.tile(tileID)?.pwd
+        )
+        transform(&lifecycle)
+        tileLifecycle[tileID] = lifecycle
     }
 
     private func logAction(_ tag: ghostty_action_tag_e, tileID: UUID?, target: ghostty_target_s) {
@@ -395,10 +415,14 @@ final class GhosttyRuntime: ObservableObject {
             return true
 
         case .updateTitle(let tileID, let title):
+            mutateLifecycle(for: tileID) { $0.title = title.isEmpty ? "shell" : title }
+            TairiLog.write("ghostty title update tile=\(tileID.uuidString) value=\(title.debugDescription)")
             store.updateTitle(title, for: tileID)
             return true
 
         case .updatePWD(let tileID, let pwd):
+            mutateLifecycle(for: tileID) { $0.pwd = pwd }
+            TairiLog.write("ghostty pwd update tile=\(tileID.uuidString) value=\(pwd.debugDescription)")
             store.updatePWD(pwd, for: tileID)
             return true
 
@@ -407,15 +431,20 @@ final class GhosttyRuntime: ObservableObject {
             return true
 
         case .childExited(let tileID, let exitCode, let reason):
-            TairiLog.write("ghostty child exited tile=\(tileID.uuidString) exitCode=\(exitCode) reason=\(reason.rawValue)")
-            guard shouldAcceptExit(for: tileID, reason: reason.rawValue) else {
-                return true
-            }
-            store.closeTile(tileID)
+            let summary = lifecycleSummary(for: tileID)
+            TairiLog.write(
+                "ghostty child exited tile=\(tileID.uuidString) exitCode=\(exitCode) reason=\(reason.rawValue) \(summary)"
+            )
+            TairiLog.write("ghostty keeping tile=\(tileID.uuidString) open until close_surface confirms the session ended")
             return true
 
         case .commandFinished(let tileID, let exitCode):
-            TairiLog.write("ghostty command finished tile=\(tileID.uuidString) exitCode=\(exitCode)")
+            mutateLifecycle(for: tileID) {
+                $0.lastCommandFinish = GhosttyTileLifecycle.CommandFinish(exitCode: exitCode, recordedAt: Date())
+            }
+            TairiLog.write(
+                "ghostty command finished tile=\(tileID.uuidString) exitCode=\(exitCode) \(lifecycleSummary(for: tileID))"
+            )
             return true
 
         case .ignore:
@@ -478,7 +507,7 @@ final class GhosttyRuntime: ObservableObject {
         return runtime.handle(action: action, target: target)
     }
 
-    private static let readClipboard: ghostty_runtime_read_clipboard_cb = { userdata, _, state in
+    private static let readClipboard: ghostty_runtime_read_clipboard_cb = { userdata, location, state in
         guard let userdata else {
             TairiLog.write("ghostty readClipboard dropped reason=missing_userdata")
             return false
@@ -488,7 +517,11 @@ final class GhosttyRuntime: ObservableObject {
             TairiLog.write("ghostty readClipboard dropped tile=\(view.tileID.uuidString) reason=surface_nil")
             return false
         }
-        guard let value = NSPasteboard.general.string(forType: .string) else {
+        guard let pasteboard = TerminalPasteboard.pasteboard(for: location) else {
+            TairiLog.write("ghostty readClipboard dropped tile=\(view.tileID.uuidString) reason=unsupported_pasteboard location=\(location.rawValue)")
+            return false
+        }
+        guard let value = TerminalPasteboard.preferredPasteString(from: pasteboard) else {
             TairiLog.write("ghostty readClipboard empty tile=\(view.tileID.uuidString)")
             return false
         }
@@ -526,7 +559,7 @@ final class GhosttyRuntime: ObservableObject {
         let view = Unmanaged<GhosttySurfaceView>.fromOpaque(userdata).takeUnretainedValue()
         let processExited = view.surface.map(tairi_ghostty_surface_process_exited) ?? false
         TairiLog.write(
-            "ghostty close_surface tile=\(view.tileID.uuidString) processAlive=\(processAlive) processExited=\(processExited)"
+            "ghostty close_surface tile=\(view.tileID.uuidString) processAlive=\(processAlive) processExited=\(processExited) \(view.runtime.lifecycleSummary(for: view.tileID))"
         )
 
         guard processExited else {
