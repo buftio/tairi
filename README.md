@@ -20,13 +20,13 @@ For a distributable bundle:
 just app
 ```
 
-To build and install into Applications:
+To build and install into ~/Applications:
 
 ```sh
 just install
 ```
 
-If `/Applications` is not writable, the install script falls back to `~/Applications`.
+`just install` updates the existing installed copy if one already exists.
 
 The bundled runtime is placed at:
 
