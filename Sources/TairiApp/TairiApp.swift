@@ -94,6 +94,21 @@ struct TairiApp: App {
                     chromeController.toggleSidebarVisibility()
                 }
                 .keyboardShortcut("b", modifiers: [.command, .option])
+
+                Divider()
+
+                Button("Zoom Out Overview") {
+                    interactionController.zoomOutCanvas()
+                }
+                .keyboardShortcut("-", modifiers: [.command, .option])
+
+                Button("Zoom In Selection") {
+                    interactionController.zoomInOnSelection(transition: .animatedReveal)
+                    if let selectedTileID = store.selectedTileID {
+                        runtime.focusSurface(tileID: selectedTileID)
+                    }
+                }
+                .keyboardShortcut("=", modifiers: [.command, .option])
             }
         }
         Settings {

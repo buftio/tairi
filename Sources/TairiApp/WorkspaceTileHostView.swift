@@ -4,6 +4,8 @@ import AppKit
 final class WorkspaceTileHostView: NSView {
     private enum Metrics {
         static let cornerRadius: CGFloat = 16
+        static let compactCornerRadius: CGFloat = 8
+        static let compactCornerRadiusThreshold: CGFloat = 260
         static let headerHeight: CGFloat = 62
         static let headerPadding: CGFloat = 14
         static let closeButtonSize: CGFloat = 12
@@ -86,6 +88,7 @@ final class WorkspaceTileHostView: NSView {
 
     override func layout() {
         super.layout()
+        layer?.cornerRadius = effectiveCornerRadius()
 
         headerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
         titleField.frame = NSRect(
@@ -116,6 +119,9 @@ final class WorkspaceTileHostView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if workspaceCanvasDocumentView()?.handleTileOverviewClick(tileID) == true {
+            return
+        }
         runtime.focus(tileID: tileID, transition: .animatedReveal)
         super.mouseDown(with: event)
     }
@@ -157,6 +163,13 @@ final class WorkspaceTileHostView: NSView {
             ancestor = view.superview
         }
         return nil
+    }
+
+    private func effectiveCornerRadius() -> CGFloat {
+        let compactDimension = min(bounds.width, bounds.height)
+        return compactDimension < Metrics.compactCornerRadiusThreshold
+            ? Metrics.compactCornerRadius
+            : Metrics.cornerRadius
     }
 }
 

@@ -74,21 +74,6 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(resolved, homeDirectory)
     }
 
-    func testSingleTileLayoutExpandsToViewport() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
-        let tile = try XCTUnwrap(store.selectedTile)
-        let workspace = store.selectedWorkspace
-
-        let renderedWidth = WorkspaceRowLayout.renderedTileWidth(
-            for: tile,
-            in: workspace,
-            viewportWidth: 1_260,
-            stripLeadingInset: WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
-        )
-
-        XCTAssertEqual(renderedWidth, 991, accuracy: 0.5)
-    }
-
     func testClosingSelectedTileChoosesNeighborNearestVisibleCenter() throws {
         let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)

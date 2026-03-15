@@ -10,4 +10,11 @@ final class WorkspaceCanvasScrollView: NSScrollView {
         }
         super.scrollWheel(with: event)
     }
+
+    override func magnify(with event: NSEvent) {
+        if canvasDocumentView?.handleMagnify(event, preferredTileID: nil) == true {
+            return
+        }
+        super.magnify(with: event)
+    }
 }

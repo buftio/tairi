@@ -3,14 +3,12 @@ import SwiftUI
 // MARK: - Section enum
 
 private enum SettingsSection: String, CaseIterable, Identifiable {
-    case general = "General"
     case terminal = "Terminal"
 
     var id: Self { self }
 
     var icon: String {
         switch self {
-        case .general: "gearshape"
         case .terminal: "terminal"
         }
     }
@@ -112,20 +110,8 @@ struct SettingsView: View {
     @ViewBuilder
     private var sectionBody: some View {
         switch selectedSection {
-        case .general:
-            generalSection
         case .terminal:
             terminalSection
-        }
-    }
-
-    // MARK: General
-
-    private var generalSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            settingsCard {
-                placeholderRow(label: "No general settings yet.")
-            }
         }
     }
 

@@ -7,6 +7,7 @@ private enum Identifiers {
     static let workspaceSidebar = "workspace-sidebar"
     static let workspaceList = "workspace-list"
     static let workspaceTitle = "workspace-title"
+    static let workspaceCanvas = "workspace-canvas"
     static let widthPicker = "tile-width-picker"
     static let newTileButton = "new-tile-button"
     static let nextWorkspaceButton = "next-workspace-button"
@@ -82,6 +83,33 @@ final class TairiUITests: XCTestCase {
         XCTAssertLessThanOrEqual(tileGap, 24)
     }
 
+    func testZoomOutOverviewAndClickZoomIn() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        XCTAssertTrue(app.buttons[Identifiers.newTileButton].waitForExistence(timeout: 10))
+        app.buttons[Identifiers.newTileButton].click()
+        XCTAssertEqual(tileQuery(in: app).count, 2)
+
+        let canvas = app.otherElements[Identifiers.workspaceCanvas]
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+
+        let firstTile = tileQuery(in: app).element(boundBy: 0)
+        let secondTile = tileQuery(in: app).element(boundBy: 1)
+        XCTAssertTrue(firstTile.waitForExistence(timeout: 5))
+        XCTAssertTrue(secondTile.waitForExistence(timeout: 5))
+
+        let focusedWidth = secondTile.frame.width
+
+        app.typeKey("-", modifierFlags: [.command, .option])
+        XCTAssertTrue(waitForValue(of: canvas, toEqual: "overview"))
+        XCTAssertTrue(waitForFrameWidth(of: secondTile, toBeLessThan: focusedWidth * 0.8))
+
+        firstTile.click()
+        XCTAssertTrue(waitForValue(of: canvas, toEqual: "focused"))
+        XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: focusedWidth * 0.9))
+    }
+
     private func launchApp() throws -> XCUIApplication {
         let app = XCUIApplication(bundleIdentifier: bundleIdentifier)
         app.terminate()
@@ -124,5 +152,41 @@ final class TairiUITests: XCTestCase {
 
     private func tileQuery(in app: XCUIApplication) -> XCUIElementQuery {
         app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "workspace-tile-"))
+    }
+
+    private func waitForFrameWidth(
+        of element: XCUIElement,
+        toBeLessThan threshold: CGFloat,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            element.frame.width < threshold
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForFrameWidth(
+        of element: XCUIElement,
+        toBeGreaterThan threshold: CGFloat,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            element.frame.width > threshold
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForValue(
+        of element: XCUIElement,
+        toEqual expectedValue: String,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            element.value as? String == expectedValue
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 }

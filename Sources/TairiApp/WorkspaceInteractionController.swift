@@ -2,6 +2,11 @@ import AppKit
 
 @MainActor
 final class WorkspaceInteractionController: ObservableObject {
+    enum CanvasZoomMode: Equatable {
+        case focused
+        case overview
+    }
+
     enum TileTransition: Equatable {
         case immediate
         case animatedReveal
@@ -41,12 +46,17 @@ final class WorkspaceInteractionController: ObservableObject {
     @Published private(set) var canvasTransition: CanvasTransition?
     @Published private(set) var tileCloseAnimation: TileCloseAnimation?
     @Published private(set) var tileOpenAnimation: TileOpenAnimation?
+    @Published private(set) var canvasZoomMode: CanvasZoomMode = .focused
 
     private let store: WorkspaceStore
     private var nextTransitionID = 1
 
-    init(store: WorkspaceStore) {
+    init(
+        store: WorkspaceStore,
+        initialCanvasZoomMode: CanvasZoomMode = .focused
+    ) {
         self.store = store
+        canvasZoomMode = initialCanvasZoomMode
     }
 
     func selectWorkspace(
@@ -141,6 +151,17 @@ final class WorkspaceInteractionController: ObservableObject {
         publishTransition(for: tileID, transition: transition)
     }
 
+    func zoomOutCanvas() {
+        guard canvasZoomMode != .overview else { return }
+        canvasZoomMode = .overview
+    }
+
+    func zoomInOnSelection(transition: TileTransition = .animatedReveal) {
+        canvasZoomMode = .focused
+        guard let selectedTileID = store.selectedTileID else { return }
+        publishTransition(for: selectedTileID, transition: transition)
+    }
+
     func animateTileClose(
         workspaceID: UUID,
         insertionIndex: Int,
@@ -162,6 +183,10 @@ final class WorkspaceInteractionController: ObservableObject {
     }
 
     private func publishTransition(for tileID: UUID, transition: TileTransition) {
+        if transition != .preserveViewport, canvasZoomMode == .overview {
+            canvasZoomMode = .focused
+        }
+
         let kind: CanvasTransition.Kind
         switch transition {
         case .immediate:

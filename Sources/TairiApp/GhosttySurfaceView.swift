@@ -177,6 +177,11 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if let tileID = attachedTileID,
+           let canvasDocumentView = workspaceCanvasDocumentView(),
+           canvasDocumentView.handleTileOverviewClick(tileID) {
+            return
+        }
         recordInputIfAttached()
         focusAttachedTile(transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT)
@@ -224,7 +229,21 @@ final class GhosttySurfaceView: NSView {
         tairi_ghostty_surface_mouse_scroll(surface, deltaX, deltaY, ghosttyScrollMods(from: event))
     }
 
+    override func magnify(with event: NSEvent) {
+        if let canvasDocumentView = workspaceCanvasDocumentView(),
+           canvasDocumentView.handleMagnify(event, preferredTileID: attachedTileID) {
+            return
+        }
+        super.magnify(with: event)
+    }
+
     override func keyDown(with event: NSEvent) {
+        if let canvasDocumentView = workspaceCanvasDocumentView(),
+           let zoomDirection = canvasZoomDirection(for: event),
+           canvasDocumentView.handleZoomKeyCommand(zoomDirection, preferredTileID: attachedTileID) {
+            return
+        }
+
         if let canvasDocumentView = workspaceCanvasDocumentView(),
            let tileID = attachedTileID,
            let tileOffset = tileNavigationOffset(for: event),
@@ -264,7 +283,9 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func keyUp(with event: NSEvent) {
-        if workspaceNavigationOffset(for: event) != nil || tileNavigationOffset(for: event) != nil {
+        if workspaceNavigationOffset(for: event) != nil
+            || tileNavigationOffset(for: event) != nil
+            || canvasZoomDirection(for: event) != nil {
             return
         }
 
@@ -408,6 +429,21 @@ final class GhosttySurfaceView: NSView {
             return -1
         case 124:
             return 1
+        default:
+            return nil
+        }
+    }
+
+    private func canvasZoomDirection(for event: NSEvent) -> WorkspaceCanvasZoomController.Command? {
+        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
+        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard activeModifiers.contains(requiredModifiers) else { return nil }
+
+        switch event.keyCode {
+        case 24, 69:
+            return .zoomIn
+        case 27, 78:
+            return .zoomOut
         default:
             return nil
         }

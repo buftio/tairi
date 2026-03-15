@@ -47,6 +47,7 @@ struct WindowAccessor: NSViewRepresentable {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime

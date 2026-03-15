@@ -19,7 +19,6 @@ final class AppSettingsTests: XCTestCase {
         let reloadedSettings = AppSettings(userDefaults: userDefaults)
         XCTAssertEqual(reloadedSettings.terminalExitBehavior, .closeImmediately)
     }
-
     private func makeUserDefaults() -> UserDefaults {
         let suiteName = "tairi.tests.app-settings.\(UUID().uuidString)"
         let userDefaults = UserDefaults(suiteName: suiteName)!

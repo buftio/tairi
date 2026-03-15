@@ -19,6 +19,7 @@ struct WorkspaceCanvasView: NSViewRepresentable {
             selectedTileID: store.selectedTileID,
             allTileIDs: allTileIDs,
             canvasTransition: interactionController.canvasTransition,
+            canvasZoomMode: interactionController.canvasZoomMode,
             tileCloseAnimation: interactionController.tileCloseAnimation,
             tileOpenAnimation: interactionController.tileOpenAnimation,
             sidebarHidden: sidebarHidden
@@ -28,21 +29,27 @@ struct WorkspaceCanvasView: NSViewRepresentable {
 
 @MainActor
 final class WorkspaceCanvasContainerView: NSView {
+    private let store: WorkspaceStore
     private let scrollView = WorkspaceCanvasScrollView()
     private let documentView: WorkspaceCanvasDocumentView
     private var lastSelectedTileID: UUID?
     private var lastSelectedWorkspaceID: UUID?
     private var lastCanvasTransitionID: Int?
+    private var lastCanvasZoomMode: WorkspaceInteractionController.CanvasZoomMode = .focused
     private var lastTileCloseAnimationID: Int?
     private var lastTileOpenAnimationID: Int?
     private var currentSelectedWorkspaceID: UUID?
     private var currentSelectedTileID: UUID?
+    private var currentCanvasZoomMode: WorkspaceInteractionController.CanvasZoomMode = .focused
     private var currentSidebarHidden = false
     private var shouldSuppressFallbackReveal = false
     private var hasStabilizedInitialViewport = false
     private var lastSidebarHidden: Bool?
+    private var pendingRevealRequest: (tileID: UUID, animated: Bool)?
+    private var pendingSidebarClearRevealAnimated: Bool?
 
     init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
+        self.store = store
         documentView = WorkspaceCanvasDocumentView(
             store: store,
             interactionController: interactionController,
@@ -88,26 +95,35 @@ final class WorkspaceCanvasContainerView: NSView {
         selectedTileID: UUID?,
         allTileIDs: Set<UUID>,
         canvasTransition: WorkspaceInteractionController.CanvasTransition?,
+        canvasZoomMode: WorkspaceInteractionController.CanvasZoomMode,
         tileCloseAnimation: WorkspaceInteractionController.TileCloseAnimation?,
         tileOpenAnimation: WorkspaceInteractionController.TileOpenAnimation?,
         sidebarHidden: Bool
     ) {
         currentSelectedWorkspaceID = selectedWorkspaceID
         currentSelectedTileID = selectedTileID
+        currentCanvasZoomMode = canvasZoomMode
         currentSidebarHidden = sidebarHidden
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
             selectedTileID: selectedTileID,
             allTileIDs: allTileIDs,
+            canvasZoomMode: canvasZoomMode,
             sidebarHidden: sidebarHidden
         )
+        setAccessibilityValue(canvasZoomMode == .overview ? "overview" : "focused")
         documentView.viewportSize = scrollView.contentView.bounds.size
 
-        if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
+        if canvasZoomMode == .overview {
+            if lastCanvasZoomMode != .overview {
+                shouldSuppressFallbackReveal = true
+                documentView.scrollOverviewToOrigin(animated: !TairiEnvironment.isUITesting)
+            }
+        } else if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
             switch canvasTransition.kind {
             case .reveal(let tileID, let animated):
-                documentView.revealTile(tileID, animated: animated)
+                scheduleReveal(tileID: tileID, animated: animated)
                 shouldSuppressFallbackReveal = false
             case .preserveViewport:
                 shouldSuppressFallbackReveal = true
@@ -117,7 +133,7 @@ final class WorkspaceCanvasContainerView: NSView {
                   lastSelectedTileID != selectedTileID,
                   let selectedTileID,
                   !shouldSuppressFallbackReveal {
-            documentView.revealTile(selectedTileID, animated: false)
+            scheduleReveal(tileID: selectedTileID, animated: false)
         } else {
             shouldSuppressFallbackReveal = false
         }
@@ -132,7 +148,9 @@ final class WorkspaceCanvasContainerView: NSView {
             lastTileOpenAnimationID = tileOpenAnimation.id
         }
 
-        if lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID {
+        if canvasZoomMode != .overview,
+           !documentView.isManagingAnchoredZoomTransition,
+           lastCanvasZoomMode == .overview || lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID {
             documentView.scrollWorkspaceToVisible(
                 selectedWorkspaceID,
                 preserveHorizontalOrigin: true,
@@ -143,11 +161,12 @@ final class WorkspaceCanvasContainerView: NSView {
         documentView.layoutSubtreeIfNeeded()
         stabilizeInitialViewportIfNeeded()
         if lastSidebarHidden == true, !sidebarHidden {
-            documentView.ensureSelectedTileClearsSidebar(animated: !TairiEnvironment.isUITesting)
+            scheduleSidebarClearReveal(animated: !TairiEnvironment.isUITesting)
         }
 
         lastSelectedTileID = selectedTileID
         lastSelectedWorkspaceID = selectedWorkspaceID
+        lastCanvasZoomMode = canvasZoomMode
         lastSidebarHidden = sidebarHidden
     }
 
@@ -160,8 +179,20 @@ final class WorkspaceCanvasContainerView: NSView {
         }
 
         if let currentSelectedTileID {
-            documentView.revealTile(currentSelectedTileID, animated: false)
+            scheduleReveal(tileID: currentSelectedTileID, animated: false)
         }
+
+        let allTileIDs = Set(store.workspaces.flatMap(\.tiles).map(\.id))
+        documentView.update(
+            workspaces: store.workspaces,
+            selectedWorkspaceID: store.selectedWorkspaceID,
+            selectedTileID: store.selectedTileID,
+            allTileIDs: allTileIDs,
+            canvasZoomMode: currentCanvasZoomMode,
+            sidebarHidden: currentSidebarHidden
+        )
+        documentView.viewportSize = scrollView.contentView.bounds.size
+        documentView.layoutSubtreeIfNeeded()
 
         documentView.scrollWorkspaceToVisible(
             currentSelectedWorkspaceID,
@@ -169,6 +200,32 @@ final class WorkspaceCanvasContainerView: NSView {
             animated: false
         )
         hasStabilizedInitialViewport = true
+    }
+
+    private func scheduleReveal(tileID: UUID, animated: Bool) {
+        pendingRevealRequest = (tileID: tileID, animated: animated)
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  let request = self.pendingRevealRequest,
+                  self.window != nil else {
+                return
+            }
+            self.pendingRevealRequest = nil
+            self.documentView.revealTile(request.tileID, animated: request.animated)
+        }
+    }
+
+    private func scheduleSidebarClearReveal(animated: Bool) {
+        pendingSidebarClearRevealAnimated = animated
+        DispatchQueue.main.async { [weak self] in
+            guard let self,
+                  let animated = self.pendingSidebarClearRevealAnimated,
+                  self.window != nil else {
+                return
+            }
+            self.pendingSidebarClearRevealAnimated = nil
+            self.documentView.ensureSelectedTileClearsSidebar(animated: animated)
+        }
     }
 }
 
@@ -179,14 +236,24 @@ final class WorkspaceCanvasDocumentView: NSView {
         static let workspaceScrollAnimationDuration: TimeInterval = 0.22
     }
 
+    private struct AnchoredZoomTransition {
+        let tileID: UUID
+        let startOrigin: NSPoint
+        let targetOrigin: NSPoint
+        let initialOverviewProgress: CGFloat
+    }
+
     private let store: WorkspaceStore
     private let interactionController: WorkspaceInteractionController
     private let runtime: GhosttyRuntime
     private let animator = WorkspaceCanvasAnimator()
+    private let zoomController = WorkspaceCanvasZoomController()
+    private let overviewRenderer = WorkspaceCanvasOverviewRenderer()
 
     private var workspaces: [WorkspaceStore.Workspace] = []
     private var selectedWorkspaceID: UUID?
     private var selectedTileID: UUID?
+    private var zoomMode: WorkspaceInteractionController.CanvasZoomMode = .focused
     private var tileViews: [UUID: WorkspaceTileHostView] = [:]
     private var resizeHandles: [UUID: WorkspaceTileResizeHandleView] = [:]
     private var closingTileSnapshotView: WorkspaceClosingSnapshotView?
@@ -200,6 +267,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     private var workspaceScrollAnimationStartOrigin: NSPoint = .zero
     private var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
     private var workspaceScrollAnimationStartedAt = Date.distantPast
+    private var anchoredZoomTransition: AnchoredZoomTransition?
 
     private var targetStripLeadingInset: CGFloat {
         WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: isSidebarHidden)
@@ -214,6 +282,10 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     override var isFlipped: Bool { true }
 
+    var isManagingAnchoredZoomTransition: Bool {
+        anchoredZoomTransition != nil
+    }
+
     init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
         self.store = store
         self.interactionController = interactionController
@@ -223,6 +295,12 @@ final class WorkspaceCanvasDocumentView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
         animator.onChange = { [weak self] in
             self?.needsLayout = true
+        }
+        zoomController.onChange = { [weak self] in
+            self?.needsLayout = true
+        }
+        overviewRenderer.onTileActivated = { [weak self] tileID in
+            self?.activateOverviewTile(tileID)
         }
     }
 
@@ -236,11 +314,13 @@ final class WorkspaceCanvasDocumentView: NSView {
         selectedWorkspaceID: UUID,
         selectedTileID: UUID?,
         allTileIDs: Set<UUID>,
+        canvasZoomMode: WorkspaceInteractionController.CanvasZoomMode,
         sidebarHidden: Bool
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.selectedTileID = selectedTileID
+        zoomMode = canvasZoomMode
         isSidebarHidden = sidebarHidden
         animator.syncRenderedStripLeadingInset(
             sidebarHidden: sidebarHidden,
@@ -248,6 +328,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         )
 
         let handleIDs = Set(workspaces.flatMap { $0.tiles.dropLast() }.map(\.id))
+        let shouldKeepTileViewsInDocument = canvasZoomMode != .overview
 
         for (tileID, view) in tileViews where !allTileIDs.contains(tileID) {
             view.dispose()
@@ -269,7 +350,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         for workspace in workspaces {
             for tile in workspace.tiles {
                 let tileView = tileViews[tile.id] ?? makeTileView(for: tile.id)
-                if tileView.superview !== self {
+                if shouldKeepTileViewsInDocument, tileView.superview !== self {
                     tileView.removeFromSuperview()
                     addSubview(tileView)
                 }
@@ -283,6 +364,16 @@ final class WorkspaceCanvasDocumentView: NSView {
         }
 
         animator.syncRenderedHorizontalOffsets(for: workspaces)
+        zoomController.sync(
+            mode: zoomMode,
+            animated: !TairiEnvironment.isUITesting
+        )
+        overviewRenderer.sync(
+            tileViews: tileViews,
+            allTileIDs: allTileIDs,
+            isOverviewPresented: zoomController.isOverviewPresented,
+            hostView: self
+        )
 
         needsLayout = true
     }
@@ -292,72 +383,121 @@ final class WorkspaceCanvasDocumentView: NSView {
 
         let viewportWidth = max(viewportSize.width, 1)
         let viewportHeight = max(viewportSize.height, 1)
-        let tileHeight = currentTileHeight()
-        let rowHeight = currentRowHeight()
+        let baseTileHeight = baseTileHeight()
+        let baseRowHeight = self.baseRowHeight()
+        let baseRowSpacing = WorkspaceCanvasLayoutMetrics.rowSpacing
+        let baseVerticalPadding = WorkspaceCanvasLayoutMetrics.verticalPadding
+        let baseTileSpacing = WorkspaceCanvasLayoutMetrics.tileSpacing
+        let scale = zoomController.scale(
+            mode: zoomMode,
+            viewportSize: viewportSize,
+            workspaces: workspaces,
+            stripLeadingInset: targetStripLeadingInset
+        )
         let stripLeadingInset = animator.effectiveStripLeadingInset(sidebarHidden: isSidebarHidden)
+        let anchorX = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+        let isOverviewPresented = zoomController.isOverviewPresented
+        let overviewTileHeight = baseTileHeight * scale
+        let overviewRowHeight = baseRowHeight * scale
+        let overviewRowSpacing = baseRowSpacing * scale
+        let overviewVerticalPadding = baseVerticalPadding * scale
+        let overviewTileSpacing = baseTileSpacing * scale
+
+        overviewRenderer.sync(
+            tileViews: tileViews,
+            allTileIDs: Set(tileViews.keys),
+            isOverviewPresented: isOverviewPresented,
+            hostView: self
+        )
 
         for (workspaceIndex, workspace) in workspaces.enumerated() {
-            let rowOriginY = CGFloat(workspaceIndex) * (rowHeight + WorkspaceCanvasLayoutMetrics.rowSpacing)
-            var x = stripLeadingInset
-                + WorkspaceCanvasLayoutMetrics.horizontalPadding
-                - animator.effectiveHorizontalOffset(for: workspace)
+            let focusedRowOriginY = CGFloat(workspaceIndex) * (baseRowHeight + baseRowSpacing)
+            let overviewRowOriginY = CGFloat(workspaceIndex) * (overviewRowHeight + overviewRowSpacing)
+            var focusedX = anchorX - animator.effectiveHorizontalOffset(for: workspace)
+            var overviewX = anchorX
+                - zoomController.effectiveHorizontalOffset(animator.effectiveHorizontalOffset(for: workspace)) * scale
 
             for (tileIndex, tile) in workspace.tiles.enumerated() {
                 let gapWidth = animator.closingGapWidth(beforeTileAt: tileIndex, in: workspace.id)
+                let overviewGapWidth = gapWidth * scale
+                let tileWidth = animator.effectiveTileWidth(tile.width, for: tile.id)
                 layoutClosingTileSnapshotIfNeeded(
                     workspaceID: workspace.id,
                     insertionIndex: tileIndex,
-                    originX: x,
-                    rowOriginY: rowOriginY,
-                    tileHeight: tileHeight,
-                    gapWidth: gapWidth
+                    originX: isOverviewPresented ? overviewX : focusedX,
+                    rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
+                    tileHeight: isOverviewPresented ? overviewTileHeight : baseTileHeight,
+                    gapWidth: isOverviewPresented ? overviewGapWidth : gapWidth
                 )
-                x += gapWidth
+                focusedX += gapWidth
+                overviewX += overviewGapWidth
                 guard let tileView = tileViews[tile.id] else { continue }
-                let renderedWidth = WorkspaceRowLayout.renderedTileWidth(
-                    for: tile,
-                    in: workspace,
-                    viewportWidth: viewportSize.width,
-                    stripLeadingInset: stripLeadingInset
+                let focusedFrame = NSRect(
+                    x: focusedX,
+                    y: focusedRowOriginY + baseVerticalPadding,
+                    width: tileWidth,
+                    height: baseTileHeight
                 )
-                let animatedWidth = animator.effectiveTileWidth(renderedWidth, for: tile.id)
-                tileView.frame = NSRect(
-                    x: x,
-                    y: rowOriginY + WorkspaceCanvasLayoutMetrics.verticalPadding,
-                    width: animatedWidth,
-                    height: tileHeight
+                let previewFrame = NSRect(
+                    x: overviewX,
+                    y: overviewRowOriginY + overviewVerticalPadding,
+                    width: tileWidth * scale,
+                    height: overviewTileHeight
                 )
 
-                if tileIndex < workspace.tiles.count - 1, let handle = resizeHandles[tile.id] {
-                    let handleCenterX = x + animatedWidth + (WorkspaceCanvasLayoutMetrics.tileSpacing / 2)
-                    handle.frame = NSRect(
-                        x: handleCenterX - (WorkspaceCanvasLayoutMetrics.resizeHandleWidth / 2),
-                        y: rowOriginY + WorkspaceCanvasLayoutMetrics.verticalPadding + WorkspaceCanvasLayoutMetrics.resizeHandleInset,
-                        width: WorkspaceCanvasLayoutMetrics.resizeHandleWidth,
-                        height: max(tileHeight - (WorkspaceCanvasLayoutMetrics.resizeHandleInset * 2), 72)
+                if isOverviewPresented {
+                    overviewRenderer.layoutPreview(
+                        for: tile.id,
+                        previewFrame: previewFrame,
+                        contentSize: focusedFrame.size
                     )
+                } else {
+                    overviewRenderer.hidePreview(for: tile.id)
+                    tileView.frame = focusedFrame
                 }
 
-                x += animatedWidth + WorkspaceCanvasLayoutMetrics.tileSpacing
+                if tileIndex < workspace.tiles.count - 1, let handle = resizeHandles[tile.id] {
+                    handle.isHidden = isOverviewPresented
+                    if !isOverviewPresented {
+                        let handleCenterX = focusedX + tileWidth + (baseTileSpacing / 2)
+                        handle.frame = NSRect(
+                            x: handleCenterX - (WorkspaceCanvasLayoutMetrics.resizeHandleWidth / 2),
+                            y: focusedRowOriginY + baseVerticalPadding + WorkspaceCanvasLayoutMetrics.resizeHandleInset,
+                            width: WorkspaceCanvasLayoutMetrics.resizeHandleWidth,
+                            height: max(
+                                baseTileHeight - (WorkspaceCanvasLayoutMetrics.resizeHandleInset * 2),
+                                72
+                            )
+                        )
+                    }
+                }
+
+                focusedX += tileWidth + baseTileSpacing
+                overviewX += (tileWidth * scale) + overviewTileSpacing
             }
 
             let trailingGapWidth = animator.closingGapWidth(beforeTileAt: workspace.tiles.count, in: workspace.id)
             layoutClosingTileSnapshotIfNeeded(
                 workspaceID: workspace.id,
                 insertionIndex: workspace.tiles.count,
-                originX: x,
-                rowOriginY: rowOriginY,
-                tileHeight: tileHeight,
-                gapWidth: trailingGapWidth
+                originX: isOverviewPresented ? overviewX : focusedX,
+                rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
+                tileHeight: isOverviewPresented ? overviewTileHeight : baseTileHeight,
+                gapWidth: isOverviewPresented ? trailingGapWidth * scale : trailingGapWidth
             )
         }
 
-        let totalHeight = rowHeight * CGFloat(workspaces.count)
-            + WorkspaceCanvasLayoutMetrics.rowSpacing * CGFloat(max(workspaces.count - 1, 0))
+        let totalHeight = isOverviewPresented
+            ? overviewRowHeight * CGFloat(workspaces.count)
+                + overviewRowSpacing * CGFloat(max(workspaces.count - 1, 0))
+            : baseRowHeight * CGFloat(workspaces.count)
+                + baseRowSpacing * CGFloat(max(workspaces.count - 1, 0))
         let contentSize = NSSize(width: viewportWidth, height: max(totalHeight, viewportHeight))
         if frame.size != contentSize {
             setFrameSize(contentSize)
         }
+
+        syncAnchoredZoomViewportIfNeeded(contentHeight: contentSize.height)
     }
 
     func revealTile(_ tileID: UUID, animated: Bool) {
@@ -405,7 +545,7 @@ final class WorkspaceCanvasDocumentView: NSView {
             return
         }
 
-        let rowOriginY = CGFloat(workspaceIndex) * (currentRowHeight() + WorkspaceCanvasLayoutMetrics.rowSpacing)
+        let rowOriginY = CGFloat(workspaceIndex) * (baseRowHeight() + WorkspaceCanvasLayoutMetrics.rowSpacing)
         let preferredOriginY = rowOriginY - Metrics.workspacePeek
         let maxOriginY = max(bounds.height - clipView.bounds.height, 0)
         let targetOrigin = NSPoint(
@@ -414,6 +554,11 @@ final class WorkspaceCanvasDocumentView: NSView {
         )
 
         animateWorkspaceScroll(to: targetOrigin, in: clipView, animated: animated)
+    }
+
+    func scrollOverviewToOrigin(animated: Bool) {
+        guard let clipView = enclosingScrollView?.contentView else { return }
+        animateWorkspaceScroll(to: .zero, in: clipView, animated: animated)
     }
 
     func handleScrollWheel(_ event: NSEvent) -> Bool {
@@ -441,7 +586,74 @@ final class WorkspaceCanvasDocumentView: NSView {
         return true
     }
 
+    func handleZoomKeyCommand(
+        _ command: WorkspaceCanvasZoomController.Command,
+        preferredTileID: UUID?
+    ) -> Bool {
+        switch command {
+        case .zoomOut:
+            interactionController.zoomOutCanvas()
+            return true
+        case .zoomIn:
+            interactionController.zoomInOnSelection(transition: .animatedReveal)
+            let tileID = preferredTileID ?? store.selectedTileID
+            if let tileID {
+                runtime.focusSurface(tileID: tileID)
+            }
+            return true
+        }
+    }
+
+    func handleMagnify(_ event: NSEvent, preferredTileID: UUID?) -> Bool {
+        zoomController.handleMagnify(
+            event,
+            mode: zoomMode,
+            preferredTileID: preferredTileID
+        ) { [weak self] command, tileID in
+            guard let self else { return }
+            _ = self.handleZoomKeyCommand(command, preferredTileID: tileID)
+        }
+    }
+
+    func handleTileOverviewClick(_ tileID: UUID) -> Bool {
+        guard zoomController.isOverviewPresented else { return false }
+        activateOverviewTile(tileID)
+        return true
+    }
+
+    private func activateOverviewTile(_ tileID: UUID) {
+        guard store.tile(tileID) != nil,
+              let workspaceID = store.workspaceID(containing: tileID) else { return }
+
+        stopWorkspaceScrollAnimation()
+        store.selectTile(tileID)
+        store.revealTile(
+            tileID,
+            viewportWidth: viewportSize.width,
+            stripLeadingInset: targetStripLeadingInset
+        )
+        workspaces = store.workspaces
+        selectedWorkspaceID = store.selectedWorkspaceID
+        selectedTileID = store.selectedTileID
+
+        if let clipView = enclosingScrollView?.contentView {
+            anchoredZoomTransition = AnchoredZoomTransition(
+                tileID: tileID,
+                startOrigin: clipView.bounds.origin,
+                targetOrigin: focusedViewportOrigin(for: workspaceID, in: clipView),
+                initialOverviewProgress: max(zoomController.renderedOverviewProgress, 0.001)
+            )
+        }
+
+        interactionController.zoomInOnSelection(transition: .preserveViewport)
+        runtime.focusSurface(tileID: tileID)
+        needsLayout = true
+    }
+
     private func handleHorizontalScroll(_ event: NSEvent) -> Bool {
+        if zoomController.isOverviewPresented {
+            return true
+        }
         guard viewportSize.width > 0, abs(event.scrollingDeltaX) > 0 else { return false }
         interactionController.scrollSelectedWorkspaceHorizontally(
             deltaX: -event.scrollingDeltaX,
@@ -579,6 +791,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     }
 
     private func animateWorkspaceScroll(to targetOrigin: NSPoint, in clipView: NSClipView, animated: Bool) {
+        anchoredZoomTransition = nil
         let currentOrigin = clipView.bounds.origin
         guard animated else {
             stopWorkspaceScrollAnimation()
@@ -633,7 +846,58 @@ final class WorkspaceCanvasDocumentView: NSView {
         workspaceScrollAnimationTimer = nil
     }
 
-    private func currentTileHeight() -> CGFloat {
+    private func syncAnchoredZoomViewportIfNeeded(contentHeight: CGFloat) {
+        guard let anchoredZoomTransition,
+              let clipView = enclosingScrollView?.contentView else {
+            return
+        }
+
+        let normalizedProgress = 1 - (zoomController.renderedOverviewProgress / anchoredZoomTransition.initialOverviewProgress)
+        let progress = min(max(normalizedProgress, 0), 1)
+        let maxOriginY = max(contentHeight - clipView.bounds.height, 0)
+        let targetOrigin = NSPoint(
+            x: max(anchoredZoomTransition.targetOrigin.x, 0),
+            y: min(max(anchoredZoomTransition.targetOrigin.y, 0), maxOriginY)
+        )
+        let currentOrigin = NSPoint(
+            x: anchoredZoomTransition.startOrigin.x
+                + (targetOrigin.x - anchoredZoomTransition.startOrigin.x) * progress,
+            y: anchoredZoomTransition.startOrigin.y
+                + (targetOrigin.y - anchoredZoomTransition.startOrigin.y) * progress
+        )
+
+        if clipView.bounds.origin != currentOrigin {
+            clipView.setBoundsOrigin(currentOrigin)
+            enclosingScrollView?.reflectScrolledClipView(clipView)
+        }
+
+        if progress >= 0.999 || !zoomController.isOverviewPresented {
+            self.anchoredZoomTransition = nil
+        }
+    }
+
+    private func focusedViewportOrigin(for workspaceID: UUID, in clipView: NSClipView) -> NSPoint {
+        let rowHeight = baseRowHeight()
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
+              let workspace = workspaces.first(where: { $0.id == workspaceID }) else {
+            return clipView.bounds.origin
+        }
+
+        let preferredOriginY = CGFloat(workspaceIndex) * (rowHeight + WorkspaceCanvasLayoutMetrics.rowSpacing) - Metrics.workspacePeek
+        let maxOriginY = max(
+            rowHeight * CGFloat(workspaces.count)
+                + WorkspaceCanvasLayoutMetrics.rowSpacing * CGFloat(max(workspaces.count - 1, 0))
+                - clipView.bounds.height,
+            0
+        )
+
+        return NSPoint(
+            x: workspace.horizontalOffset,
+            y: min(max(preferredOriginY, 0), maxOriginY)
+        )
+    }
+
+    private func baseTileHeight() -> CGFloat {
         max(
             max(viewportSize.height, 1)
                 - (Metrics.workspacePeek * 2)
@@ -642,8 +906,8 @@ final class WorkspaceCanvasDocumentView: NSView {
         )
     }
 
-    private func currentRowHeight() -> CGFloat {
-        currentTileHeight() + (WorkspaceCanvasLayoutMetrics.verticalPadding * 2)
+    private func baseRowHeight() -> CGFloat {
+        baseTileHeight() + (WorkspaceCanvasLayoutMetrics.verticalPadding * 2)
     }
 
     private func shouldTreatAsHorizontalScroll(_ event: NSEvent) -> Bool {
