@@ -2,13 +2,19 @@ import AppKit
 import SwiftUI
 
 struct WorkspaceCanvasView: NSViewRepresentable {
+    @ObservedObject var settings: AppSettings
     @ObservedObject var store: WorkspaceStore
     @ObservedObject var interactionController: WorkspaceInteractionController
     @ObservedObject var runtime: GhosttyRuntime
     let sidebarHidden: Bool
 
     func makeNSView(context: Context) -> WorkspaceCanvasContainerView {
-        WorkspaceCanvasContainerView(store: store, interactionController: interactionController, runtime: runtime)
+        WorkspaceCanvasContainerView(
+            settings: settings,
+            store: store,
+            interactionController: interactionController,
+            runtime: runtime
+        )
     }
 
     func updateNSView(_ nsView: WorkspaceCanvasContainerView, context: Context) {
@@ -48,9 +54,15 @@ final class WorkspaceCanvasContainerView: NSView {
     private var pendingRevealRequest: (tileID: UUID, animated: Bool)?
     private var pendingSidebarClearRevealAnimated: Bool?
 
-    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
+    init(
+        settings: AppSettings,
+        store: WorkspaceStore,
+        interactionController: WorkspaceInteractionController,
+        runtime: GhosttyRuntime
+    ) {
         self.store = store
         documentView = WorkspaceCanvasDocumentView(
+            settings: settings,
             store: store,
             interactionController: interactionController,
             runtime: runtime
@@ -244,6 +256,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     }
 
     private let store: WorkspaceStore
+    private let settings: AppSettings
     private let interactionController: WorkspaceInteractionController
     private let runtime: GhosttyRuntime
     private let animator = WorkspaceCanvasAnimator()
@@ -286,7 +299,13 @@ final class WorkspaceCanvasDocumentView: NSView {
         anchoredZoomTransition != nil
     }
 
-    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, runtime: GhosttyRuntime) {
+    init(
+        settings: AppSettings,
+        store: WorkspaceStore,
+        interactionController: WorkspaceInteractionController,
+        runtime: GhosttyRuntime
+    ) {
+        self.settings = settings
         self.store = store
         self.interactionController = interactionController
         self.runtime = runtime

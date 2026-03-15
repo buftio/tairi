@@ -28,7 +28,7 @@ struct TairiApp: App {
                 launchConfiguration: launchConfiguration
             )
         )
-        _chromeController = StateObject(wrappedValue: WindowChromeController())
+        _chromeController = StateObject(wrappedValue: WindowChromeController(settings: settings))
     }
 
     var body: some Scene {

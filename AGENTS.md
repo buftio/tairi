@@ -1,5 +1,11 @@
 # Tairi
 
+## Terminology
+
+- `window`: the app window that contains everything.
+- `tile`: a single content tile, such as a Ghostty terminal.
+- `strip`: a horizontal line of tiles, also known as a workspace.
+
 ## Docs
 
 - Treat `docs/` as an important source of truth before changing behavior.

@@ -133,6 +133,25 @@ struct SettingsView: View {
                 }
                 .padding(14)
             }
+
+            settingsCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    rowLabel("Window glass")
+                    HStack(spacing: 12) {
+                        Slider(
+                            value: $settings.windowGlassOpacityPercent,
+                            in: 0...100,
+                            step: 1
+                        )
+                        Text("\(Int(settings.windowGlassOpacityPercent.rounded()))%")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(SettingsPalette.primaryText)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                    rowDetail("Controls how strong the frosted-glass background appears behind the app content without fading the content itself.")
+                }
+                .padding(14)
+            }
         }
     }
 

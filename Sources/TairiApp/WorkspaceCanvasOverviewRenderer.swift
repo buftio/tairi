@@ -82,12 +82,6 @@ final class WorkspaceCanvasOverviewRenderer {
 
 @MainActor
 private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
-    private enum Metrics {
-        static let cornerRadius: CGFloat = 16
-        static let compactCornerRadius: CGFloat = 8
-        static let compactCornerRadiusThreshold: CGFloat = 260
-    }
-
     let tileID: UUID
     let liveContainerView = NSView()
     let clickOverlayView = WorkspaceCanvasOverviewClickOverlayView()
@@ -109,7 +103,7 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         self.tileID = tileID
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = Metrics.cornerRadius
+        layer?.cornerRadius = WorkspaceTileChromeMetrics.cornerRadius
         layer?.masksToBounds = true
 
         liveContainerView.wantsLayer = true
@@ -179,10 +173,7 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
     }
 
     private func effectiveCornerRadius() -> CGFloat {
-        let compactDimension = min(bounds.width, bounds.height)
-        return compactDimension < Metrics.compactCornerRadiusThreshold
-            ? Metrics.compactCornerRadius
-            : Metrics.cornerRadius
+        WorkspaceTileChromeMetrics.cornerRadius(for: bounds.size)
     }
 }
 

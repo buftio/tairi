@@ -5,7 +5,7 @@ private enum LayoutMetrics {
     static let sidebarLeadingInset: CGFloat = 11
     static let sidebarTopInset: CGFloat = 9
     static let sidebarBottomInset: CGFloat = 11
-    static let sidebarCornerRadius: CGFloat = 19
+    static let sidebarCornerRadius: CGFloat = WorkspaceTileChromeMetrics.cornerRadius
     static let controlCornerRadius: CGFloat = 8
     static let trafficLightsLeadingInset: CGFloat = 14
     static let trafficLightsTopInset: CGFloat = 20
@@ -46,12 +46,34 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+struct WindowGlassBackgroundView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let opacity: CGFloat
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.alphaValue = opacity
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+        nsView.alphaValue = opacity
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
     @EnvironmentObject private var chromeController: WindowChromeController
+    @State private var resolvedWindow: NSWindow?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -67,8 +89,12 @@ struct ContentView: View {
             NSApp.activate(ignoringOtherApps: true)
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
+        .onChange(of: chromeController.isSidebarHidden) { _ in
+            syncWindowChrome()
+        }
         .background(
             WindowAccessor { window in
+                resolvedWindow = window
                 configure(window: window)
                 window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)
@@ -164,6 +190,7 @@ struct ContentView: View {
                 unavailable(error)
             } else {
                 WorkspaceCanvasView(
+                    settings: settings,
                     store: store,
                     interactionController: interactionController,
                     runtime: runtime,
@@ -226,11 +253,24 @@ struct ContentView: View {
     }
 
     private var windowBackground: some View {
-        LinearGradient(
-            colors: [ShellPalette.windowBackgroundTop, ShellPalette.windowBackgroundBottom],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            WindowGlassBackgroundView(
+                material: .hudWindow,
+                opacity: min(settings.windowGlassOpacity * 0.82, 1)
+            )
+            WindowGlassBackgroundView(
+                material: .underWindowBackground,
+                opacity: min(settings.windowGlassOpacity * 0.55, 1)
+            )
+            LinearGradient(
+                colors: [ShellPalette.windowBackgroundTop, ShellPalette.windowBackgroundBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .opacity(0.18 + (Double(settings.windowGlassOpacity) * 0.16))
+            Rectangle()
+                .fill(Color.white.opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.07)))
+        }
     }
 
     private var sidebarBackground: some View {
@@ -309,6 +349,8 @@ struct ContentView: View {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.styleMask.insert(.fullSizeContentView)
         window.toolbar = nil
         if #available(macOS 11.0, *) {
@@ -317,10 +359,19 @@ struct ContentView: View {
         positionTrafficLights(in: window)
     }
 
+    private func syncWindowChrome() {
+        guard let window = resolvedWindow ?? NSApp.windows.first else { return }
+        DispatchQueue.main.async {
+            self.positionTrafficLights(in: window)
+        }
+    }
+
     private func positionTrafficLights(in window: NSWindow) {
         let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
         let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
         guard let buttonContainer = buttons.first?.superview else { return }
+
+        buttonContainer.layoutSubtreeIfNeeded()
 
         let startX = LayoutMetrics.sidebarLeadingInset + LayoutMetrics.trafficLightsLeadingInset
         let y = buttonContainer.bounds.height - LayoutMetrics.trafficLightsTopInset - (buttons.first?.frame.height ?? 0)
