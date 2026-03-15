@@ -35,3 +35,10 @@ The bundled runtime is placed at:
 
 There is no runtime fallback to `/Applications/Ghostty.app`.
 Development uses the vendored runtime under `Vendor/Ghostty/...`.
+
+## Docs
+
+- [Ghostty setup](docs/ghostty.md)
+- [Logs](docs/logs.md)
+- [Crash diagnostics](docs/crash-diagnostics.md)
+- [UI testing](docs/ui-testing.md)

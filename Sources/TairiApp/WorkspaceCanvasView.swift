@@ -32,6 +32,7 @@ final class WorkspaceCanvasContainerView: NSView {
     private var lastSelectedWorkspaceID: UUID?
     private var lastCanvasTransitionID: Int?
     private var currentSelectedWorkspaceID: UUID?
+    private var currentSelectedTileID: UUID?
     private var shouldSuppressFallbackReveal = false
     private var hasStabilizedInitialViewport = false
     private var lastSidebarHidden: Bool?
@@ -81,6 +82,9 @@ final class WorkspaceCanvasContainerView: NSView {
             return
         }
 
+        if let currentSelectedTileID {
+            documentView.revealTile(currentSelectedTileID, animated: false)
+        }
         documentView.scrollWorkspaceToVisible(
             currentSelectedWorkspaceID,
             preserveHorizontalOrigin: false,
@@ -98,6 +102,7 @@ final class WorkspaceCanvasContainerView: NSView {
         sidebarHidden: Bool
     ) {
         currentSelectedWorkspaceID = selectedWorkspaceID
+        currentSelectedTileID = selectedTileID
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,

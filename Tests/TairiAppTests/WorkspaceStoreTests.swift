@@ -14,7 +14,7 @@ final class WorkspaceStoreTests: XCTestCase {
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         store.updatePWD("/tmp/project-a", for: firstTileID)
-        let newTile = store.addTerminalTile(nextTo: firstTileID)
+        let newTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
 
         XCTAssertEqual(newTile.pwd, "/tmp/project-a")
     }
@@ -26,9 +26,19 @@ final class WorkspaceStoreTests: XCTestCase {
         )
 
         store.selectWorkspace(emptyWorkspaceID)
-        let newTile = store.addTerminalTile()
+        let newTile = store.addTerminalTile(sessionID: UUID())
 
         XCTAssertEqual(newTile.pwd, TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace())
+    }
+
+    func testInitialTileBindsSessionIdentity() throws {
+        let sessionID = UUID()
+        let store = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialTerminalSessionID: sessionID
+        )
+
+        XCTAssertEqual(try XCTUnwrap(store.selectedTile).surface.terminalSessionID, sessionID)
     }
 
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {

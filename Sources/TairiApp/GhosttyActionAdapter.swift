@@ -6,13 +6,13 @@ enum GhosttyExitReason: String {
 }
 
 enum GhosttyRuntimeEvent {
-    case createTile(nextTo: UUID)
+    case createTile(nextToSessionID: UUID)
     case selectAdjacentTile(offset: Int)
-    case updateTitle(tileID: UUID, title: String)
-    case updatePWD(tileID: UUID, pwd: String)
+    case updateTitle(sessionID: UUID, title: String)
+    case updatePWD(sessionID: UUID, pwd: String)
     case openURL(URL)
-    case childExited(tileID: UUID, exitCode: Int, reason: GhosttyExitReason)
-    case commandFinished(tileID: UUID, exitCode: Int)
+    case childExited(sessionID: UUID, exitCode: Int, reason: GhosttyExitReason)
+    case commandFinished(sessionID: UUID, exitCode: Int)
     case ignore
     case unhandled
 
@@ -27,11 +27,11 @@ enum GhosttyRuntimeEvent {
 }
 
 struct GhosttyActionAdapter {
-    func decode(action: ghostty_action_s, tileID: UUID?) -> GhosttyRuntimeEvent {
+    func decode(action: ghostty_action_s, sessionID: UUID?) -> GhosttyRuntimeEvent {
         switch action.tag {
         case GHOSTTY_ACTION_NEW_WINDOW, GHOSTTY_ACTION_NEW_TAB, GHOSTTY_ACTION_NEW_SPLIT:
-            guard let tileID else { return .ignore }
-            return .createTile(nextTo: tileID)
+            guard let sessionID else { return .ignore }
+            return .createTile(nextToSessionID: sessionID)
 
         case GHOSTTY_ACTION_GOTO_SPLIT:
             switch action.action.goto_split {
@@ -42,16 +42,16 @@ struct GhosttyActionAdapter {
             }
 
         case GHOSTTY_ACTION_SET_TITLE:
-            guard let tileID, let title = decodeCString(action.action.set_title.title) else {
+            guard let sessionID, let title = decodeCString(action.action.set_title.title) else {
                 return .ignore
             }
-            return .updateTitle(tileID: tileID, title: title)
+            return .updateTitle(sessionID: sessionID, title: title)
 
         case GHOSTTY_ACTION_PWD:
-            guard let tileID, let pwd = decodeCString(action.action.pwd.pwd) else {
+            guard let sessionID, let pwd = decodeCString(action.action.pwd.pwd) else {
                 return .ignore
             }
-            return .updatePWD(tileID: tileID, pwd: pwd)
+            return .updatePWD(sessionID: sessionID, pwd: pwd)
 
         case GHOSTTY_ACTION_OPEN_URL:
             if let url = decodeOpenURL(action.action.open_url) {
@@ -60,16 +60,16 @@ struct GhosttyActionAdapter {
             return .ignore
 
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
-            guard let tileID else { return .ignore }
+            guard let sessionID else { return .ignore }
             return .childExited(
-                tileID: tileID,
+                sessionID: sessionID,
                 exitCode: Int(action.action.child_exited.exit_code),
                 reason: .reportedChildExit
             )
 
         case GHOSTTY_ACTION_COMMAND_FINISHED:
-            guard let tileID else { return .ignore }
-            return .commandFinished(tileID: tileID, exitCode: Int(action.action.command_finished.exit_code))
+            guard let sessionID else { return .ignore }
+            return .commandFinished(sessionID: sessionID, exitCode: Int(action.action.command_finished.exit_code))
 
         case GHOSTTY_ACTION_CLOSE_WINDOW, GHOSTTY_ACTION_CLOSE_TAB, GHOSTTY_ACTION_CLOSE_ALL_WINDOWS, GHOSTTY_ACTION_QUIT:
             return .ignore

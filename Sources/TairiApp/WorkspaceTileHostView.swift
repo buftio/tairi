@@ -6,12 +6,15 @@ final class WorkspaceTileHostView: NSView {
         static let cornerRadius: CGFloat = 16
         static let headerHeight: CGFloat = 62
         static let headerPadding: CGFloat = 14
+        static let closeButtonSize: CGFloat = 12
+        static let closeButtonTrailingInset: CGFloat = 14
     }
 
     private let runtime: GhosttyRuntime
     private let titleField = NSTextField(labelWithString: "")
     private let pathField = NSTextField(labelWithString: "")
     private let statusDot = NSView()
+    private let closeButton = NSButton(title: "", target: nil, action: nil)
     private let headerView = NSView()
     private let surfaceContainerView = NSView()
 
@@ -51,12 +54,29 @@ final class WorkspaceTileHostView: NSView {
         statusDot.layer?.cornerRadius = 4
         addSubview(statusDot)
 
+        closeButton.title = ""
+        closeButton.isBordered = false
+        closeButton.bezelStyle = .regularSquare
+        closeButton.wantsLayer = true
+        closeButton.layer?.cornerRadius = Metrics.closeButtonSize / 2
+        closeButton.layer?.backgroundColor = NSColor.systemRed.cgColor
+        closeButton.layer?.borderWidth = 1
+        closeButton.layer?.borderColor = NSColor.systemRed.blended(withFraction: 0.3, of: .black)?.cgColor
+        closeButton.target = self
+        closeButton.action = #selector(closeTile)
+        closeButton.setButtonType(.momentaryChange)
+        closeButton.contentTintColor = .clear
+        closeButton.focusRingType = .none
+        closeButton.setAccessibilityIdentifier(TairiAccessibility.tileCloseButton(tileID))
+        closeButton.setAccessibilityLabel("Close tile")
+        addSubview(closeButton)
+
         surfaceContainerView.configureAccessibility(
             identifier: TairiAccessibility.tileSurface(tileID),
             label: "Terminal surface"
         )
         addSubview(surfaceContainerView)
-        runtime.attachSurface(tileID: tileID, to: surfaceContainerView)
+        runtime.attachTile(tileID, to: surfaceContainerView)
     }
 
     @available(*, unavailable)
@@ -77,10 +97,16 @@ final class WorkspaceTileHostView: NSView {
         pathField.frame = NSRect(
             x: Metrics.headerPadding,
             y: 31,
-            width: max(bounds.width - 80, 60),
+            width: max(bounds.width - 96, 60),
             height: 16
         )
-        statusDot.frame = NSRect(x: bounds.width - 22, y: 26, width: 8, height: 8)
+        closeButton.frame = NSRect(
+            x: bounds.width - Metrics.closeButtonTrailingInset - Metrics.closeButtonSize,
+            y: 15,
+            width: Metrics.closeButtonSize,
+            height: Metrics.closeButtonSize
+        )
+        statusDot.frame = NSRect(x: bounds.width - 24, y: 35, width: 8, height: 8)
         surfaceContainerView.frame = NSRect(
             x: 0,
             y: Metrics.headerHeight,
@@ -106,10 +132,16 @@ final class WorkspaceTileHostView: NSView {
 
         headerView.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.08).cgColor
         statusDot.layer?.backgroundColor = (selected ? NSColor.systemGreen : NSColor.quaternaryLabelColor).cgColor
+        closeButton.layer?.opacity = selected ? 1 : 0.9
     }
 
     func dispose() {
-        runtime.detachSurface(tileID: tileID)
+        runtime.detachTile(tileID, reason: .uiChurn)
+    }
+
+    @objc
+    private func closeTile() {
+        runtime.closeTile(tileID)
     }
 }
 

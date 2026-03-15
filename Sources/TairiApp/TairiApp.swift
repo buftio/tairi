@@ -41,7 +41,7 @@ struct TairiApp: App {
         .commands {
             CommandMenu("Workspace") {
                 Button("New Tile") {
-                    _ = interactionController.addTerminalTile(
+                    _ = runtime.createTile(
                         nextTo: store.selectedTileID,
                         workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
                         transition: .preserveViewport

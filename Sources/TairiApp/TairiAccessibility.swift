@@ -34,6 +34,10 @@ enum TairiAccessibility {
         "workspace-tile-surface-\(tileID.uuidString.lowercased())"
     }
 
+    static func tileCloseButton(_ tileID: UUID) -> String {
+        "workspace-tile-close-button-\(tileID.uuidString.lowercased())"
+    }
+
     static func tileResizeHandle(_ tileID: UUID) -> String {
         "workspace-tile-resize-handle-\(tileID.uuidString.lowercased())"
     }

@@ -1,5 +1,14 @@
 # Tairi
 
+## Docs
+
+- Treat `docs/` as an important source of truth before changing behavior.
+- Start with:
+  - [docs/ghostty.md](docs/ghostty.md)
+  - [docs/logs.md](docs/logs.md)
+  - [docs/crash-diagnostics.md](docs/crash-diagnostics.md)
+  - [docs/ui-testing.md](docs/ui-testing.md)
+
 ## Dev Hints
 
 - dev app: `just dev`
@@ -7,6 +16,13 @@
 ## Runtime Source
 
 - Development uses vendored Ghostty from `Vendor/Ghostty/...`
+
+## Ghostty
+
+- Read [docs/ghostty.md](docs/ghostty.md) before changing terminal/session behavior.
+- Tairi uses first-class in-process Ghostty sessions; tile host views attach/detach from persistent session-owned surface views.
+- Explicit tile close is destructive and should terminate the session before removing the tile.
+- UI churn such as workspace switching or host view rebuilds should detach, not terminate, the session.
 
 ## Logs
 

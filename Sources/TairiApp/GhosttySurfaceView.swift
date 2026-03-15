@@ -20,7 +20,7 @@ extension NSEvent {
 @MainActor
 final class GhosttySurfaceView: NSView {
     let runtime: GhosttyRuntime
-    let tileID: UUID
+    let sessionID: UUID
 
     private(set) var surface: ghostty_surface_t?
     private var trackingAreaRef: NSTrackingArea?
@@ -43,13 +43,12 @@ final class GhosttySurfaceView: NSView {
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    init(runtime: GhosttyRuntime, tileID: UUID) {
+    init(runtime: GhosttyRuntime, sessionID: UUID, app: ghostty_app_t?, workingDirectory: String) {
         self.runtime = runtime
-        self.tileID = tileID
+        self.sessionID = sessionID
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 640))
         logLifecycle("init begin frame=\(describe(size: frame.size))")
 
-        let app = runtime.app(for: tileID)
         var config = tairi_ghostty_surface_config_new()
         config.platform_tag = GHOSTTY_PLATFORM_MACOS
         config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
@@ -59,13 +58,14 @@ final class GhosttySurfaceView: NSView {
         config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2)
 
         if let app {
-            let workingDirectory = runtime.workingDirectory(for: tileID)
             workingDirectory.withCString { path in
                 config.working_directory = path
                 config.wait_after_command = runtime.waitAfterCommandEnabled
                 config.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
                 if let command = Self.terminalDiagnosticCommand {
-                    TairiLog.write("ghostty diagnostic shell wrapper enabled tile=\(tileID.uuidString) command=\(command)")
+                    TairiLog.write(
+                        "ghostty diagnostic shell wrapper enabled session=\(sessionID.uuidString) command=\(command)"
+                    )
                     command.withCString { commandCString in
                         config.command = commandCString
                         surface = tairi_ghostty_surface_new(app, &config)
@@ -86,6 +86,10 @@ final class GhosttySurfaceView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    var attachedTileID: UUID? {
+        runtime.attachedTileID(for: sessionID)
     }
 
     func dispose() {
@@ -109,7 +113,7 @@ final class GhosttySurfaceView: NSView {
         let result = super.becomeFirstResponder()
         if result, let surface {
             logLifecycle("became first responder surface=\(describeHandle(surface))")
-            runtime.didFocusSurface(tileID: tileID)
+            runtime.didFocusSurface(sessionID: sessionID)
             tairi_ghostty_surface_set_focus(surface, true)
         }
         return result
@@ -167,8 +171,8 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        runtime.recordInput(for: tileID)
-        runtime.focus(tileID: tileID, transition: .animatedReveal)
+        recordInputIfAttached()
+        focusAttachedTile(transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT)
     }
 
@@ -177,8 +181,8 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        runtime.recordInput(for: tileID)
-        runtime.focus(tileID: tileID, transition: .animatedReveal)
+        recordInputIfAttached()
+        focusAttachedTile(transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_RIGHT)
     }
 
@@ -216,19 +220,21 @@ final class GhosttySurfaceView: NSView {
 
     override func keyDown(with event: NSEvent) {
         if let canvasDocumentView = workspaceCanvasDocumentView(),
+           let tileID = attachedTileID,
            let tileOffset = tileNavigationOffset(for: event),
            canvasDocumentView.handleTileKeyNavigation(offset: tileOffset, from: tileID) {
             return
         }
 
         if let canvasDocumentView = workspaceCanvasDocumentView(),
+           let tileID = attachedTileID,
            let workspaceOffset = workspaceNavigationOffset(for: event),
            canvasDocumentView.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) {
             return
         }
 
         guard let surface else { return }
-        runtime.recordInput(for: tileID)
+        recordInputIfAttached()
 
         var key = ghostty_input_key_s()
         key.action = GHOSTTY_ACTION_PRESS
@@ -326,7 +332,8 @@ final class GhosttySurfaceView: NSView {
     }
 
     private func syncDisplayID() {
-        guard let surface, let screenNumber = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+        guard let surface,
+              let screenNumber = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
             return
         }
         if lastLoggedDisplayID != screenNumber.uint32Value {
@@ -415,9 +422,20 @@ final class GhosttySurfaceView: NSView {
         }
     }
 
+    private func recordInputIfAttached() {
+        guard let tileID = attachedTileID else { return }
+        runtime.recordInput(for: tileID)
+    }
+
+    private func focusAttachedTile(transition: WorkspaceInteractionController.TileTransition) {
+        guard let tileID = attachedTileID else { return }
+        runtime.focus(tileID: tileID, transition: transition)
+    }
+
     private func logLifecycle(_ message: String) {
+        let tileLabel = attachedTileID?.uuidString ?? "detached"
         TairiLog.write(
-            "ghostty surface tile=\(tileID.uuidString) view=\(TairiLog.objectID(self)) \(message)"
+            "ghostty surface session=\(sessionID.uuidString) tile=\(tileLabel) view=\(TairiLog.objectID(self)) \(message)"
         )
     }
 

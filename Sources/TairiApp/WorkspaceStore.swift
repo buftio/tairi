@@ -49,8 +49,11 @@ final class WorkspaceStore: ObservableObject {
 
     struct Surface: Equatable {
         var kind: SurfaceKind
+        var terminalSessionID: UUID
 
-        static let terminal = Surface(kind: .terminal)
+        static func terminal(sessionID: UUID) -> Surface {
+            Surface(kind: .terminal, terminalSessionID: sessionID)
+        }
     }
 
     struct Tile: Identifiable, Equatable {
@@ -67,7 +70,7 @@ final class WorkspaceStore: ObservableObject {
             pwd: String? = nil,
             width: CGFloat = WidthPreset.standard.width,
             createdAt: Date = .now,
-            surface: Surface = .terminal
+            surface: Surface
         ) {
             self.id = id
             self.title = title
@@ -99,12 +102,18 @@ final class WorkspaceStore: ObservableObject {
     @Published var selectedWorkspaceID: UUID
     @Published var selectedTileID: UUID?
 
-    init(initialTerminalWorkingDirectory: String = TerminalWorkingDirectory.defaultInitialLaunchDirectory()) {
+    init(
+        initialTerminalWorkingDirectory: String = TerminalWorkingDirectory.defaultInitialLaunchDirectory(),
+        initialTerminalSessionID: UUID = UUID()
+    ) {
         let first = Workspace(title: "01")
         let second = Workspace(title: "02")
         workspaces = [first, second]
         selectedWorkspaceID = first.id
-        let tile = addTerminalTile(workingDirectory: initialTerminalWorkingDirectory)
+        let tile = addTerminalTile(
+            workingDirectory: initialTerminalWorkingDirectory,
+            sessionID: initialTerminalSessionID
+        )
         selectedTileID = tile.id
     }
 
@@ -122,8 +131,11 @@ final class WorkspaceStore: ObservableObject {
     }
 
     @discardableResult
-    func addTerminalTile(nextTo tileID: UUID? = nil, workingDirectory: String? = nil) -> Tile {
-        let tile = Tile(pwd: resolveWorkingDirectoryForNewTile(nextTo: tileID, workingDirectory: workingDirectory))
+    func addTerminalTile(nextTo tileID: UUID? = nil, workingDirectory: String? = nil, sessionID: UUID) -> Tile {
+        let tile = Tile(
+            pwd: resolveWorkingDirectoryForNewTile(nextTo: tileID, workingDirectory: workingDirectory),
+            surface: .terminal(sessionID: sessionID)
+        )
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
             return tile
         }

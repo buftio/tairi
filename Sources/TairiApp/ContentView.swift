@@ -133,7 +133,7 @@ struct ContentView: View {
     private var sidebarActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             actionButton("New tile", shortcut: "cmd+n") {
-                _ = interactionController.addTerminalTile(
+                _ = runtime.createTile(
                     nextTo: store.selectedTileID,
                     workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
                     transition: .preserveViewport

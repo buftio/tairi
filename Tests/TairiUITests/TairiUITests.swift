@@ -4,6 +4,7 @@ import XCTest
 
 private enum Identifiers {
     static let appRoot = "app-root"
+    static let workspaceSidebar = "workspace-sidebar"
     static let workspaceList = "workspace-list"
     static let workspaceTitle = "workspace-title"
     static let widthPicker = "tile-width-picker"
@@ -64,6 +65,21 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 16")
         XCTAssertTrue(lastWorkspaceButton.isHittable)
+    }
+
+    func testInitialTileStartsImmediatelyAfterSidebar() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let sidebar = app.otherElements[Identifiers.workspaceSidebar]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 10))
+
+        let firstTile = tileQuery(in: app).element(boundBy: 0)
+        XCTAssertTrue(firstTile.waitForExistence(timeout: 10))
+
+        let tileGap = firstTile.frame.minX - sidebar.frame.maxX
+        XCTAssertGreaterThanOrEqual(tileGap, 0)
+        XCTAssertLessThanOrEqual(tileGap, 24)
     }
 
     private func launchApp() throws -> XCUIApplication {
