@@ -294,7 +294,10 @@ final class GhosttyRuntime: ObservableObject {
     private func applyTairiOverrides(to config: ghostty_config_t) {
         let overrideURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("tairi-\(UUID().uuidString).ghostty")
-        let overrideContents = "wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")\n"
+        let overrideContents = """
+        wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")
+        quit-after-last-window-closed = false
+        """
 
         do {
             try overrideContents.write(to: overrideURL, atomically: true, encoding: .utf8)
