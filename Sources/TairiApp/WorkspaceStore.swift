@@ -1,14 +1,14 @@
 import Foundation
 
 enum WorkspaceCanvasLayoutMetrics {
-    static let visibleStripLeadingInset: CGFloat = 248
-    static let horizontalPadding: CGFloat = 22
-    static let verticalPadding: CGFloat = 22
-    static let tileSpacing: CGFloat = 22
+    static let visibleStripLeadingInset: CGFloat = 251
+    static let horizontalPadding: CGFloat = 9
+    static let verticalPadding: CGFloat = 9
+    static let tileSpacing: CGFloat = 8
     static let minimumTileHeight: CGFloat = 320
     static let resizeHandleWidth: CGFloat = 18
     static let resizeHandleInset: CGFloat = 28
-    static let rowSpacing: CGFloat = 22
+    static let rowSpacing: CGFloat = 16
 
     static func stripLeadingInset(sidebarHidden: Bool) -> CGFloat {
         sidebarHidden ? 0 : visibleStripLeadingInset
@@ -281,11 +281,12 @@ final class WorkspaceStore: ObservableObject {
     func closeTile(_ tileID: UUID) {
         guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
             workspace.tiles.contains(where: { $0.id == tileID })
-        }) else {
+        }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
             return
         }
 
-        workspaces[workspaceIndex].tiles.removeAll(where: { $0.id == tileID })
+        workspaces[workspaceIndex].tiles.remove(at: tileIndex)
+
         if selectedTileID == tileID {
             selectedTileID = workspaces[workspaceIndex].tiles.first?.id
         }
