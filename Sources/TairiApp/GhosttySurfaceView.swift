@@ -91,7 +91,7 @@ final class GhosttySurfaceView: NSView {
         let result = super.becomeFirstResponder()
         if result, let surface {
             logLifecycle("became first responder surface=\(describeHandle(surface))")
-            runtime.focus(tileID: tileID)
+            runtime.didFocusSurface(tileID: tileID)
             tairi_ghostty_surface_set_focus(surface, true)
         }
         return result

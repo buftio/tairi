@@ -59,11 +59,17 @@ enum TairiPaths {
     private static func ancestors(of url: URL) -> [URL] {
         var result: [URL] = []
         var current = url.standardizedFileURL
+        var seenPaths = Set<String>()
 
         while true {
+            let currentPath = current.path(percentEncoded: false)
+            guard seenPaths.insert(currentPath).inserted else {
+                break
+            }
+
             result.append(current)
-            let parent = current.deletingLastPathComponent()
-            if parent == current {
+            let parent = current.deletingLastPathComponent().standardizedFileURL
+            if parent.path(percentEncoded: false) == currentPath {
                 break
             }
             current = parent

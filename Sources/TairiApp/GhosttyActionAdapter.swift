@@ -2,7 +2,6 @@ import Foundation
 import GhosttyDyn
 
 enum GhosttyExitReason: String {
-    case compatibleOpenURLExit = "compat_open_url_child_exited"
     case reportedChildExit = "show_child_exited"
 }
 
@@ -58,12 +57,7 @@ struct GhosttyActionAdapter {
             if let url = decodeOpenURL(action.action.open_url) {
                 return .openURL(url)
             }
-            guard let tileID else { return .ignore }
-            return .childExited(
-                tileID: tileID,
-                exitCode: Int(action.action.child_exited.exit_code),
-                reason: .compatibleOpenURLExit
-            )
+            return .ignore
 
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
             guard let tileID else { return .ignore }

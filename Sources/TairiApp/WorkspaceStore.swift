@@ -146,20 +146,24 @@ final class WorkspaceStore: ObservableObject {
         stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     ) {
         guard workspaces.contains(where: { $0.id == workspaceID }) else { return }
-        selectedWorkspaceID = workspaceID
-        selectedTileID = preferredTileID(
+        let nextTileID = preferredTileID(
             in: workspaceID,
             preferredVisibleMidX: preferredVisibleMidX,
             stripLeadingInset: stripLeadingInset
         )
+        guard selectedWorkspaceID != workspaceID || selectedTileID != nextTileID else { return }
+
+        selectedWorkspaceID = workspaceID
+        selectedTileID = nextTileID
         normalize()
     }
 
     func selectTile(_ tileID: UUID) {
+        guard let workspace = workspaceContaining(tileID) else { return }
+        guard selectedTileID != tileID || selectedWorkspaceID != workspace.id else { return }
+
         selectedTileID = tileID
-        if let workspace = workspaceContaining(tileID) {
-            selectedWorkspaceID = workspace.id
-        }
+        selectedWorkspaceID = workspace.id
     }
 
     func selectAdjacentTile(offset: Int) {

@@ -62,6 +62,10 @@ final class GhosttyRuntime: ObservableObject {
         focusSurface(tileID: tileID)
     }
 
+    func didFocusSurface(tileID: UUID) {
+        interactionController.selectTile(tileID)
+    }
+
     func focusSurface(tileID: UUID) {
         surfaces[tileID]?.focusSurface()
     }
