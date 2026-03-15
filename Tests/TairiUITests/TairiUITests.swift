@@ -4,9 +4,11 @@ import XCTest
 
 private enum Identifiers {
     static let appRoot = "app-root"
+    static let workspaceList = "workspace-list"
     static let workspaceTitle = "workspace-title"
     static let widthPicker = "tile-width-picker"
     static let newTileButton = "new-tile-button"
+    static let nextWorkspaceButton = "next-workspace-button"
 
     static func workspaceButton(_ title: String) -> String {
         "workspace-button-\(title)"
@@ -39,6 +41,29 @@ final class TairiUITests: XCTestCase {
         app.buttons[Identifiers.newTileButton].click()
         XCTAssertTrue(app.segmentedControls[Identifiers.widthPicker].waitForExistence(timeout: 5))
         app.segmentedControls[Identifiers.widthPicker].buttons["Wide"].click()
+    }
+
+    func testSidebarKeepsSelectedWorkspaceVisibleWhenListOverflows() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        XCTAssertTrue(app.otherElements[Identifiers.workspaceList].waitForExistence(timeout: 10))
+
+        for workspaceNumber in 2...15 {
+            app.buttons[Identifiers.nextWorkspaceButton].click()
+            XCTAssertEqual(
+                app.staticTexts[Identifiers.workspaceTitle].label,
+                "Workspace \(String(format: "%02d", workspaceNumber))"
+            )
+            app.buttons[Identifiers.newTileButton].click()
+        }
+
+        app.buttons[Identifiers.nextWorkspaceButton].click()
+
+        let lastWorkspaceButton = app.buttons[Identifiers.workspaceButton("16")]
+        XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 16")
+        XCTAssertTrue(lastWorkspaceButton.isHittable)
     }
 
     private func launchApp() throws -> XCUIApplication {

@@ -4,6 +4,7 @@ import Foundation
 enum TairiAccessibility {
     static let appRoot = "app-root"
     static let workspaceSidebar = "workspace-sidebar"
+    static let workspaceList = "workspace-list"
     static let mainPanel = "main-panel"
     static let workspaceTitle = "workspace-title"
     static let workspaceCanvas = "workspace-canvas"

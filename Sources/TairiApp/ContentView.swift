@@ -81,55 +81,8 @@ struct ContentView: View {
                 .font(.system(size: 28, weight: .bold, design: .serif))
                 .foregroundStyle(ShellPalette.primaryText)
 
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(store.workspaces) { workspace in
-                    Button {
-                        interactionController.selectWorkspace(workspace.id)
-                    } label: {
-                        HStack {
-                            Text(workspace.title)
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            Spacer()
-                            Text("\(workspace.tiles.count)")
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
-                                .fill(workspace.id == store.selectedWorkspaceID ? ShellPalette.activeWorkspace : ShellPalette.inactiveWorkspace)
-                        )
-                        .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : ShellPalette.primaryText)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 10) {
-                actionButton("New tile", shortcut: "cmd+n") {
-                    _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
-                    if let selectedTileID = store.selectedTileID {
-                        runtime.focusSurface(tileID: selectedTileID)
-                    }
-                }
-                actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
-                    interactionController.selectAdjacentWorkspace(offset: -1)
-                    if let selectedTileID = store.selectedTileID {
-                        runtime.focusSurface(tileID: selectedTileID)
-                    }
-                }
-                actionButton("Next workspace", shortcut: "opt+cmd+↓") {
-                    interactionController.selectAdjacentWorkspace(offset: 1)
-                    if let selectedTileID = store.selectedTileID {
-                        runtime.focusSurface(tileID: selectedTileID)
-                    }
-                }
-            }
-
+            workspaceList
+            sidebarActions
         }
         .padding(.horizontal, 11)
         .padding(.top, 38)
@@ -151,6 +104,53 @@ struct ContentView: View {
         .allowsHitTesting(!chromeController.isSidebarHidden)
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: chromeController.isSidebarHidden)
         .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
+    }
+
+    private var workspaceList: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(store.workspaces) { workspace in
+                        workspaceButton(for: workspace)
+                            .id(workspace.id)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, 6)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
+            .onAppear {
+                scrollSelectedWorkspace(in: proxy, animated: false)
+            }
+            .onChange(of: store.selectedWorkspaceID) { _ in
+                scrollSelectedWorkspace(in: proxy)
+            }
+            .accessibilityIdentifier(TairiAccessibility.workspaceList)
+        }
+    }
+
+    private var sidebarActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            actionButton("New tile", shortcut: "cmd+n") {
+                _ = interactionController.addTerminalTile(nextTo: store.selectedTileID, transition: .preserveViewport)
+                if let selectedTileID = store.selectedTileID {
+                    runtime.focusSurface(tileID: selectedTileID)
+                }
+            }
+            actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
+                interactionController.selectAdjacentWorkspace(offset: -1)
+                if let selectedTileID = store.selectedTileID {
+                    runtime.focusSurface(tileID: selectedTileID)
+                }
+            }
+            actionButton("Next workspace", shortcut: "opt+cmd+↓") {
+                interactionController.selectAdjacentWorkspace(offset: 1)
+                if let selectedTileID = store.selectedTileID {
+                    runtime.focusSurface(tileID: selectedTileID)
+                }
+            }
+        }
     }
 
     private var mainPanel: some View {
@@ -194,6 +194,30 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier(for: title))
+    }
+
+    private func workspaceButton(for workspace: WorkspaceStore.Workspace) -> some View {
+        Button {
+            interactionController.selectWorkspace(workspace.id)
+        } label: {
+            HStack {
+                Text(workspace.title)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                Spacer()
+                Text("\(workspace.tiles.count)")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
+                    .fill(workspace.id == store.selectedWorkspaceID ? ShellPalette.activeWorkspace : ShellPalette.inactiveWorkspace)
+            )
+            .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : ShellPalette.primaryText)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
     }
 
     private var windowBackground: some View {
@@ -259,6 +283,20 @@ struct ContentView: View {
             TairiAccessibility.nextWorkspaceButton
         default:
             title
+        }
+    }
+
+    private func scrollSelectedWorkspace(in proxy: ScrollViewProxy, animated: Bool = true) {
+        let scroll = {
+            proxy.scrollTo(store.selectedWorkspaceID, anchor: .center)
+        }
+
+        if animated {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                scroll()
+            }
+        } else {
+            scroll()
         }
     }
 
