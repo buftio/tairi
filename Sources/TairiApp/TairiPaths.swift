@@ -18,6 +18,9 @@ enum TairiPaths {
     static let sessionMarkerURL = logsDirectory.appendingPathComponent("tairi.session.json")
     static let signalMarkerURL = logsDirectory.appendingPathComponent("tairi.signal")
     static let exceptionMarkerURL = logsDirectory.appendingPathComponent("tairi.exception.txt")
+    static let ghosttyConfigURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/com.mitchellh.ghostty", isDirectory: true)
+        .appendingPathComponent("config")
     static let diagnosticReportsDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/DiagnosticReports", isDirectory: true)
 

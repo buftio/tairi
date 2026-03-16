@@ -21,6 +21,9 @@ let package = Package(
                 "GhosttyDyn",
             ],
             path: "Sources/TairiApp",
+            resources: [
+                .process("Resources"),
+            ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-rpath",

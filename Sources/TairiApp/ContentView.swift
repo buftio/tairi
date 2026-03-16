@@ -24,6 +24,19 @@ private enum ShellPalette {
     static let inactiveWorkspace = Color.black.opacity(0.05)
 }
 
+private enum WindowTexture {
+    static let paper: NSImage? = {
+        guard let url = Bundle.module.url(
+            forResource: "paper",
+            withExtension: "png",
+            subdirectory: "Textures"
+        ) else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }()
+}
+
 struct WindowAccessor: NSViewRepresentable {
     let onResolve: (NSWindow) -> Void
 
@@ -94,7 +107,10 @@ struct ContentView: View {
         }
         .background(
             WindowAccessor { window in
+                let isNewWindow = resolvedWindow !== window
                 resolvedWindow = window
+
+                guard isNewWindow else { return }
                 configure(window: window)
                 window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)
@@ -270,7 +286,33 @@ struct ContentView: View {
             .opacity(0.18 + (Double(settings.windowGlassOpacity) * 0.16))
             Rectangle()
                 .fill(Color.white.opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.07)))
+            if let paperTexture = WindowTexture.paper {
+                Rectangle()
+                    .fill(
+                        ImagePaint(
+                            image: Image(nsImage: paperTexture),
+                            scale: 0.35
+                        )
+                    )
+                    .saturation(0)
+                    .contrast(1.12)
+                    .colorMultiply(Color(red: 0.76, green: 0.72, blue: 0.67))
+                    .blendMode(.multiply)
+                    .opacity(0.14 + (Double(settings.windowGlassOpacity) * 0.14))
+                Rectangle()
+                    .fill(
+                        ImagePaint(
+                            image: Image(nsImage: paperTexture),
+                            scale: 0.55
+                        )
+                    )
+                    .saturation(0)
+                    .contrast(1.08)
+                    .blendMode(.overlay)
+                    .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.08))
+            }
         }
+        .clipped()
     }
 
     private var sidebarBackground: some View {

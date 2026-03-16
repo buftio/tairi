@@ -9,7 +9,7 @@ enum WorkspaceTileChromeMetrics {
     static let backgroundMaterial: NSVisualEffectView.Material = .underWindowBackground
 
     // Border
-    static let activeBorderWidth: CGFloat = 5
+    static let activeBorderWidth: CGFloat = 3.5
     static let inactiveBorderWidth: CGFloat = 1
     static let activeBorderColor = NSColor(
         calibratedRed: 0.54,

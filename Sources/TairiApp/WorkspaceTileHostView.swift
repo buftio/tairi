@@ -13,9 +13,10 @@ final class WorkspaceTileHostView: NSView {
     }
 
     private let runtime: GhosttyRuntime
+    private let contentContainerView = FlippedContainerView()
+    private let borderShapeLayer = CAShapeLayer()
     private let titleField = NSTextField(labelWithString: "")
     private let pathField = NSTextField(labelWithString: "")
-    private let statusDot = NSView()
     private let closeButton = NSButton(title: "", target: nil, action: nil)
     private let headerView = NSView()
     private let surfaceContainerView = NSView()
@@ -31,30 +32,33 @@ final class WorkspaceTileHostView: NSView {
 
         wantsLayer = true
         layer?.cornerRadius = Metrics.cornerRadius
-        layer?.masksToBounds = true
+        layer?.masksToBounds = false
+        borderShapeLayer.fillColor = NSColor.clear.cgColor
+        borderShapeLayer.lineJoin = .round
+        borderShapeLayer.zPosition = 1
+        layer?.addSublayer(borderShapeLayer)
         configureAccessibility(
             identifier: TairiAccessibility.tile(tileID),
             label: "Workspace tile",
             value: "unselected"
         )
 
+        contentContainerView.wantsLayer = true
+        addSubview(contentContainerView)
+
         headerView.wantsLayer = true
-        addSubview(headerView)
+        contentContainerView.addSubview(headerView)
 
         titleField.font = .monospacedSystemFont(ofSize: 12, weight: .semibold)
         titleField.lineBreakMode = .byTruncatingMiddle
         titleField.setAccessibilityIdentifier(TairiAccessibility.tileTitle(tileID))
-        addSubview(titleField)
+        contentContainerView.addSubview(titleField)
 
         pathField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         pathField.textColor = .secondaryLabelColor
         pathField.lineBreakMode = .byTruncatingMiddle
         pathField.setAccessibilityIdentifier(TairiAccessibility.tilePath(tileID))
-        addSubview(pathField)
-
-        statusDot.wantsLayer = true
-        statusDot.layer?.cornerRadius = 4
-        addSubview(statusDot)
+        contentContainerView.addSubview(pathField)
 
         closeButton.title = ""
         closeButton.isBordered = false
@@ -71,13 +75,13 @@ final class WorkspaceTileHostView: NSView {
         closeButton.focusRingType = .none
         closeButton.setAccessibilityIdentifier(TairiAccessibility.tileCloseButton(tileID))
         closeButton.setAccessibilityLabel("Close tile")
-        addSubview(closeButton)
+        contentContainerView.addSubview(closeButton)
 
         surfaceContainerView.configureAccessibility(
             identifier: TairiAccessibility.tileSurface(tileID),
             label: "Terminal surface"
         )
-        addSubview(surfaceContainerView)
+        contentContainerView.addSubview(surfaceContainerView)
         runtime.attachTile(tileID, to: surfaceContainerView)
     }
 
@@ -88,7 +92,28 @@ final class WorkspaceTileHostView: NSView {
 
     override func layout() {
         super.layout()
-        layer?.cornerRadius = effectiveCornerRadius()
+        let cornerRadius = effectiveCornerRadius()
+        let borderWidth = borderShapeLayer.lineWidth
+        let borderBounds = bounds.insetBy(dx: -(borderWidth / 2), dy: -(borderWidth / 2))
+        let borderCornerRadius = cornerRadius + (borderWidth / 2)
+        layer?.cornerRadius = cornerRadius
+        layer?.shadowPath = CGPath(
+            roundedRect: borderBounds,
+            cornerWidth: borderCornerRadius,
+            cornerHeight: borderCornerRadius,
+            transform: nil
+        )
+        borderShapeLayer.frame = bounds
+        borderShapeLayer.path = CGPath(
+            roundedRect: borderBounds,
+            cornerWidth: borderCornerRadius,
+            cornerHeight: borderCornerRadius,
+            transform: nil
+        )
+
+        contentContainerView.frame = bounds
+        contentContainerView.layer?.cornerRadius = cornerRadius
+        contentContainerView.layer?.masksToBounds = true
 
         headerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
         titleField.frame = NSRect(
@@ -109,7 +134,6 @@ final class WorkspaceTileHostView: NSView {
             width: Metrics.closeButtonSize,
             height: Metrics.closeButtonSize
         )
-        statusDot.frame = NSRect(x: bounds.width - 24, y: 35, width: 8, height: 8)
         surfaceContainerView.frame = NSRect(
             x: 0,
             y: Metrics.headerHeight,
@@ -132,12 +156,25 @@ final class WorkspaceTileHostView: NSView {
         setAccessibilityLabel("Workspace tile \(tile.title)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
-        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        layer?.borderWidth = 1
-        layer?.borderColor = (selected ? NSColor.labelColor : NSColor.quaternaryLabelColor).cgColor
+        contentContainerView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
+        borderShapeLayer.lineWidth = selected
+            ? WorkspaceTileChromeMetrics.activeBorderWidth
+            : WorkspaceTileChromeMetrics.inactiveBorderWidth
+        borderShapeLayer.strokeColor = (
+            selected
+                ? WorkspaceTileChromeMetrics.activeBorderColor
+                : WorkspaceTileChromeMetrics.inactiveBorderColor
+        ).cgColor
+        needsLayout = true
+        layer?.shadowColor = WorkspaceTileChromeMetrics.activeBorderColor
+            .withAlphaComponent(0.9)
+            .cgColor
+        layer?.shadowOpacity = selected ? 0.6 : 0
+        layer?.shadowRadius = selected ? 18 : 0
+        layer?.shadowOffset = .zero
 
         headerView.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.08).cgColor
-        statusDot.layer?.backgroundColor = (selected ? NSColor.systemGreen : NSColor.quaternaryLabelColor).cgColor
         closeButton.layer?.opacity = selected ? 1 : 0.9
     }
 
@@ -171,6 +208,10 @@ final class WorkspaceTileHostView: NSView {
             ? Metrics.compactCornerRadius
             : Metrics.cornerRadius
     }
+}
+
+private final class FlippedContainerView: NSView {
+    override var isFlipped: Bool { true }
 }
 
 @MainActor

@@ -20,12 +20,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         DispatchQueue.main.async {
-            NSApp.windows.forEach { window in
-                window.orderFrontRegardless()
-                window.makeKey()
+            if let keyWindow = NSApp.keyWindow {
+                keyWindow.makeKeyAndOrderFront(nil)
+                return
             }
-            NSApp.mainWindow?.makeKeyAndOrderFront(nil)
-            NSApp.keyWindow?.makeKey()
+
+            if let frontWindow = NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible) {
+                frontWindow.makeKeyAndOrderFront(nil)
+            }
         }
     }
 }
