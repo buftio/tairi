@@ -1,0 +1,29 @@
+{
+  "name": "tairi-electron-proto",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Experimental Electron + ghostty-web prototype for Tairi",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"pnpm dev:renderer\" \"pnpm dev:electron\"",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist-electron/main.js",
+    "build": "pnpm build:renderer && pnpm build:electron",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "start": "pnpm build && electron dist-electron/main.js"
+  },
+  "dependencies": {
+    "electron": "^41.0.2",
+    "ghostty-web": "^0.4.0",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "wait-on": "^8.0.5"
+  }
+}

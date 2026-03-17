@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Tairi Electron Proto</title>
+    <script
+      type="module"
+      src="/src/renderer.ts"
+    ></script>
+  </head>
+  <body>
+    <div id="app">
+      <div class="desktop-glass">
+        <section class="terminal-window">
+          <header class="terminal-chrome">
+            <div class="terminal-chrome__meta">
+              <p
+                id="session-title"
+                class="session-title"
+              >
+                shell
+              </p>
+              <p
+                id="session-cwd"
+                class="session-cwd"
+              ></p>
+            </div>
+            <div class="terminal-chrome__actions">
+              <span
+                id="session-status"
+                class="session-status"
+              >
+                Booting shell…
+              </span>
+              <span
+                class="session-close-dot"
+                aria-hidden="true"
+              ></span>
+            </div>
+          </header>
+          <main class="terminal-stage">
+            <div id="terminal"></div>
+          </main>
+          <div
+            id="session-debug"
+            class="sr-only"
+          ></div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
