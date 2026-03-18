@@ -40,7 +40,6 @@ struct TairiApp: App {
                 .environmentObject(interactionController)
                 .environmentObject(runtime)
                 .environmentObject(chromeController)
-                .frame(minWidth: 1080, minHeight: 720)
         }
         .windowStyle(.hiddenTitleBar)
         .commands {

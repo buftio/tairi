@@ -244,7 +244,7 @@ final class WorkspaceCanvasContainerView: NSView {
 @MainActor
 final class WorkspaceCanvasDocumentView: NSView {
     private enum Metrics {
-        static let workspacePeek: CGFloat = 72
+        static let workspacePeek: CGFloat = 28.8
         static let workspaceScrollAnimationDuration: TimeInterval = 0.22
     }
 

@@ -393,6 +393,8 @@ struct ContentView: View {
         window.isMovableByWindowBackground = false
         window.isOpaque = false
         window.backgroundColor = .clear
+        window.contentMinSize = .zero
+        window.minSize = .zero
         window.styleMask.insert(.fullSizeContentView)
         window.toolbar = nil
         if #available(macOS 11.0, *) {
