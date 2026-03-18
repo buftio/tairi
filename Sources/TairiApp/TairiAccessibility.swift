@@ -12,6 +12,9 @@ enum TairiAccessibility {
     static let newTileButton = "new-tile-button"
     static let previousWorkspaceButton = "previous-workspace-button"
     static let nextWorkspaceButton = "next-workspace-button"
+    static let tileSpotlight = "tile-spotlight"
+    static let tileSpotlightSearchField = "tile-spotlight-search-field"
+    static let tileSpotlightResults = "tile-spotlight-results"
     static let runtimeError = "runtime-error"
 
     static func workspaceButton(_ title: String) -> String {
@@ -40,6 +43,10 @@ enum TairiAccessibility {
 
     static func tileResizeHandle(_ tileID: UUID) -> String {
         "workspace-tile-resize-handle-\(tileID.uuidString.lowercased())"
+    }
+
+    static func tileSpotlightResult(_ tileID: UUID) -> String {
+        "tile-spotlight-result-\(tileID.uuidString.lowercased())"
     }
 }
 

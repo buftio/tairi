@@ -26,6 +26,7 @@
 ## Ghostty
 
 - Read [docs/ghostty.md](docs/ghostty.md) before changing terminal/session behavior.
+- For app chrome colors, start with [Sources/TairiApp/GhosttyAppTheme.swift](Sources/TairiApp/GhosttyAppTheme.swift).
 - Tairi uses first-class in-process Ghostty sessions; tile host views attach/detach from persistent session-owned surface views.
 - Explicit tile close is destructive and should terminate the session before removing the tile.
 - UI churn such as workspace switching or host view rebuilds should detach, not terminate, the session.

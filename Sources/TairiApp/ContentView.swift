@@ -12,18 +12,6 @@ private enum LayoutMetrics {
     static let trafficLightsSpacing: CGFloat = 6
 }
 
-private enum ShellPalette {
-    static let windowBackgroundTop = Color(red: 0.96, green: 0.95, blue: 0.92)
-    static let windowBackgroundBottom = Color(red: 0.91, green: 0.90, blue: 0.86)
-    static let primaryText = Color.black.opacity(0.84)
-    static let secondaryText = Color.black.opacity(0.48)
-    static let sidebarStroke = Color.white.opacity(0.70)
-    static let sidebarShadow = Color.black.opacity(0.10)
-    static let actionBackground = Color.white.opacity(0.28)
-    static let activeWorkspace = Color.black.opacity(0.88)
-    static let inactiveWorkspace = Color.black.opacity(0.05)
-}
-
 private enum WindowTexture {
     static let paper: NSImage? = {
         guard let url = Bundle.module.url(
@@ -86,12 +74,19 @@ struct ContentView: View {
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
     @EnvironmentObject private var chromeController: WindowChromeController
+    @EnvironmentObject private var spotlightController: TileSpotlightController
     @State private var resolvedWindow: NSWindow?
+
+    private var theme: GhosttyAppTheme { runtime.appTheme }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             mainPanel
             sidebar
+            if spotlightController.isPresented {
+                TileSpotlightView()
+                    .zIndex(1)
+            }
         }
         .accessibilityIdentifier(TairiAccessibility.appRoot)
         .background(windowBackground)
@@ -122,7 +117,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("tairi")
                 .font(.system(size: 28, weight: .bold, design: .serif))
-                .foregroundStyle(ShellPalette.primaryText)
+                .foregroundStyle(Color(nsColor: theme.primaryText))
 
             workspaceList
             sidebarActions
@@ -136,9 +131,9 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .stroke(ShellPalette.sidebarStroke, lineWidth: 1)
+                .stroke(Color(nsColor: theme.sidebarStroke), lineWidth: 1)
         )
-        .shadow(color: ShellPalette.sidebarShadow, radius: 30, x: 0, y: 18)
+        .shadow(color: Color(nsColor: theme.sidebarShadow), radius: 30, x: 0, y: 18)
         .padding(.leading, LayoutMetrics.sidebarLeadingInset)
         .padding(.top, LayoutMetrics.sidebarTopInset)
         .padding(.bottom, LayoutMetrics.sidebarBottomInset)
@@ -230,15 +225,18 @@ struct ContentView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(ShellPalette.primaryText)
+                    .foregroundStyle(Color(nsColor: theme.primaryText))
                 Spacer()
                 Text(shortcut)
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(ShellPalette.secondaryText)
+                    .foregroundStyle(Color(nsColor: theme.secondaryText))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius).fill(ShellPalette.actionBackground))
+            .background(
+                RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
+                    .fill(Color(nsColor: theme.actionBackground))
+            )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier(for: title))
@@ -260,9 +258,21 @@ struct ContentView: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
-                    .fill(workspace.id == store.selectedWorkspaceID ? ShellPalette.activeWorkspace : ShellPalette.inactiveWorkspace)
+                    .fill(
+                        Color(
+                            nsColor: workspace.id == store.selectedWorkspaceID
+                                ? theme.activeWorkspaceFill
+                                : theme.inactiveWorkspaceFill
+                        )
+                    )
             )
-            .foregroundStyle(workspace.id == store.selectedWorkspaceID ? Color.white : ShellPalette.primaryText)
+            .foregroundStyle(
+                Color(
+                    nsColor: workspace.id == store.selectedWorkspaceID
+                        ? theme.activeWorkspaceText
+                        : theme.primaryText
+                )
+            )
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
@@ -270,46 +280,93 @@ struct ContentView: View {
 
     private var windowBackground: some View {
         ZStack {
-            WindowGlassBackgroundView(
-                material: .hudWindow,
-                opacity: min(settings.windowGlassOpacity * 0.82, 1)
-            )
-            WindowGlassBackgroundView(
-                material: .underWindowBackground,
-                opacity: min(settings.windowGlassOpacity * 0.55, 1)
-            )
-            LinearGradient(
-                colors: [ShellPalette.windowBackgroundTop, ShellPalette.windowBackgroundBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .opacity(0.18 + (Double(settings.windowGlassOpacity) * 0.16))
             Rectangle()
-                .fill(Color.white.opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.07)))
-            if let paperTexture = WindowTexture.paper {
+                .fill(.clear)
+                .background(
+                    ZStack {
+                        WindowGlassBackgroundView(
+                            material: .hudWindow,
+                            opacity: min(settings.windowGlassOpacity * 0.82, 1)
+                        )
+                        WindowGlassBackgroundView(
+                            material: .underWindowBackground,
+                            opacity: min(settings.windowGlassOpacity * 0.55, 1)
+                        )
+                    }
+                )
+
+            Rectangle()
+                .fill(
+                    Color(nsColor: theme.background)
+                        .opacity(theme.isLightTheme ? 0.40 : 0.74)
+                )
+            if theme.isLightTheme {
+                LinearGradient(
+                    colors: [
+                        Color(nsColor: theme.windowBackgroundTop),
+                        Color(nsColor: theme.windowBackgroundBottom),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(0.18 + (Double(settings.windowGlassOpacity) * 0.16))
                 Rectangle()
                     .fill(
-                        ImagePaint(
-                            image: Image(nsImage: paperTexture),
-                            scale: 0.35
-                        )
+                        Color(nsColor: theme.foreground)
+                            .opacity(0.05 + (Double(settings.windowGlassOpacity) * 0.05))
                     )
-                    .saturation(0)
-                    .contrast(1.12)
-                    .colorMultiply(Color(red: 0.76, green: 0.72, blue: 0.67))
-                    .blendMode(.multiply)
-                    .opacity(0.14 + (Double(settings.windowGlassOpacity) * 0.14))
+                if let paperTexture = WindowTexture.paper {
+                    Rectangle()
+                        .fill(
+                            ImagePaint(
+                                image: Image(nsImage: paperTexture),
+                                scale: 0.35
+                            )
+                        )
+                        .saturation(0)
+                        .contrast(1.12)
+                        .colorMultiply(Color(nsColor: theme.paperTextureTint))
+                        .blendMode(.multiply)
+                        .opacity(0.14 + (Double(settings.windowGlassOpacity) * 0.14))
+                    Rectangle()
+                        .fill(
+                            ImagePaint(
+                                image: Image(nsImage: paperTexture),
+                                scale: 0.55
+                            )
+                        )
+                        .saturation(0)
+                        .contrast(1.08)
+                        .blendMode(.overlay)
+                        .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.08))
+                }
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(nsColor: theme.windowBackgroundTop),
+                        Color(nsColor: theme.windowBackgroundBottom),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.05))
                 Rectangle()
                     .fill(
-                        ImagePaint(
-                            image: Image(nsImage: paperTexture),
-                            scale: 0.55
+                        Color(nsColor: theme.foreground)
+                            .opacity(0.02 + (Double(settings.windowGlassOpacity) * 0.03))
+                    )
+
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.05),
+                                Color.clear,
+                            ],
+                            startPoint: .top,
+                            endPoint: UnitPoint(x: 0.5, y: 0.42)
                         )
                     )
-                    .saturation(0)
-                    .contrast(1.08)
-                    .blendMode(.overlay)
-                    .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.08))
             }
         }
         .clipped()
@@ -323,8 +380,8 @@ struct ContentView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.44),
-                            Color.white.opacity(0.16)
+                            Color(nsColor: theme.sidebarOverlayTop),
+                            Color(nsColor: theme.sidebarOverlayBottom)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -334,9 +391,9 @@ struct ContentView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.34),
+                            Color(nsColor: theme.sidebarHighlight),
                             Color.clear,
-                            Color.white.opacity(0.08)
+                            Color(nsColor: theme.sidebarOverlayBottom)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -349,10 +406,10 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Ghostty runtime unavailable")
                 .font(.system(size: 20, weight: .bold, design: .serif))
-                .foregroundStyle(ShellPalette.primaryText)
+                .foregroundStyle(Color(nsColor: theme.primaryText))
             Text(error)
                 .font(.system(size: 12, weight: .regular, design: .monospaced))
-                .foregroundStyle(ShellPalette.secondaryText)
+                .foregroundStyle(Color(nsColor: theme.secondaryText))
                 .textSelection(.enabled)
         }
         .padding(28)

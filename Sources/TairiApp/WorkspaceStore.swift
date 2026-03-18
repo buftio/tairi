@@ -62,6 +62,7 @@ final class WorkspaceStore: ObservableObject {
         var pwd: String?
         var width: CGFloat
         var createdAt: Date
+        var lastVisitedAt: Date
         var surface: Surface
 
         init(
@@ -70,6 +71,7 @@ final class WorkspaceStore: ObservableObject {
             pwd: String? = nil,
             width: CGFloat = WidthPreset.standard.width,
             createdAt: Date = .now,
+            lastVisitedAt: Date = .now,
             surface: Surface
         ) {
             self.id = id
@@ -77,6 +79,7 @@ final class WorkspaceStore: ObservableObject {
             self.pwd = pwd
             self.width = width
             self.createdAt = createdAt
+            self.lastVisitedAt = lastVisitedAt
             self.surface = surface
         }
     }
@@ -149,6 +152,7 @@ final class WorkspaceStore: ObservableObject {
         }
 
         selectedTileID = tile.id
+        markTileVisited(tile.id)
         normalize()
         return tile
     }
@@ -188,6 +192,9 @@ final class WorkspaceStore: ObservableObject {
 
         selectedWorkspaceID = workspaceID
         selectedTileID = nextTileID
+        if let nextTileID {
+            markTileVisited(nextTileID)
+        }
         normalize()
     }
 
@@ -197,6 +204,7 @@ final class WorkspaceStore: ObservableObject {
 
         selectedTileID = tileID
         selectedWorkspaceID = workspace.id
+        markTileVisited(tileID)
     }
 
     func selectAdjacentTile(offset: Int) {
@@ -209,6 +217,7 @@ final class WorkspaceStore: ObservableObject {
 
         let nextIndex = min(max(currentIndex + offset, 0), tiles.count - 1)
         selectedTileID = tiles[nextIndex].id
+        markTileVisited(tiles[nextIndex].id)
     }
 
     func selectAdjacentWorkspace(
@@ -225,6 +234,9 @@ final class WorkspaceStore: ObservableObject {
             preferredVisibleMidX: preferredVisibleMidX,
             stripLeadingInset: stripLeadingInset
         )
+        if let selectedTileID {
+            markTileVisited(selectedTileID)
+        }
         normalize()
     }
 
@@ -343,6 +355,10 @@ final class WorkspaceStore: ObservableObject {
             transform(&workspaces[workspaceIndex].tiles[tileIndex])
             return
         }
+    }
+
+    private func markTileVisited(_ tileID: UUID, at date: Date = .now) {
+        mutateTile(tileID) { $0.lastVisitedAt = date }
     }
 
     private func workspaceContaining(_ tileID: UUID) -> Workspace? {

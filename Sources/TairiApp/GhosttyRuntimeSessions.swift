@@ -83,7 +83,21 @@ extension GhosttyRuntime {
         tairi_ghostty_config_load_recursive_files(config)
         applyTairiOverrides(to: config)
         tairi_ghostty_config_finalize(config)
+        refreshAppTheme(using: config)
         return body(config)
+    }
+
+    func refreshAppTheme() {
+        _ = withGhosttyConfig { _ in () }
+    }
+
+    func refreshAppTheme(using config: ghostty_config_t) {
+        let resolvedTheme = GhosttyAppTheme(config: config)
+        guard resolvedTheme != appTheme else { return }
+        appTheme = resolvedTheme
+        TairiLog.write(
+            "ghostty theme updated background=\(appTheme.background.hexString) foreground=\(appTheme.foreground.hexString) accent=\(appTheme.accent.hexString)"
+        )
     }
 
     func applyTairiOverrides(to config: ghostty_config_t) {
@@ -366,5 +380,15 @@ extension GhosttyRuntime {
         }
 
         return path
+    }
+}
+
+private extension NSColor {
+    var hexString: String {
+        let color = usingColorSpace(.sRGB) ?? self
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        return String(format: "#%02X%02X%02X", red, green, blue)
     }
 }

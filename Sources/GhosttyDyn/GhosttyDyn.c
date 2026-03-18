@@ -29,6 +29,7 @@ DECLARE_SYM(ghostty_config_load_file, void, (ghostty_config_t, const char *));
 DECLARE_SYM(ghostty_config_load_default_files, void, (ghostty_config_t));
 DECLARE_SYM(ghostty_config_load_recursive_files, void, (ghostty_config_t));
 DECLARE_SYM(ghostty_config_finalize, void, (ghostty_config_t));
+DECLARE_SYM(ghostty_config_get, bool, (ghostty_config_t, void *, const char *, uintptr_t));
 DECLARE_SYM(ghostty_app_new, ghostty_app_t, (const ghostty_runtime_config_s *, ghostty_config_t));
 DECLARE_SYM(ghostty_app_free, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_tick, void, (ghostty_app_t));
@@ -123,6 +124,7 @@ const char *tairi_ghostty_load(const char *binary_path) {
     LOAD_SYM(ghostty_config_load_default_files);
     LOAD_SYM(ghostty_config_load_recursive_files);
     LOAD_SYM(ghostty_config_finalize);
+    LOAD_SYM(ghostty_config_get);
     LOAD_SYM(ghostty_app_new);
     LOAD_SYM(ghostty_app_free);
     LOAD_SYM(ghostty_app_tick);
@@ -198,6 +200,42 @@ void tairi_ghostty_config_load_recursive_files(ghostty_config_t config) {
 void tairi_ghostty_config_finalize(ghostty_config_t config) {
     require_loaded();
     p_ghostty_config_finalize(config);
+}
+
+bool tairi_ghostty_config_get_color(
+    ghostty_config_t config,
+    const char *key,
+    ghostty_config_color_s *value
+) {
+    require_loaded();
+    if (key == NULL || value == NULL) return false;
+    return p_ghostty_config_get(config, value, key, strlen(key));
+}
+
+bool tairi_ghostty_config_get_palette(
+    ghostty_config_t config,
+    ghostty_config_palette_s *value
+) {
+    static const char *key = "palette";
+
+    require_loaded();
+    if (value == NULL) return false;
+    return p_ghostty_config_get(config, value, key, strlen(key));
+}
+
+bool tairi_ghostty_config_get_palette_color(
+    ghostty_config_t config,
+    uint8_t index,
+    ghostty_config_color_s *value
+) {
+    ghostty_config_palette_s palette;
+
+    require_loaded();
+    if (value == NULL) return false;
+    if (!tairi_ghostty_config_get_palette(config, &palette)) return false;
+
+    *value = palette.colors[index];
+    return true;
 }
 
 ghostty_app_t tairi_ghostty_app_new(

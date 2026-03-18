@@ -965,6 +965,7 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     private func makeResizeHandle(for tileID: UUID) -> WorkspaceTileResizeHandleView {
         let handle = WorkspaceTileResizeHandleView(
+            runtime: runtime,
             store: store,
             interactionController: interactionController,
             tileID: tileID

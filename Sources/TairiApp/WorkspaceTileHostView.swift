@@ -3,8 +3,8 @@ import AppKit
 @MainActor
 final class WorkspaceTileHostView: NSView {
     private enum Metrics {
-        static let cornerRadius: CGFloat = 16
-        static let compactCornerRadius: CGFloat = 8
+        static let cornerRadius: CGFloat = 10
+        static let compactCornerRadius: CGFloat = 5
         static let compactCornerRadiusThreshold: CGFloat = 260
         static let headerHeight: CGFloat = 62
         static let headerPadding: CGFloat = 14
@@ -65,9 +65,9 @@ final class WorkspaceTileHostView: NSView {
         closeButton.bezelStyle = .regularSquare
         closeButton.wantsLayer = true
         closeButton.layer?.cornerRadius = Metrics.closeButtonSize / 2
-        closeButton.layer?.backgroundColor = NSColor.systemRed.cgColor
+        closeButton.layer?.backgroundColor = runtime.appTheme.closeButtonFill.cgColor
         closeButton.layer?.borderWidth = 1
-        closeButton.layer?.borderColor = NSColor.systemRed.blended(withFraction: 0.3, of: .black)?.cgColor
+        closeButton.layer?.borderColor = runtime.appTheme.closeButtonBorder.cgColor
         closeButton.target = self
         closeButton.action = #selector(closeTile)
         closeButton.setButtonType(.momentaryChange)
@@ -151,30 +151,33 @@ final class WorkspaceTileHostView: NSView {
     }
 
     func update(tile: WorkspaceStore.Tile, selected: Bool) {
+        let theme = runtime.appTheme
         titleField.stringValue = tile.title
         pathField.stringValue = tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
         setAccessibilityLabel("Workspace tile \(tile.title)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
-        contentContainerView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        titleField.textColor = selected ? theme.tileActiveTitleText : theme.primaryText
+        pathField.textColor = selected ? theme.tileActivePathText : theme.secondaryText
+        contentContainerView.layer?.backgroundColor = theme.tileBackground.cgColor
         layer?.backgroundColor = NSColor.clear.cgColor
         borderShapeLayer.lineWidth = selected
             ? WorkspaceTileChromeMetrics.activeBorderWidth
             : WorkspaceTileChromeMetrics.inactiveBorderWidth
         borderShapeLayer.strokeColor = (
             selected
-                ? WorkspaceTileChromeMetrics.activeBorderColor
-                : WorkspaceTileChromeMetrics.inactiveBorderColor
+                ? theme.tileActiveBorder
+                : theme.tileInactiveBorder
         ).cgColor
         needsLayout = true
-        layer?.shadowColor = WorkspaceTileChromeMetrics.activeBorderColor
-            .withAlphaComponent(0.9)
-            .cgColor
+        layer?.shadowColor = theme.tileShadow.cgColor
         layer?.shadowOpacity = selected ? 0.6 : 0
         layer?.shadowRadius = selected ? 18 : 0
         layer?.shadowOffset = .zero
 
-        headerView.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.08).cgColor
+        headerView.layer?.backgroundColor = theme.tileHeaderBackground.cgColor
+        closeButton.layer?.backgroundColor = theme.closeButtonFill.cgColor
+        closeButton.layer?.borderColor = theme.closeButtonBorder.cgColor
         closeButton.layer?.opacity = selected ? 1 : 0.9
     }
 
@@ -216,6 +219,7 @@ private final class FlippedContainerView: NSView {
 
 @MainActor
 final class WorkspaceTileResizeHandleView: NSView {
+    private let runtime: GhosttyRuntime
     private let interactionController: WorkspaceInteractionController
     private let store: WorkspaceStore
     private let gripView = NSView()
@@ -227,7 +231,13 @@ final class WorkspaceTileResizeHandleView: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(store: WorkspaceStore, interactionController: WorkspaceInteractionController, tileID: UUID) {
+    init(
+        runtime: GhosttyRuntime,
+        store: WorkspaceStore,
+        interactionController: WorkspaceInteractionController,
+        tileID: UUID
+    ) {
+        self.runtime = runtime
         self.interactionController = interactionController
         self.store = store
         self.tileID = tileID
@@ -257,7 +267,8 @@ final class WorkspaceTileResizeHandleView: NSView {
             width: 4,
             height: max(bounds.height - 20, 24)
         )
-        gripView.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        gripView.layer?.cornerRadius = 2
+        gripView.layer?.backgroundColor = NSColor.clear.cgColor
     }
 
     override func resetCursorRects() {

@@ -25,6 +25,7 @@ final class GhosttyRuntime: ObservableObject {
     }
 
     @Published var errorMessage: String?
+    @Published var appTheme = GhosttyAppTheme.fallback
 
     let store: WorkspaceStore
     let interactionController: WorkspaceInteractionController
@@ -166,6 +167,7 @@ final class GhosttyRuntime: ObservableObject {
     }
 
     func focus(tileID: UUID, transition: WorkspaceInteractionController.TileTransition = .immediate) {
+        TairiLog.write("ghostty focus request tile=\(tileID.uuidString) transition=\(String(describing: transition))")
         interactionController.selectTile(tileID, transition: transition)
         focusSurface(tileID: tileID)
     }
@@ -176,11 +178,18 @@ final class GhosttyRuntime: ObservableObject {
     }
 
     func focusSurface(tileID: UUID) {
-        guard let tile = store.tile(tileID) else { return }
+        TairiLog.write("ghostty focusSurface start tile=\(tileID.uuidString)")
+        guard let tile = store.tile(tileID) else {
+            TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=missing-tile")
+            return
+        }
         guard let session = ensureSessionExists(
             id: tile.surface.terminalSessionID,
             workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
         ) else {
+            TairiLog.write(
+                "ghostty focusSurface failed tile=\(tileID.uuidString) session=\(tile.surface.terminalSessionID.uuidString) reason=missing-session"
+            )
             return
         }
         guard session.surfaceView.window != nil else {
@@ -191,7 +200,11 @@ final class GhosttyRuntime: ObservableObject {
         if pendingFocusedTileID == tileID {
             pendingFocusedTileID = nil
         }
+        TairiLog.write(
+            "ghostty focusSurface proceed tile=\(tileID.uuidString) session=\(session.id.uuidString) surfaceView=\(TairiLog.objectID(session.surfaceView))"
+        )
         session.surfaceView.focusSurface()
+        TairiLog.write("ghostty focusSurface complete tile=\(tileID.uuidString) session=\(session.id.uuidString)")
     }
 
     func finishClosingTile(
@@ -305,6 +318,7 @@ final class GhosttyRuntime: ObservableObject {
             return
         }
 
+        refreshAppTheme()
         installAppObserversIfNeeded()
     }
 

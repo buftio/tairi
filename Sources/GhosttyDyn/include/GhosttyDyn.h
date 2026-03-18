@@ -19,6 +19,20 @@ void tairi_ghostty_config_load_file(ghostty_config_t config, const char *path);
 void tairi_ghostty_config_load_default_files(ghostty_config_t config);
 void tairi_ghostty_config_load_recursive_files(ghostty_config_t config);
 void tairi_ghostty_config_finalize(ghostty_config_t config);
+bool tairi_ghostty_config_get_color(
+    ghostty_config_t config,
+    const char *key,
+    ghostty_config_color_s *value
+);
+bool tairi_ghostty_config_get_palette(
+    ghostty_config_t config,
+    ghostty_config_palette_s *value
+);
+bool tairi_ghostty_config_get_palette_color(
+    ghostty_config_t config,
+    uint8_t index,
+    ghostty_config_color_s *value
+);
 
 ghostty_app_t tairi_ghostty_app_new(
     const ghostty_runtime_config_s *runtime_config,

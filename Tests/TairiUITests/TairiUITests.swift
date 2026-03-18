@@ -11,6 +11,8 @@ private enum Identifiers {
     static let widthPicker = "tile-width-picker"
     static let newTileButton = "new-tile-button"
     static let nextWorkspaceButton = "next-workspace-button"
+    static let tileSpotlight = "tile-spotlight"
+    static let tileSpotlightSearchField = "tile-spotlight-search-field"
 
     static func workspaceButton(_ title: String) -> String {
         "workspace-button-\(title)"
@@ -108,6 +110,26 @@ final class TairiUITests: XCTestCase {
         firstTile.click()
         XCTAssertTrue(waitForValue(of: canvas, toEqual: "focused"))
         XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: focusedWidth * 0.9))
+    }
+
+    func testCommandKOpensTileSpotlightAndShowsMatches() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        XCTAssertTrue(app.otherElements[Identifiers.appRoot].waitForExistence(timeout: 10))
+
+        app.typeKey("k", modifierFlags: [.command])
+
+        let spotlight = app.otherElements[Identifiers.tileSpotlight]
+        XCTAssertTrue(spotlight.waitForExistence(timeout: 5))
+
+        let searchField = app.textFields[Identifiers.tileSpotlightSearchField]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        searchField.click()
+        searchField.typeText("shell")
+
+        let results = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "tile-spotlight-result-"))
+        XCTAssertGreaterThan(results.count, 0)
     }
 
     private func launchApp() throws -> XCUIApplication {

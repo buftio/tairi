@@ -9,6 +9,7 @@ struct TairiApp: App {
     @StateObject private var interactionController: WorkspaceInteractionController
     @StateObject private var runtime: GhosttyRuntime
     @StateObject private var chromeController: WindowChromeController
+    @StateObject private var spotlightController: TileSpotlightController
 
     init() {
         TairiCrashReporter.shared.install()
@@ -30,6 +31,7 @@ struct TairiApp: App {
             )
         )
         _chromeController = StateObject(wrappedValue: WindowChromeController(settings: settings))
+        _spotlightController = StateObject(wrappedValue: TileSpotlightController())
     }
 
     var body: some Scene {
@@ -40,6 +42,7 @@ struct TairiApp: App {
                 .environmentObject(interactionController)
                 .environmentObject(runtime)
                 .environmentObject(chromeController)
+                .environmentObject(spotlightController)
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
@@ -51,6 +54,13 @@ struct TairiApp: App {
             }
 
             CommandMenu("Workspace") {
+                Button("Search Tiles...") {
+                    spotlightController.toggle(selecting: store.selectedTileID)
+                }
+                .keyboardShortcut("k", modifiers: [.command])
+
+                Divider()
+
                 Button("New Tile") {
                     _ = runtime.createTile(
                         nextTo: store.selectedTileID,
@@ -121,6 +131,7 @@ struct TairiApp: App {
         Settings {
             SettingsView()
                 .environmentObject(settings)
+                .environmentObject(runtime)
         }
     }
 
