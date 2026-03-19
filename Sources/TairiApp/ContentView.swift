@@ -26,15 +26,18 @@ struct WindowGlassBackgroundView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let opacity: CGFloat
     let blendingMode: NSVisualEffectView.BlendingMode
+    let appearanceName: NSAppearance.Name?
 
     init(
         material: NSVisualEffectView.Material,
         opacity: CGFloat,
-        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow,
+        appearanceName: NSAppearance.Name? = nil
     ) {
         self.material = material
         self.opacity = opacity
         self.blendingMode = blendingMode
+        self.appearanceName = appearanceName
     }
 
     func makeNSView(context: Context) -> NSVisualEffectView {
@@ -43,6 +46,7 @@ struct WindowGlassBackgroundView: NSViewRepresentable {
         view.blendingMode = blendingMode
         view.state = .active
         view.alphaValue = opacity
+        view.appearance = appearanceName.flatMap(NSAppearance.init(named:))
         return view
     }
 
@@ -51,6 +55,7 @@ struct WindowGlassBackgroundView: NSViewRepresentable {
         nsView.blendingMode = blendingMode
         nsView.state = .active
         nsView.alphaValue = opacity
+        nsView.appearance = appearanceName.flatMap(NSAppearance.init(named:))
     }
 }
 
@@ -405,30 +410,17 @@ struct ContentView: View {
     }
 
     private var sidebarBackground: some View {
-        ZStack {
-            // Same material as terminal tiles
-            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(.clear)
-                .background(WindowGlassBackgroundView(material: .underWindowBackground, opacity: 1.0))
-                .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
-
-            // Theme background tint — makes it match the terminal tile color
-            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(Color(nsColor: theme.tileBackground).opacity(theme.isLightTheme ? 0.82 : 0.94))
-
-            // Subtle inner lens highlight at top
-            RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(theme.isLightTheme ? 0.08 : 0.04),
-                            Color.clear,
-                        ],
-                        startPoint: .top,
-                        endPoint: UnitPoint(x: 0.5, y: 0.3)
-                    )
+        RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
+            .fill(.clear)
+            .background(
+                WindowGlassBackgroundView(
+                    material: .hudWindow,
+                    opacity: 1.0,
+                    blendingMode: .withinWindow,
+                    appearanceName: .darkAqua
                 )
-        }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
     }
 
     private func unavailable(_ error: String) -> some View {

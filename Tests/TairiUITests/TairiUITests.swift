@@ -97,6 +97,25 @@ final class TairiUITests: XCTestCase {
         XCTAssertLessThanOrEqual(tileGap, 24)
     }
 
+    func testSingleTileStripShowsResizeHandleAndCanGrowWidth() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let firstTile = tileQuery(in: app).element(boundBy: 0)
+        XCTAssertTrue(firstTile.waitForExistence(timeout: 10))
+
+        let resizeHandle = tileResizeHandleQuery(in: app).element(boundBy: 0)
+        XCTAssertTrue(resizeHandle.waitForExistence(timeout: 5))
+        XCTAssertTrue(resizeHandle.isHittable)
+
+        let startingWidth = firstTile.frame.width
+        let dragStart = resizeHandle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let dragEnd = dragStart.withOffset(CGVector(dx: 120, dy: 0))
+        dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
+
+        XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: startingWidth + 24))
+    }
+
     func testZoomOutOverviewAndClickZoomIn() throws {
         let app = try launchApp()
         defer { app.terminate() }
@@ -186,6 +205,10 @@ final class TairiUITests: XCTestCase {
 
     private func tileQuery(in app: XCUIApplication) -> XCUIElementQuery {
         app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "workspace-tile-"))
+    }
+
+    private func tileResizeHandleQuery(in app: XCUIApplication) -> XCUIElementQuery {
+        app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "workspace-tile-resize-handle-"))
     }
 
     private func waitForFrameWidth(

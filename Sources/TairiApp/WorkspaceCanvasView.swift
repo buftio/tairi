@@ -358,7 +358,7 @@ final class WorkspaceCanvasDocumentView: NSView {
             animated: !TairiEnvironment.isUITesting
         )
 
-        let handleIDs = Set(workspaces.flatMap { $0.tiles.dropLast() }.map(\.id))
+        let handleIDs = Set(resizeHandleTileIDs(in: workspaces))
         let shouldKeepTileViewsInDocument = canvasZoomMode != .overview
 
         for (tileID, view) in tileViews where !allTileIDs.contains(tileID) {
@@ -389,9 +389,9 @@ final class WorkspaceCanvasDocumentView: NSView {
             }
         }
 
-        for tile in workspaces.flatMap({ $0.tiles.dropLast() }) {
-            let handle = resizeHandles[tile.id] ?? makeResizeHandle(for: tile.id)
-            handle.tileID = tile.id
+        for tileID in handleIDs {
+            let handle = resizeHandles[tileID] ?? makeResizeHandle(for: tileID)
+            handle.tileID = tileID
         }
 
         animator.syncRenderedHorizontalOffsets(for: workspaces)
@@ -493,7 +493,7 @@ final class WorkspaceCanvasDocumentView: NSView {
                     tileView.frame = focusedFrame
                 }
 
-                if tileIndex < workspace.tiles.count - 1, let handle = resizeHandles[tile.id] {
+                if shouldShowResizeHandle(for: tileIndex, in: workspace), let handle = resizeHandles[tile.id] {
                     handle.isHidden = isOverviewPresented
                     if !isOverviewPresented {
                         let handleCenterX = focusedX + tileWidth + (baseTileSpacing / 2)
@@ -973,6 +973,22 @@ final class WorkspaceCanvasDocumentView: NSView {
     private func resetVerticalGestureState() {
         verticalScrollAccumulator = 0
         didNavigateDuringCurrentScrollGesture = false
+    }
+
+    private func resizeHandleTileIDs(in workspaces: [WorkspaceStore.Workspace]) -> [UUID] {
+        workspaces.flatMap { workspace in
+            if workspace.tiles.count == 1 {
+                return workspace.tiles.map(\.id)
+            }
+            return Array(workspace.tiles.dropLast()).map(\.id)
+        }
+    }
+
+    private func shouldShowResizeHandle(for tileIndex: Int, in workspace: WorkspaceStore.Workspace) -> Bool {
+        if workspace.tiles.count == 1 {
+            return tileIndex == 0
+        }
+        return tileIndex < workspace.tiles.count - 1
     }
 
     private func makeTileView(for tileID: UUID) -> WorkspaceTileHostView {
