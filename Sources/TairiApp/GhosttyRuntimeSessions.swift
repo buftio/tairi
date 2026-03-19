@@ -57,16 +57,17 @@ extension GhosttyRuntime {
         TairiLog.write("ghostty updating terminalExitBehavior=\(behavior.rawValue)")
 
         _ = withGhosttyConfig { config in
-            for session in sessionRegistry.allSessions {
-                if let app = session.appContext.app {
-                    tairi_ghostty_app_update_config(app, config)
-                }
+            updateAllSessions(using: config)
+            return ()
+        }
+    }
 
-                if let surface = session.surfaceView.surface {
-                    tairi_ghostty_surface_update_config(surface, config)
-                }
-            }
+    func reloadConfiguration() {
+        guard errorMessage == nil else { return }
+        TairiLog.write("ghostty reloading configuration")
 
+        _ = withGhosttyConfig { config in
+            updateAllSessions(using: config)
             return ()
         }
     }
@@ -98,6 +99,18 @@ extension GhosttyRuntime {
         TairiLog.write(
             "ghostty theme updated background=\(appTheme.background.hexString) foreground=\(appTheme.foreground.hexString) accent=\(appTheme.accent.hexString)"
         )
+    }
+
+    private func updateAllSessions(using config: ghostty_config_t) {
+        for session in sessionRegistry.allSessions {
+            if let app = session.appContext.app {
+                tairi_ghostty_app_update_config(app, config)
+            }
+
+            if let surface = session.surfaceView.surface {
+                tairi_ghostty_surface_update_config(surface, config)
+            }
+        }
     }
 
     func applyTairiOverrides(to config: ghostty_config_t) {

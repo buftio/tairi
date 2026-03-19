@@ -48,10 +48,7 @@ struct GhosttyActionAdapter {
             return .updateTitle(sessionID: sessionID, title: title)
 
         case GHOSTTY_ACTION_PWD:
-            guard let sessionID, let pwd = decodeCString(action.action.pwd.pwd) else {
-                return .ignore
-            }
-            return .updatePWD(sessionID: sessionID, pwd: pwd)
+            return .ignore
 
         case GHOSTTY_ACTION_OPEN_URL:
             if let url = decodeOpenURL(action.action.open_url) {

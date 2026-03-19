@@ -39,7 +39,7 @@ final class AppSettings: ObservableObject {
     static let legacyTileBackgroundOpacityPercentKey = "tileBackgroundOpacityPercent"
     static let sidebarHiddenKey = "sidebarHidden"
     static let defaultTerminalExitBehavior: TerminalExitBehavior = .closeImmediately
-    static let defaultWindowGlassOpacityPercent: Double = 100
+    static let defaultWindowGlassOpacityPercent: Double = 0
     static let defaultSidebarHidden = false
 
     @Published var terminalExitBehavior: TerminalExitBehavior {

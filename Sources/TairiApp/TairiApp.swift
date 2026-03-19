@@ -51,6 +51,12 @@ struct TairiApp: App {
                     openGhosttySettings()
                 }
                 .keyboardShortcut(",", modifiers: [.command, .option])
+
+                Button("Reload Ghostty Configuration") {
+                    runtime.reloadConfiguration()
+                }
+                .keyboardShortcut(",", modifiers: [.command, .shift])
+                .disabled(runtime.errorMessage != nil)
             }
 
             CommandMenu("Workspace") {
