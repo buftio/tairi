@@ -17,7 +17,7 @@ There is no fallback to a system-installed `/Applications/Ghostty.app`.
 
 ## Bootstrap Flow
 
-Startup happens in [GhosttyRuntime.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttyRuntime.swift):
+Startup happens in [GhosttyRuntime.swift](../Sources/TairiApp/GhosttyRuntime.swift):
 
 1. `configureBundledGhosttyPaths()` sets:
    - `GHOSTTY_RESOURCES_DIR`
@@ -29,8 +29,8 @@ Startup happens in [GhosttyRuntime.swift](/Users/buft/p/tairi/Sources/TairiApp/G
 
 The dynamic symbol wrapper lives in:
 
-- [GhosttyDyn.c](/Users/buft/p/tairi/Sources/GhosttyDyn/GhosttyDyn.c)
-- [GhosttyDyn.h](/Users/buft/p/tairi/Sources/GhosttyDyn/include/GhosttyDyn.h)
+- [GhosttyDyn.c](../Sources/GhosttyDyn/GhosttyDyn.c)
+- [GhosttyDyn.h](../Sources/GhosttyDyn/include/GhosttyDyn.h)
 
 ## Session Model
 
@@ -38,13 +38,13 @@ Tairi now separates terminal session lifetime from tile host view lifetime.
 
 Main types:
 
-- [WorkspaceStore.swift](/Users/buft/p/tairi/Sources/TairiApp/WorkspaceStore.swift)
+- [WorkspaceStore.swift](../Sources/TairiApp/WorkspaceStore.swift)
   - each terminal tile stores `surface.terminalSessionID`
-- [GhosttySession.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttySession.swift)
+- [GhosttySession.swift](../Sources/TairiApp/GhosttySession.swift)
   - owns a session record
-- [GhosttySessionRegistry.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttySessionRegistry.swift)
+- [GhosttySessionRegistry.swift](../Sources/TairiApp/GhosttySessionRegistry.swift)
   - maps session IDs and tile IDs
-- [GhosttySurfaceView.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttySurfaceView.swift)
+- [GhosttySurfaceView.swift](../Sources/TairiApp/GhosttySurfaceView.swift)
   - persistent native view for a session
 
 Ownership boundary:
@@ -72,7 +72,7 @@ But it does not survive:
 1. UI calls `GhosttyRuntime.createTile(...)`.
 2. Runtime creates a `sessionID`.
 3. Store creates a tile bound to that `sessionID`.
-4. [WorkspaceTileHostView.swift](/Users/buft/p/tairi/Sources/TairiApp/WorkspaceTileHostView.swift) attaches the session view to its surface container.
+4. [WorkspaceTileHostView.swift](../Sources/TairiApp/WorkspaceTileHostView.swift) attaches the session view to its surface container.
 
 ### UI Churn
 
@@ -106,8 +106,8 @@ This is intentionally destructive.
 
 Ghostty runtime callbacks are split into:
 
-- [GhosttyRuntimeSessions.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttyRuntimeSessions.swift)
-- [GhosttyRuntimeCallbacks.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttyRuntimeCallbacks.swift)
+- [GhosttyRuntimeSessions.swift](../Sources/TairiApp/GhosttyRuntimeSessions.swift)
+- [GhosttyRuntimeCallbacks.swift](../Sources/TairiApp/GhosttyRuntimeCallbacks.swift)
 
 Key callbacks:
 
@@ -118,7 +118,7 @@ Key callbacks:
 - `writeClipboard`
 - `closeSurface`
 
-Actions are decoded in [GhosttyActionAdapter.swift](/Users/buft/p/tairi/Sources/TairiApp/GhosttyActionAdapter.swift) into session-centric events such as:
+Actions are decoded in [GhosttyActionAdapter.swift](../Sources/TairiApp/GhosttyActionAdapter.swift) into session-centric events such as:
 
 - title updates
 - pwd updates
@@ -128,7 +128,7 @@ Actions are decoded in [GhosttyActionAdapter.swift](/Users/buft/p/tairi/Sources/
 
 ## Exit Behavior
 
-User-configurable exit behavior lives in [AppSettings.swift](/Users/buft/p/tairi/Sources/TairiApp/AppSettings.swift):
+User-configurable exit behavior lives in [AppSettings.swift](../Sources/TairiApp/AppSettings.swift):
 
 - `closeImmediately`
 - `waitForKeyPress`
@@ -139,7 +139,17 @@ The runtime applies this through Ghostty config overrides:
 - `quit-after-last-window-closed = false`
 
 If a session exits while detached, Tairi garbage-collects it immediately.
-If it exits while attached, the configured exit behavior still applies.
+
+If it exits while attached, Tairi first records the child exit and waits for
+Ghostty `close_surface` to confirm the surface is done.
+
+Auto-close for an attached tile is also gated on recent user input:
+
+- the exiting tile must still own the most recent input
+- that input must be no older than ~2 seconds
+
+If that gate does not pass, the exited tile can remain visible instead of being
+closed automatically.
 
 ## Logging
 
@@ -157,4 +167,4 @@ Useful log categories include:
 - freeing app
 - releasing context
 
-For crash-focused guidance, see [crash-diagnostics.md](/Users/buft/p/tairi/docs/crash-diagnostics.md).
+For crash-focused guidance, see [crash-diagnostics.md](crash-diagnostics.md).

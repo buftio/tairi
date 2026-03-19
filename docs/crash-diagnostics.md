@@ -3,7 +3,7 @@
 ## Collect in order
 
 1. Newest `.local/logs/crash-reports/*.md`
-2. Newest `~/Library/Logs/DiagnosticReports/tairi-*.ips` for the same time, if one exists
+2. Newest `$HOME/Library/Logs/DiagnosticReports/tairi-*.ips` for the same time, if one exists
 3. Last ~150 lines of `.local/logs/tairi.log`
 
 ## Triage order
@@ -24,7 +24,8 @@ The app now logs these lifecycle markers in `tairi.log`:
 - `ghostty surface ... did move to window ...`
 - `ghostty surface ... syncDisplayID ...`
 - `ghostty wakeup ... count=...`
-- `ghostty disposing ...`
+- `ghostty surface ... dispose begin ...`
+- `ghostty surface ... dispose end ...`
 - `ghostty freeing app ...`
 - `ghostty releasing context ...`
 
@@ -47,7 +48,7 @@ Do not treat these as the primary crash signal unless they line up with a real n
 ```sh
 tail -n 150 .local/logs/tairi.log
 ls -1t .local/logs/crash-reports/*.md | head
-ls -1t ~/Library/Logs/DiagnosticReports/tairi-*.ips | head
+ls -1t "$HOME"/Library/Logs/DiagnosticReports/tairi-*.ips | head
 ```
 
 ## Good report bundle

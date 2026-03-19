@@ -4,7 +4,7 @@
 
 - Repo-local app log: `.local/logs/tairi.log`
 - Repo-local crash reports from the previous unexpected launch: `.local/logs/crash-reports/*.md`
-- macOS native crash dumps: `~/Library/Logs/DiagnosticReports/tairi-*.ips`
+- macOS native crash dumps: `$HOME/Library/Logs/DiagnosticReports/tairi-*.ips`
 
 ## What they mean
 
