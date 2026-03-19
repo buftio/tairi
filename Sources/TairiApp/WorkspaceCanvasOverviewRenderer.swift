@@ -10,6 +10,8 @@ final class WorkspaceCanvasOverviewRenderer {
         tileViews: [UUID: WorkspaceTileHostView],
         allTileIDs: Set<UUID>,
         isOverviewPresented: Bool,
+        selectedTileID: UUID?,
+        theme: GhosttyAppTheme,
         hostView: NSView
     ) {
         for (tileID, previewView) in previewViews where !allTileIDs.contains(tileID) {
@@ -35,6 +37,10 @@ final class WorkspaceCanvasOverviewRenderer {
             }
 
             tileView.setAccessibilityElement(false)
+            previewView.updateSelectionAppearance(
+                isSelected: tileID == selectedTileID,
+                theme: theme
+            )
             previewView.showLiveTile(tileView)
         }
     }
@@ -84,6 +90,7 @@ final class WorkspaceCanvasOverviewRenderer {
 private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
     let tileID: UUID
     let liveContainerView = NSView()
+    let selectionOverlayView = NSView()
     let clickOverlayView = WorkspaceCanvasOverviewClickOverlayView()
 
     var onPrimaryClick: (() -> Void)?
@@ -109,6 +116,8 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         liveContainerView.wantsLayer = true
         liveContainerView.layer?.anchorPoint = CGPoint(x: 0, y: 0)
         liveContainerView.layer?.isGeometryFlipped = true
+        selectionOverlayView.wantsLayer = true
+        selectionOverlayView.isHidden = true
 
         clickOverlayView.onPrimaryClick = { [weak self] in
             self?.onPrimaryClick?()
@@ -127,8 +136,11 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
 
     override func layout() {
         super.layout()
-        layer?.cornerRadius = effectiveCornerRadius()
+        let cornerRadius = effectiveCornerRadius()
+        layer?.cornerRadius = cornerRadius
         clickOverlayView.frame = bounds
+        selectionOverlayView.frame = bounds
+        selectionOverlayView.layer?.cornerRadius = cornerRadius
 
         let contentFrame = NSRect(origin: .zero, size: contentSize)
         liveContainerView.frame = contentFrame
@@ -139,9 +151,25 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         liveContainerView.layer?.setAffineTransform(CGAffineTransform(scaleX: scaleX, y: scaleY))
     }
 
+    func updateSelectionAppearance(isSelected: Bool, theme: GhosttyAppTheme) {
+        layer?.borderColor = theme.tileInactiveBorder.cgColor
+        layer?.borderWidth = 1
+        let accentBorderWidth = min(max(min(bounds.width, bounds.height) * 0.012, 4), 8)
+        selectionOverlayView.isHidden = !isSelected
+        selectionOverlayView.layer?.backgroundColor = theme.accent
+            .withAlphaComponent(theme.isLightTheme ? 0.08 : 0.12)
+            .cgColor
+        selectionOverlayView.layer?.borderColor = theme.tileActiveBorder.cgColor
+        selectionOverlayView.layer?.borderWidth = isSelected ? accentBorderWidth : 0
+        needsLayout = true
+    }
+
     func showLiveTile(_ tileView: WorkspaceTileHostView) {
         if liveContainerView.superview !== self {
             addSubview(liveContainerView)
+        }
+        if selectionOverlayView.superview !== self {
+            addSubview(selectionOverlayView, positioned: .above, relativeTo: liveContainerView)
         }
         if tileView.superview !== liveContainerView {
             tileView.removeFromSuperview()
@@ -161,6 +189,7 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
             self.liveTileView = nil
         }
         liveContainerView.removeFromSuperview()
+        selectionOverlayView.removeFromSuperview()
         clickOverlayView.removeFromSuperview()
     }
 

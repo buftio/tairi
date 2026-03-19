@@ -106,6 +106,7 @@ extension GhosttyRuntime {
         let overrideContents = """
         wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")
         quit-after-last-window-closed = false
+        bell-features = no-system
         """
 
         do {

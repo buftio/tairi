@@ -25,6 +25,7 @@ struct WorkspaceCanvasView: NSViewRepresentable {
             selectedTileID: store.selectedTileID,
             allTileIDs: allTileIDs,
             canvasTransition: interactionController.canvasTransition,
+            workspaceRevealRequest: interactionController.workspaceRevealRequest,
             canvasZoomMode: interactionController.canvasZoomMode,
             tileCloseAnimation: interactionController.tileCloseAnimation,
             tileOpenAnimation: interactionController.tileOpenAnimation,
@@ -41,6 +42,7 @@ final class WorkspaceCanvasContainerView: NSView {
     private var lastSelectedTileID: UUID?
     private var lastSelectedWorkspaceID: UUID?
     private var lastCanvasTransitionID: Int?
+    private var lastWorkspaceRevealRequestID: Int?
     private var lastCanvasZoomMode: WorkspaceInteractionController.CanvasZoomMode = .focused
     private var lastTileCloseAnimationID: Int?
     private var lastTileOpenAnimationID: Int?
@@ -107,6 +109,7 @@ final class WorkspaceCanvasContainerView: NSView {
         selectedTileID: UUID?,
         allTileIDs: Set<UUID>,
         canvasTransition: WorkspaceInteractionController.CanvasTransition?,
+        workspaceRevealRequest: WorkspaceInteractionController.WorkspaceRevealRequest?,
         canvasZoomMode: WorkspaceInteractionController.CanvasZoomMode,
         tileCloseAnimation: WorkspaceInteractionController.TileCloseAnimation?,
         tileOpenAnimation: WorkspaceInteractionController.TileOpenAnimation?,
@@ -158,6 +161,15 @@ final class WorkspaceCanvasContainerView: NSView {
         if let tileOpenAnimation, tileOpenAnimation.id != lastTileOpenAnimationID {
             documentView.animateTileOpen(tileOpenAnimation)
             lastTileOpenAnimationID = tileOpenAnimation.id
+        }
+
+        if let workspaceRevealRequest, workspaceRevealRequest.id != lastWorkspaceRevealRequestID {
+            documentView.scrollWorkspaceToVisible(
+                workspaceRevealRequest.workspaceID,
+                preserveHorizontalOrigin: true,
+                animated: workspaceRevealRequest.animated
+            )
+            lastWorkspaceRevealRequestID = workspaceRevealRequest.id
         }
 
         if canvasZoomMode != .overview,
@@ -391,6 +403,8 @@ final class WorkspaceCanvasDocumentView: NSView {
             tileViews: tileViews,
             allTileIDs: allTileIDs,
             isOverviewPresented: zoomController.isOverviewPresented,
+            selectedTileID: selectedTileID,
+            theme: runtime.appTheme,
             hostView: self
         )
 
@@ -421,17 +435,21 @@ final class WorkspaceCanvasDocumentView: NSView {
         let overviewRowSpacing = baseRowSpacing * scale
         let overviewVerticalPadding = baseVerticalPadding * scale
         let overviewTileSpacing = baseTileSpacing * scale
+        let overviewTopInsetAdjustment = max(baseVerticalPadding - overviewVerticalPadding, 0)
 
         overviewRenderer.sync(
             tileViews: tileViews,
             allTileIDs: Set(tileViews.keys),
             isOverviewPresented: isOverviewPresented,
+            selectedTileID: selectedTileID,
+            theme: runtime.appTheme,
             hostView: self
         )
 
         for (workspaceIndex, workspace) in workspaces.enumerated() {
             let focusedRowOriginY = CGFloat(workspaceIndex) * (baseRowHeight + baseRowSpacing)
-            let overviewRowOriginY = CGFloat(workspaceIndex) * (overviewRowHeight + overviewRowSpacing)
+            let overviewRowOriginY = overviewTopInsetAdjustment
+                + CGFloat(workspaceIndex) * (overviewRowHeight + overviewRowSpacing)
             var focusedX = anchorX - animator.effectiveHorizontalOffset(for: workspace)
             var overviewX = anchorX
                 - zoomController.effectiveHorizontalOffset(animator.effectiveHorizontalOffset(for: workspace)) * scale
@@ -507,7 +525,8 @@ final class WorkspaceCanvasDocumentView: NSView {
         }
 
         let totalHeight = isOverviewPresented
-            ? overviewRowHeight * CGFloat(workspaces.count)
+            ? overviewTopInsetAdjustment
+                + overviewRowHeight * CGFloat(workspaces.count)
                 + overviewRowSpacing * CGFloat(max(workspaces.count - 1, 0))
             : baseRowHeight * CGFloat(workspaces.count)
                 + baseRowSpacing * CGFloat(max(workspaces.count - 1, 0))

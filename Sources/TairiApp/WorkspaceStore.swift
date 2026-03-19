@@ -1,7 +1,7 @@
 import Foundation
 
 enum WorkspaceCanvasLayoutMetrics {
-    static let visibleStripLeadingInset: CGFloat = 251
+    static let visibleStripLeadingInset: CGFloat = 221  // sidebarLeadingInset(11) + sidebarWidth(210)
     static let horizontalPadding: CGFloat = 9
     static let verticalPadding: CGFloat = 9
     static let tileSpacing: CGFloat = 8

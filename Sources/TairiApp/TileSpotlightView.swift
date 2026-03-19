@@ -122,7 +122,11 @@ struct TileSpotlightView: View {
             RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)
                 .fill(.clear)
                 .background(
-                    WindowGlassBackgroundView(material: .hudWindow, opacity: 1.0)
+                    WindowGlassBackgroundView(
+                        material: .hudWindow,
+                        opacity: 1.0,
+                        blendingMode: .withinWindow
+                    )
                 )
                 .clipShape(
                     RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)

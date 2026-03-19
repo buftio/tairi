@@ -47,6 +47,18 @@ final class TairiUITests: XCTestCase {
         app.segmentedControls[Identifiers.widthPicker].buttons["Wide"].click()
     }
 
+    func testWorkspaceSidebarRowIsClickableAcrossItsFullWidth() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let workspaceButton = app.buttons[Identifiers.workspaceButton("02")]
+        XCTAssertTrue(workspaceButton.waitForExistence(timeout: 10))
+
+        workspaceButton.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.5)).click()
+
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 02")
+    }
+
     func testSidebarKeepsSelectedWorkspaceVisibleWhenListOverflows() throws {
         let app = try launchApp()
         defer { app.terminate() }

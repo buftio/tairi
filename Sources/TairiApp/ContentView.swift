@@ -1,15 +1,12 @@
 import SwiftUI
 
 private enum LayoutMetrics {
-    static let sidebarWidth: CGFloat = 240
+    static let sidebarWidth: CGFloat = 210
     static let sidebarLeadingInset: CGFloat = 11
     static let sidebarTopInset: CGFloat = 9
     static let sidebarBottomInset: CGFloat = 11
     static let sidebarCornerRadius: CGFloat = WorkspaceTileChromeMetrics.cornerRadius
-    static let controlCornerRadius: CGFloat = 8
-    static let trafficLightsLeadingInset: CGFloat = 14
-    static let trafficLightsTopInset: CGFloat = 20
-    static let trafficLightsSpacing: CGFloat = 6
+    static let rowCornerRadius: CGFloat = 6  // sidebarCornerRadius - horizontal inset
 }
 
 private enum WindowTexture {
@@ -25,36 +22,25 @@ private enum WindowTexture {
     }()
 }
 
-struct WindowAccessor: NSViewRepresentable {
-    let onResolve: (NSWindow) -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            if let window = view.window {
-                onResolve(window)
-            }
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            if let window = nsView.window {
-                onResolve(window)
-            }
-        }
-    }
-}
-
 struct WindowGlassBackgroundView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let opacity: CGFloat
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    init(
+        material: NSVisualEffectView.Material,
+        opacity: CGFloat,
+        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+    ) {
+        self.material = material
+        self.opacity = opacity
+        self.blendingMode = blendingMode
+    }
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = material
-        view.blendingMode = .behindWindow
+        view.blendingMode = blendingMode
         view.state = .active
         view.alphaValue = opacity
         return view
@@ -62,7 +48,7 @@ struct WindowGlassBackgroundView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
-        nsView.blendingMode = .behindWindow
+        nsView.blendingMode = blendingMode
         nsView.state = .active
         nsView.alphaValue = opacity
     }
@@ -76,6 +62,8 @@ struct ContentView: View {
     @EnvironmentObject private var chromeController: WindowChromeController
     @EnvironmentObject private var spotlightController: TileSpotlightController
     @State private var resolvedWindow: NSWindow?
+    @StateObject private var trafficLightsController = WindowTrafficLightsController()
+    @State private var isTrafficLightsHovering = false
 
     private var theme: GhosttyAppTheme { runtime.appTheme }
 
@@ -83,6 +71,14 @@ struct ContentView: View {
         ZStack(alignment: .topLeading) {
             mainPanel
             sidebar
+            WindowTrafficLightsHoverRegion(isActive: chromeController.isSidebarHidden) { isHovering in
+                guard isTrafficLightsHovering != isHovering else { return }
+                isTrafficLightsHovering = isHovering
+            }
+            .frame(
+                width: WindowTrafficLightsMetrics.hoverAreaWidth,
+                height: WindowTrafficLightsMetrics.hoverAreaHeight
+            )
             if spotlightController.isPresented {
                 TileSpotlightView()
                     .zIndex(1)
@@ -98,12 +94,19 @@ struct ContentView: View {
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
         .onChange(of: chromeController.isSidebarHidden) { _ in
+            if !chromeController.isSidebarHidden {
+                isTrafficLightsHovering = false
+            }
+            syncWindowChrome()
+        }
+        .onChange(of: isTrafficLightsHovering) { _ in
             syncWindowChrome()
         }
         .background(
             WindowAccessor { window in
                 let isNewWindow = resolvedWindow !== window
                 resolvedWindow = window
+                trafficLightsController.attach(to: window)
 
                 guard isNewWindow else { return }
                 configure(window: window)
@@ -114,24 +117,43 @@ struct ContentView: View {
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 0) {
+            // App label
             Text("tairi")
-                .font(.system(size: 28, weight: .bold, design: .serif))
-                .foregroundStyle(Color(nsColor: theme.primaryText))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(nsColor: theme.secondaryText).opacity(0.55))
+                .tracking(1.5)
+                .padding(.horizontal, 14)
+                .padding(.top, 52)
+                .padding(.bottom, 10)
 
             workspaceList
+
+            // Divider
+            Rectangle()
+                .fill(Color(nsColor: theme.divider).opacity(0.4))
+                .frame(height: 0.5)
+                .padding(.horizontal, 10)
+
             sidebarActions
         }
-        .padding(.horizontal, 11)
-        .padding(.top, 38)
-        .padding(.bottom, 16)
         .frame(width: LayoutMetrics.sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(sidebarBackground)
         .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .stroke(Color(nsColor: theme.sidebarStroke), lineWidth: 1)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isLightTheme ? 0.50 : 0.18),
+                            Color.white.opacity(theme.isLightTheme ? 0.10 : 0.05),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.5
+                )
         )
         .shadow(color: Color(nsColor: theme.sidebarShadow), radius: 30, x: 0, y: 18)
         .padding(.leading, LayoutMetrics.sidebarLeadingInset)
@@ -146,15 +168,16 @@ struct ContentView: View {
 
     private var workspaceList: some View {
         ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(alignment: .leading, spacing: 8) {
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 2) {
                     ForEach(store.workspaces) { workspace in
                         workspaceButton(for: workspace)
                             .id(workspace.id)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.trailing, 6)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
@@ -169,8 +192,8 @@ struct ContentView: View {
     }
 
     private var sidebarActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            actionButton("New tile", shortcut: "cmd+n") {
+        HStack(spacing: 6) {
+            sidebarIconButton(icon: "plus", label: "New tile", id: TairiAccessibility.newTileButton) {
                 _ = runtime.createTile(
                     nextTo: store.selectedTileID,
                     workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
@@ -180,19 +203,38 @@ struct ContentView: View {
                     runtime.focusSurface(tileID: selectedTileID)
                 }
             }
-            actionButton("Prev workspace", shortcut: "opt+cmd+↑") {
+            sidebarIconButton(icon: "chevron.up", label: "Prev workspace", id: TairiAccessibility.previousWorkspaceButton) {
                 interactionController.selectAdjacentWorkspace(offset: -1)
                 if let selectedTileID = store.selectedTileID {
                     runtime.focusSurface(tileID: selectedTileID)
                 }
             }
-            actionButton("Next workspace", shortcut: "opt+cmd+↓") {
+            sidebarIconButton(icon: "chevron.down", label: "Next workspace", id: TairiAccessibility.nextWorkspaceButton) {
                 interactionController.selectAdjacentWorkspace(offset: 1)
                 if let selectedTileID = store.selectedTileID {
                     runtime.focusSurface(tileID: selectedTileID)
                 }
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+    }
+
+    private func sidebarIconButton(icon: String, label: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: LayoutMetrics.rowCornerRadius, style: .continuous)
+                        .fill(Color.white.opacity(theme.isLightTheme ? 0.08 : 0.06))
+                )
+                .foregroundStyle(Color(nsColor: theme.secondaryText))
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityIdentifier(id)
     }
 
     private var mainPanel: some View {
@@ -220,59 +262,49 @@ struct ContentView: View {
         .accessibilityIdentifier(TairiAccessibility.mainPanel)
     }
 
-    private func actionButton(_ title: String, shortcut: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(nsColor: theme.primaryText))
-                Spacer()
-                Text(shortcut)
-                    .font(.system(size: 11, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(nsColor: theme.secondaryText))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
-                    .fill(Color(nsColor: theme.actionBackground))
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(accessibilityIdentifier(for: title))
-    }
 
     private func workspaceButton(for workspace: WorkspaceStore.Workspace) -> some View {
-        Button {
+        let isSelected = workspace.id == store.selectedWorkspaceID
+        return Button {
+            let wasSelected = workspace.id == store.selectedWorkspaceID
             interactionController.selectWorkspace(workspace.id)
+            if wasSelected {
+                interactionController.revealWorkspace(workspace.id)
+            }
+            if let selectedTileID = store.selectedTileID {
+                runtime.focusSurface(tileID: selectedTileID)
+            }
         } label: {
-            HStack {
+            HStack(spacing: 8) {
                 Text(workspace.title)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                Spacer()
+                    .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
                 Text("\(workspace.tiles.count)")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(
+                        isSelected
+                            ? Color(nsColor: theme.accent)
+                            : Color(nsColor: theme.secondaryText)
+                    )
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: LayoutMetrics.controlCornerRadius)
+                RoundedRectangle(cornerRadius: LayoutMetrics.rowCornerRadius, style: .continuous)
                     .fill(
-                        Color(
-                            nsColor: workspace.id == store.selectedWorkspaceID
-                                ? theme.activeWorkspaceFill
-                                : theme.inactiveWorkspaceFill
-                        )
+                        isSelected
+                            ? Color(nsColor: theme.accent).opacity(theme.isLightTheme ? 0.12 : 0.16)
+                            : Color.clear
                     )
             )
             .foregroundStyle(
-                Color(
-                    nsColor: workspace.id == store.selectedWorkspaceID
-                        ? theme.activeWorkspaceText
-                        : theme.primaryText
-                )
+                isSelected
+                    ? Color(nsColor: theme.primaryText)
+                    : Color(nsColor: theme.primaryText).opacity(0.75)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(TairiAccessibility.workspaceButton(workspace.title))
@@ -374,29 +406,26 @@ struct ContentView: View {
 
     private var sidebarBackground: some View {
         ZStack {
+            // Same material as terminal tiles
             RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
+                .background(WindowGlassBackgroundView(material: .underWindowBackground, opacity: 1.0))
+                .clipShape(RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous))
+
+            // Theme background tint — makes it match the terminal tile color
             RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(nsColor: theme.sidebarOverlayTop),
-                            Color(nsColor: theme.sidebarOverlayBottom)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(Color(nsColor: theme.tileBackground).opacity(theme.isLightTheme ? 0.82 : 0.94))
+
+            // Subtle inner lens highlight at top
             RoundedRectangle(cornerRadius: LayoutMetrics.sidebarCornerRadius, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(nsColor: theme.sidebarHighlight),
+                            Color.white.opacity(theme.isLightTheme ? 0.08 : 0.04),
                             Color.clear,
-                            Color(nsColor: theme.sidebarOverlayBottom)
                         ],
                         startPoint: .top,
-                        endPoint: .bottom
+                        endPoint: UnitPoint(x: 0.5, y: 0.3)
                     )
                 )
         }
@@ -417,18 +446,6 @@ struct ContentView: View {
         .accessibilityIdentifier(TairiAccessibility.runtimeError)
     }
 
-    private func accessibilityIdentifier(for title: String) -> String {
-        switch title {
-        case "New tile":
-            TairiAccessibility.newTileButton
-        case "Prev workspace":
-            TairiAccessibility.previousWorkspaceButton
-        case "Next workspace":
-            TairiAccessibility.nextWorkspaceButton
-        default:
-            title
-        }
-    }
 
     private func scrollSelectedWorkspace(in proxy: ScrollViewProxy, animated: Bool = true) {
         let scroll = {
@@ -457,63 +474,20 @@ struct ContentView: View {
         if #available(macOS 11.0, *) {
             window.titlebarSeparatorStyle = .none
         }
-        positionTrafficLights(in: window)
+        syncWindowChrome(for: window)
     }
 
     private func syncWindowChrome() {
         guard let window = resolvedWindow ?? NSApp.windows.first else { return }
-        DispatchQueue.main.async {
-            self.positionTrafficLights(in: window)
-        }
+        syncWindowChrome(for: window)
     }
 
-    private func positionTrafficLights(in window: NSWindow) {
-        let buttonTypes: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        let buttons = buttonTypes.compactMap { window.standardWindowButton($0) }
-        guard let buttonContainer = buttons.first?.superview else { return }
-
-        buttonContainer.layoutSubtreeIfNeeded()
-
-        let startX = LayoutMetrics.sidebarLeadingInset + LayoutMetrics.trafficLightsLeadingInset
-        let y = buttonContainer.bounds.height - LayoutMetrics.trafficLightsTopInset - (buttons.first?.frame.height ?? 0)
-
-        var x = startX
-        for button in buttons {
-            button.setFrameOrigin(NSPoint(x: x, y: y))
-            x += button.frame.width + LayoutMetrics.trafficLightsSpacing
-        }
-
-        syncTrafficLights(buttons)
-    }
-
-    private func syncTrafficLights(_ buttons: [NSButton]) {
-        let shouldHide = chromeController.isSidebarHidden
-        let targetAlpha: CGFloat = shouldHide ? 0 : 1
-        let needsUpdate = buttons.contains { button in
-            abs(button.alphaValue - targetAlpha) > 0.01 || button.isEnabled == shouldHide
-        }
-
-        guard needsUpdate else { return }
-
-        if !shouldHide {
-            for button in buttons {
-                button.isEnabled = true
-                if button.alphaValue < 0.99 {
-                    button.alphaValue = 0
-                }
-            }
-        } else {
-            for button in buttons {
-                button.isEnabled = false
-            }
-        }
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.18
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            for button in buttons {
-                button.animator().alphaValue = targetAlpha
-            }
-        }
+    private func syncWindowChrome(for window: NSWindow) {
+        trafficLightsController.sync(
+            sidebarHidden: chromeController.isSidebarHidden,
+            isHovering: isTrafficLightsHovering,
+            sidebarLeadingInset: LayoutMetrics.sidebarLeadingInset,
+            in: window
+        )
     }
 }

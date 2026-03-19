@@ -44,6 +44,9 @@ struct GhosttyAppTheme: Equatable {
         let selectionBackground = Self.readColor(named: "selection-background", from: config)
         let splitDivider = Self.readColor(named: "split-divider-color", from: config)
         let unfocusedSplitFill = Self.readColor(named: "unfocused-split-fill", from: config)
+        // Ghostty palette slots 0...15 are ANSI semantic colors, not arbitrary accents.
+        // Tairi treats bright/dim green as the active accent, red as destructive, and
+        // blue/cyan as fallback accents when selection/background colors are weak.
         let red = Self.readPaletteColor(index: 9, from: config)
             ?? Self.readPaletteColor(index: 1, from: config)
         let green = Self.readPaletteColor(index: 10, from: config)

@@ -23,6 +23,12 @@ final class WorkspaceInteractionController: ObservableObject {
         let kind: Kind
     }
 
+    struct WorkspaceRevealRequest: Equatable {
+        let id: Int
+        let workspaceID: UUID
+        let animated: Bool
+    }
+
     struct TileCloseAnimation: Equatable {
         let id: Int
         let workspaceID: UUID
@@ -46,6 +52,7 @@ final class WorkspaceInteractionController: ObservableObject {
     @Published private(set) var canvasTransition: CanvasTransition?
     @Published private(set) var tileCloseAnimation: TileCloseAnimation?
     @Published private(set) var tileOpenAnimation: TileOpenAnimation?
+    @Published private(set) var workspaceRevealRequest: WorkspaceRevealRequest?
     @Published private(set) var canvasZoomMode: CanvasZoomMode = .focused
 
     private let store: WorkspaceStore
@@ -149,6 +156,15 @@ final class WorkspaceInteractionController: ObservableObject {
 
     func revealSelection(of tileID: UUID, transition: TileTransition = .immediate) {
         publishTransition(for: tileID, transition: transition)
+    }
+
+    func revealWorkspace(_ workspaceID: UUID, animated: Bool = true) {
+        workspaceRevealRequest = WorkspaceRevealRequest(
+            id: nextTransitionID,
+            workspaceID: workspaceID,
+            animated: animated
+        )
+        nextTransitionID += 1
     }
 
     func zoomOutCanvas() {
