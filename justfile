@@ -18,6 +18,9 @@ vendor-ghostty source="/Applications/Ghostty.app":
 bundle:
   ./scripts/build-app.sh
 
+release-artifacts:
+  ./scripts/package-release.sh
+
 install target="":
   if [[ -n "{{target}}" ]]; then ./scripts/install-app.sh "{{target}}"; else ./scripts/install-app.sh; fi
 

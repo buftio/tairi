@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="tairi.app"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/release-config.sh"
+
+APP_NAME="${TAIRI_APP_NAME}.app"
 SOURCE_APP="$ROOT/dist/$APP_NAME"
 SYSTEM_TARGET_DIR="/Applications"
 USER_TARGET_DIR="$HOME/Applications"

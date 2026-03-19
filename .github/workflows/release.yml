@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preflight:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate tag matches release config
+        shell: bash
+        run: |
+          set -euo pipefail
+          source scripts/release-config.sh
+
+          if [[ "${GITHUB_REF_NAME}" != "${TAIRI_RELEASE_TAG}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match configured release tag ${TAIRI_RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+      - name: Verify release scripts parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/build-app.sh
+          bash -n scripts/generate-homebrew-cask.sh
+          bash -n scripts/package-release.sh
+          bash -n scripts/release-config.sh
+          bash -n scripts/retry.sh
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test
+
+  release:
+    needs: preflight
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Apple release credentials
+        shell: bash
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_API_KEY_P8: ${{ secrets.APPLE_NOTARY_API_KEY_P8 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+
+          CODESIGN_IDENTITY=""
+
+          has_all() {
+            for value in "$@"; do
+              if [[ -z "$value" ]]; then
+                return 1
+              fi
+            done
+            return 0
+          }
+
+          has_any() {
+            for value in "$@"; do
+              if [[ -n "$value" ]]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          if has_all "$APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64" "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD"; then
+            CERT_PATH="$RUNNER_TEMP/developer-id.p12"
+            KEYCHAIN_PATH="$RUNNER_TEMP/tairi-release.keychain-db"
+            KEYCHAIN_PASSWORD="$(uuidgen)"
+
+            CERT_PATH="$CERT_PATH" python3 -c 'import base64, os, pathlib; pathlib.Path(os.environ["CERT_PATH"]).write_bytes(base64.b64decode(os.environ["APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64"]))' \
+              >/dev/null
+
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security import "$CERT_PATH" \
+              -k "$KEYCHAIN_PATH" \
+              -P "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+              -T /usr/bin/codesign \
+              -T /usr/bin/security
+            security set-key-partition-list \
+              -S apple-tool:,apple: \
+              -s \
+              -k "$KEYCHAIN_PASSWORD" \
+              "$KEYCHAIN_PATH"
+            security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+            IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | awk -F '"' '/Developer ID Application/ {print $2; exit}')"
+            if [[ -z "$IDENTITY" ]]; then
+              echo "Developer ID Application identity not found in imported certificate" >&2
+              exit 1
+            fi
+
+            CODESIGN_IDENTITY="$IDENTITY"
+            echo "TAIRI_CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+            echo "Apple code signing enabled."
+          elif has_any "$APPLE_DEVELOPER_ID_CERTIFICATE_P12_BASE64" "$APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD"; then
+            echo "Apple code signing disabled because certificate configuration is incomplete." >&2
+          else
+            echo "Apple code signing disabled; no certificate configured."
+          fi
+
+          if [[ -z "$CODESIGN_IDENTITY" ]]; then
+            if has_any "$APPLE_NOTARY_API_KEY_P8" "$APPLE_NOTARY_KEY_ID" "$APPLE_NOTARY_ISSUER"; then
+              echo "Apple notarization disabled because no Developer ID signing identity is configured." >&2
+            else
+              echo "Apple notarization disabled; no notary credentials configured."
+            fi
+            exit 0
+          fi
+
+          if has_all "$APPLE_NOTARY_API_KEY_P8" "$APPLE_NOTARY_KEY_ID"; then
+            KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+            printf '%s' "$APPLE_NOTARY_API_KEY_P8" > "$KEY_PATH"
+
+            echo "TAIRI_NOTARY_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+            echo "TAIRI_NOTARY_KEY_ID=$APPLE_NOTARY_KEY_ID" >> "$GITHUB_ENV"
+            if [[ -n "$APPLE_NOTARY_ISSUER" ]]; then
+              echo "TAIRI_NOTARY_ISSUER=$APPLE_NOTARY_ISSUER" >> "$GITHUB_ENV"
+            fi
+            echo "Apple notarization enabled."
+          elif has_any "$APPLE_NOTARY_API_KEY_P8" "$APPLE_NOTARY_KEY_ID" "$APPLE_NOTARY_ISSUER"; then
+            echo "Apple notarization disabled because notary configuration is incomplete." >&2
+          else
+            echo "Apple notarization disabled; no notary credentials configured."
+          fi
+
+      - name: Build release artifacts
+        shell: bash
+        env:
+          TAIRI_CODESIGN_IDENTITY: ${{ env.TAIRI_CODESIGN_IDENTITY }}
+          TAIRI_NOTARY_API_KEY_PATH: ${{ env.TAIRI_NOTARY_API_KEY_PATH }}
+          TAIRI_NOTARY_KEY_ID: ${{ env.TAIRI_NOTARY_KEY_ID }}
+          TAIRI_NOTARY_ISSUER: ${{ env.TAIRI_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+          ./scripts/retry.sh 3 30 ./scripts/package-release.sh
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/release/*.dmg
+            dist/release/*.zip
+            dist/release/*-checksums.txt
+            dist/release/homebrew/tairi.rb
+
+      - name: Update Homebrew tap
+        if: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          source scripts/release-config.sh
+
+          TAP_REPO="${HOMEBREW_TAP_REPOSITORY:-$TAIRI_HOMEBREW_TAP_REPOSITORY_DEFAULT}"
+          TAP_DIR="$RUNNER_TEMP/homebrew-tap"
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" "$TAP_DIR"
+          mkdir -p "$TAP_DIR/Casks"
+          cp "dist/release/homebrew/${TAIRI_APP_NAME}.rb" "$TAP_DIR/Casks/${TAIRI_APP_NAME}.rb"
+
+          cd "$TAP_DIR"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- "Casks/${TAIRI_APP_NAME}.rb"; then
+            echo "Homebrew cask already up to date."
+            exit 0
+          fi
+
+          git add "Casks/${TAIRI_APP_NAME}.rb"
+          git commit -m "cask(${TAIRI_APP_NAME}): update to ${GITHUB_REF_NAME}"
+          git push

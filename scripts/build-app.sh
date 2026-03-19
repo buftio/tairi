@@ -1,17 +1,46 @@
 #!/usr/bin/env bash
 # Build a distributable tairi.app, embed the vendored Ghostty runtime as a
-# nested helper app, copy Ghostty resources, and ad-hoc sign the result.
+# nested helper app, and sign the resulting bundle.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="tairi"
-BUILD_DIR="$ROOT/.build/debug"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/release-config.sh"
+
+BUILD_CONFIGURATION="${TAIRI_BUILD_CONFIGURATION:-release}"
+BUILD_DIR="$ROOT/.build/$BUILD_CONFIGURATION"
 DIST_DIR="$ROOT/dist"
-APP_DIR="$DIST_DIR/$APP_NAME.app"
+APP_DIR="$DIST_DIR/$TAIRI_APP_NAME.app"
 GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
 APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
 APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
 CACHE_ROOT="${TAIRI_GHOSTTY_CACHE_ROOT:-$ROOT/.local/vendor/Ghostty}"
+CODESIGN_IDENTITY="${TAIRI_CODESIGN_IDENTITY:--}"
+
+trash_path_if_present() {
+  local path="$1"
+
+  [[ -e "$path" ]] || return 0
+
+  if ! command -v trash >/dev/null 2>&1; then
+    echo "trash is required to replace existing app bundles: $path" >&2
+    exit 1
+  fi
+
+  trash "$path"
+}
+
+sign_path() {
+  local path="$1"
+  shift
+
+  local -a args=(--force --sign "$CODESIGN_IDENTITY")
+  if [[ "$CODESIGN_IDENTITY" != "-" ]]; then
+    args+=(--timestamp --options runtime)
+  fi
+
+  codesign "${args[@]}" "$@" "$path"
+}
 
 if [[ ! -d "$CACHE_ROOT" ]]; then
   "$ROOT/scripts/vendor-ghostty.sh"
@@ -23,24 +52,18 @@ if [[ -z "$VERSION_DIR" ]]; then
   exit 1
 fi
 
-swift build --package-path "$ROOT"
+swift build --configuration "$BUILD_CONFIGURATION" --package-path "$ROOT"
 
-if [[ -d "$APP_DIR" ]]; then
-  if command -v trash >/dev/null 2>&1; then
-    trash "$APP_DIR"
-  else
-    rm -rf "$APP_DIR"
-  fi
-fi
+trash_path_if_present "$APP_DIR"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks"
 
-cp "$BUILD_DIR/tairi" "$APP_DIR/Contents/MacOS/tairi"
+cp "$BUILD_DIR/$TAIRI_APP_NAME" "$APP_DIR/Contents/MacOS/$TAIRI_APP_NAME"
 cp -R "$VERSION_DIR/GhosttyRuntime.app" "$GHOSTTY_APP_DIR"
 cp -R "$VERSION_DIR/GhosttyRuntime.app/Contents/Resources/ghostty" "$APP_DIR/Contents/Resources/"
 "$ROOT/scripts/render-app-icon.sh" "$APP_ICON_SOURCE" "$APP_ICON_PATH"
 
-cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
+cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -48,31 +71,31 @@ cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>tairi</string>
+  <string>${TAIRI_APP_NAME}</string>
   <key>CFBundleIdentifier</key>
-  <string>org.tairi.app</string>
+  <string>${TAIRI_BUNDLE_ID}</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>tairi</string>
+  <string>${TAIRI_APP_NAME}</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${TAIRI_VERSION}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${TAIRI_BUILD_NUMBER}</string>
   <key>LSMinimumSystemVersion</key>
-  <string>13.0</string>
+  <string>${TAIRI_MIN_MACOS}</string>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>
 </plist>
 EOF
 
-codesign --force --deep --sign - "$GHOSTTY_APP_DIR"
-codesign --force --deep --sign - "$APP_DIR"
+sign_path "$GHOSTTY_APP_DIR" --deep
+sign_path "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
 echo "Built $APP_DIR using vendored Ghostty from $VERSION_DIR"
