@@ -18,7 +18,7 @@ enum GhosttyRuntimeCompatibilityError: Error {
 }
 
 enum GhosttyRuntimeCompatibility {
-    private static let supportedVersions: Set<String> = ["1.3.0"]
+    private static let supportedHeaderVersions: Set<String> = ["1.3.1"]
 
     static func validateLoadedRuntime() -> Result<GhosttyRuntimeMetadata, GhosttyRuntimeCompatibilityError> {
         let info = tairi_ghostty_info()
@@ -29,21 +29,35 @@ enum GhosttyRuntimeCompatibility {
             return .failure(.message("Ghostty runtime compatibility check failed: runtime did not report a version"))
         }
 
-        guard supportedVersions.contains(version) else {
-            return .failure(.message(
-                "Unsupported Ghostty runtime version \(version). Supported versions: \(supportedVersions.sorted().joined(separator: ", ")). " +
-                "Header signature: \(headerSignature)"
-            ))
-        }
-
-        if let vendoredVersion = currentVendoredVersion(), vendoredVersion != version {
-            return .failure(.message(
-                "Ghostty runtime version \(version) does not match vendored headers \(vendoredVersion). " +
-                "Header signature: \(headerSignature)"
-            ))
+        switch validate(version: version, vendoredVersion: currentVendoredVersion()) {
+        case .success:
+            break
+        case .failure(let error):
+            return .failure(error)
         }
 
         return .success(metadata)
+    }
+
+    static func validate(version: String, vendoredVersion: String?) -> Result<Void, GhosttyRuntimeCompatibilityError> {
+        if let vendoredVersion {
+            guard vendoredVersion == version else {
+                return .failure(.message(
+                    "Ghostty runtime version \(version) does not match vendored headers \(vendoredVersion). " +
+                    "Header signature: \(headerSignature)"
+                ))
+            }
+            return .success(())
+        }
+
+        guard supportedHeaderVersions.contains(version) else {
+            return .failure(.message(
+                "Unsupported Ghostty runtime version \(version). Supported header versions: \(supportedHeaderVersions.sorted().joined(separator: ", ")). " +
+                "Header signature: \(headerSignature)"
+            ))
+        }
+
+        return .success(())
     }
 
     static var headerSignature: String {
