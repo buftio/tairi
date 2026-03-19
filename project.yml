@@ -1,6 +1,6 @@
 name: TairiUI
 options:
-  bundleIdPrefix: dev.buft.tairi
+  bundleIdPrefix: org.tairi.app
   deploymentTarget:
     macOS: "14.0"
 settings:
@@ -20,7 +20,7 @@ targets:
         CFBundleDevelopmentRegion: en
         CFBundleDisplayName: UITestHost
         CFBundleExecutable: $(EXECUTABLE_NAME)
-        CFBundleIdentifier: dev.buft.tairi.UITestHost
+        CFBundleIdentifier: org.tairi.app.UITestHost
         CFBundleInfoDictionaryVersion: "6.0"
         CFBundleName: UITestHost
         CFBundlePackageType: APPL
@@ -39,7 +39,7 @@ targets:
       properties:
         CFBundleDevelopmentRegion: en
         CFBundleExecutable: $(EXECUTABLE_NAME)
-        CFBundleIdentifier: dev.buft.tairi.TairiUITests
+        CFBundleIdentifier: org.tairi.app.TairiUITests
         CFBundleInfoDictionaryVersion: "6.0"
         CFBundleName: TairiUITests
         CFBundlePackageType: BNDL

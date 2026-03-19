@@ -21,7 +21,7 @@
 
 ## Runtime Source
 
-- Development uses vendored Ghostty from `Vendor/Ghostty/...`
+- Development uses cached Ghostty from `.local/vendor/Ghostty/...`
 
 ## Ghostty
 

@@ -23,11 +23,25 @@ enum TairiPaths {
         .appendingPathComponent("config")
     static let diagnosticReportsDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/DiagnosticReports", isDirectory: true)
+    static let ghosttyVendorDirectory: URL? = repositoryRoot?
+        .appendingPathComponent(".local/vendor/Ghostty", isDirectory: true)
 
     static func ensureLogDirectories() {
         let fileManager = FileManager.default
         try? fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         try? fileManager.createDirectory(at: crashReportsDirectory, withIntermediateDirectories: true)
+    }
+
+    static func latestGhosttyVendorVersionDirectory() -> URL? {
+        guard let ghosttyVendorDirectory else { return nil }
+
+        return (try? FileManager.default.contentsOfDirectory(
+            at: ghosttyVendorDirectory,
+            includingPropertiesForKeys: nil
+        ))?
+        .filter(\.hasDirectoryPath)
+        .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+        .last
     }
 
     private static func resolveRepositoryRoot() -> URL? {

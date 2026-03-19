@@ -6,7 +6,7 @@ This repo embeds Ghostty as a native runtime and hosts each terminal inside an A
 
 Development uses the vendored runtime under:
 
-- `Vendor/Ghostty/...`
+- `.local/vendor/Ghostty/...`
 
 Bundled app builds place the runtime at:
 

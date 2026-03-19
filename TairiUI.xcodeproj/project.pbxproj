@@ -176,7 +176,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.UITestHost;
+				PRODUCT_BUNDLE_IDENTIFIER = org.tairi.app.UITestHost;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -191,7 +191,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.UITestHost;
+				PRODUCT_BUNDLE_IDENTIFIER = org.tairi.app.UITestHost;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -207,7 +207,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.TairiUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = org.tairi.app.TairiUITests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = UITestHost;
 			};
@@ -282,7 +282,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = dev.buft.tairi.TairiUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = org.tairi.app.TairiUITests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = UITestHost;
 			};

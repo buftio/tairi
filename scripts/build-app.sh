@@ -11,15 +11,15 @@ APP_DIR="$DIST_DIR/$APP_NAME.app"
 GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
 APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
 APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
+CACHE_ROOT="${TAIRI_GHOSTTY_CACHE_ROOT:-$ROOT/.local/vendor/Ghostty}"
 
-if [[ ! -d "$ROOT/Vendor/Ghostty" ]]; then
-  echo "No vendored Ghostty runtime found. Run scripts/vendor-ghostty.sh first." >&2
-  exit 1
+if [[ ! -d "$CACHE_ROOT" ]]; then
+  "$ROOT/scripts/vendor-ghostty.sh"
 fi
 
-VERSION_DIR="$(find "$ROOT/Vendor/Ghostty" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
+VERSION_DIR="$(find "$CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
 if [[ -z "$VERSION_DIR" ]]; then
-  echo "No vendored Ghostty version directory found." >&2
+  echo "No cached Ghostty runtime found under $CACHE_ROOT" >&2
   exit 1
 fi
 
@@ -50,7 +50,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
   <key>CFBundleExecutable</key>
   <string>tairi</string>
   <key>CFBundleIdentifier</key>
-  <string>dev.buft.tairi</string>
+  <string>org.tairi.app</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>

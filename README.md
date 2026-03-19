@@ -15,12 +15,12 @@ For running or packaging Tairi from source:
 - Xcode with Swift 6 toolchains available on the command line
 - [just](https://github.com/casey/just)
 - `trash`
-- a local `Ghostty.app` to vendor into the repo
 
 Optional:
 
 - `xcodegen` for UI tests
 - an Apple Development signing identity for the UI test runner
+- a local `Ghostty.app` if you want to override the pinned official Ghostty download
 
 ## Quick Start
 
@@ -31,7 +31,11 @@ just vendor-ghostty
 just dev
 ```
 
-If `Ghostty.app` is not installed at `/Applications/Ghostty.app`, pass its path explicitly:
+`just vendor-ghostty` downloads the pinned Ghostty runtime declared in
+[`Vendor/ghostty-runtime.env`](Vendor/ghostty-runtime.env) into the local cache
+under `.local/vendor/Ghostty/...`.
+
+If you want to vendor a local `Ghostty.app` instead, pass its path explicitly:
 
 ```sh
 just vendor-ghostty "/path/to/Ghostty.app"
@@ -73,8 +77,7 @@ The bundled runtime is placed at:
 - `tairi.app/Contents/Frameworks/GhosttyRuntime.app`
 - `tairi.app/Contents/Resources/ghostty`
 
-There is no runtime fallback to `/Applications/Ghostty.app`.
-Development uses the vendored runtime under `Vendor/Ghostty/...`.
+Development uses the cached runtime under `.local/vendor/Ghostty/...`.
 
 ## Contributing
 
@@ -103,7 +106,7 @@ Run them with:
 
 Common first-run issues:
 
-- `just vendor-ghostty` fails if `Ghostty.app` is not present at the default path
+- `just vendor-ghostty` fails if the pinned Ghostty download changes or cannot be fetched
 - `just install` expects `trash` to be installed
 - UI tests fail without a local signing identity
 

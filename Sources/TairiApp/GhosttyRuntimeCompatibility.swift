@@ -55,14 +55,7 @@ enum GhosttyRuntimeCompatibility {
     }
 
     private static func currentVendoredVersion() -> String? {
-        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("Vendor/Ghostty")
-
-        return (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil))?
-            .filter(\.hasDirectoryPath)
-            .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
-            .last?
-            .lastPathComponent
+        TairiPaths.latestGhosttyVendorVersionDirectory()?.lastPathComponent
     }
 
     private static func decodeString(pointer: UnsafePointer<CChar>?, length: UInt) -> String? {

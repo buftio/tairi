@@ -21,7 +21,7 @@ private enum Identifiers {
 
 @MainActor
 final class TairiUITests: XCTestCase {
-    private let bundleIdentifier = "dev.buft.tairi"
+    private let bundleIdentifier = "org.tairi.app"
 
     override func setUpWithError() throws {
         continueAfterFailure = false

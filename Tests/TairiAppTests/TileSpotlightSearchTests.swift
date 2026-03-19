@@ -8,7 +8,7 @@ final class TileSpotlightSearchTests: XCTestCase {
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         store.updateTitle("shell", for: firstTileID)
-        store.updatePWD("/Users/buft/projects/tairi", for: firstTileID)
+        store.updatePWD("/tmp/projects/tairi", for: firstTileID)
 
         let results = store.spotlightResults(matching: "tair")
 
@@ -21,11 +21,11 @@ final class TileSpotlightSearchTests: XCTestCase {
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         store.updateTitle("build", for: firstTileID)
-        store.updatePWD("/Users/buft/projects/frontend-shell", for: firstTileID)
+        store.updatePWD("/tmp/projects/frontend-shell", for: firstTileID)
 
         let otherTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
         store.updateTitle("build", for: otherTile.id)
-        store.updatePWD("/Users/buft/projects/backend-api", for: otherTile.id)
+        store.updatePWD("/tmp/projects/backend-api", for: otherTile.id)
 
         let results = store.spotlightResults(matching: "bui shell")
 
