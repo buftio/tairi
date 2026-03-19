@@ -53,6 +53,10 @@ DECLARE_SYM(ghostty_surface_mouse_pos, void, (ghostty_surface_t, double, double,
 DECLARE_SYM(ghostty_surface_mouse_scroll, void, (ghostty_surface_t, double, double, ghostty_input_scroll_mods_t));
 DECLARE_SYM(ghostty_surface_complete_clipboard_request, void, (ghostty_surface_t, const char *, void *, bool));
 DECLARE_SYM(ghostty_surface_binding_action, bool, (ghostty_surface_t, const char *, uintptr_t));
+DECLARE_SYM(ghostty_surface_split, void, (ghostty_surface_t, ghostty_action_split_direction_e));
+DECLARE_SYM(ghostty_surface_split_focus, void, (ghostty_surface_t, ghostty_action_goto_split_e));
+DECLARE_SYM(ghostty_surface_split_resize, void, (ghostty_surface_t, ghostty_action_resize_split_direction_e, uint16_t));
+DECLARE_SYM(ghostty_surface_split_equalize, void, (ghostty_surface_t));
 DECLARE_SYM(ghostty_surface_process_exited, bool, (ghostty_surface_t));
 #ifdef __APPLE__
 DECLARE_SYM(ghostty_surface_set_display_id, void, (ghostty_surface_t, uint32_t));
@@ -148,6 +152,10 @@ const char *tairi_ghostty_load(const char *binary_path) {
     LOAD_SYM(ghostty_surface_mouse_scroll);
     LOAD_SYM(ghostty_surface_complete_clipboard_request);
     LOAD_SYM(ghostty_surface_binding_action);
+    LOAD_SYM(ghostty_surface_split);
+    LOAD_SYM(ghostty_surface_split_focus);
+    LOAD_SYM(ghostty_surface_split_resize);
+    LOAD_SYM(ghostty_surface_split_equalize);
     LOAD_SYM(ghostty_surface_process_exited);
 #ifdef __APPLE__
     LOAD_SYM(ghostty_surface_set_display_id);
@@ -399,6 +407,36 @@ bool tairi_ghostty_surface_binding_action(
 ) {
     require_loaded();
     return p_ghostty_surface_binding_action(surface, action, len);
+}
+
+void tairi_ghostty_surface_split(
+    ghostty_surface_t surface,
+    ghostty_action_split_direction_e direction
+) {
+    require_loaded();
+    p_ghostty_surface_split(surface, direction);
+}
+
+void tairi_ghostty_surface_split_focus(
+    ghostty_surface_t surface,
+    ghostty_action_goto_split_e direction
+) {
+    require_loaded();
+    p_ghostty_surface_split_focus(surface, direction);
+}
+
+void tairi_ghostty_surface_split_resize(
+    ghostty_surface_t surface,
+    ghostty_action_resize_split_direction_e direction,
+    uint16_t amount
+) {
+    require_loaded();
+    p_ghostty_surface_split_resize(surface, direction, amount);
+}
+
+void tairi_ghostty_surface_split_equalize(ghostty_surface_t surface) {
+    require_loaded();
+    p_ghostty_surface_split_equalize(surface);
 }
 
 bool tairi_ghostty_surface_process_exited(ghostty_surface_t surface) {

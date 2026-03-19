@@ -18,6 +18,8 @@
 ## Dev Hints
 
 - dev app: `just dev`
+- to command the dev app via AppleScript/System Events, target the `debug/tairi` PID, not `tell application "tairi"`:
+  `pgrep -n -f 'debug/tairi'`
 
 ## Runtime Source
 

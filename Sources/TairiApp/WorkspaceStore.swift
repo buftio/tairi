@@ -58,29 +58,44 @@ final class WorkspaceStore: ObservableObject {
 
     struct Tile: Identifiable, Equatable {
         let id: UUID
+        var columnID: UUID
         var title: String
         var pwd: String?
         var width: CGFloat
+        var heightWeight: CGFloat
         var createdAt: Date
         var lastVisitedAt: Date
         var surface: Surface
 
         init(
             id: UUID = UUID(),
+            columnID: UUID = UUID(),
             title: String = "shell",
             pwd: String? = nil,
             width: CGFloat = WidthPreset.standard.width,
+            heightWeight: CGFloat = 1,
             createdAt: Date = .now,
             lastVisitedAt: Date = .now,
             surface: Surface
         ) {
             self.id = id
+            self.columnID = columnID
             self.title = title
             self.pwd = pwd
             self.width = width
+            self.heightWeight = heightWeight
             self.createdAt = createdAt
             self.lastVisitedAt = lastVisitedAt
             self.surface = surface
+        }
+    }
+
+    struct Column: Identifiable, Equatable {
+        let id: UUID
+        var tiles: [Tile]
+
+        var width: CGFloat {
+            tiles.first?.width ?? WidthPreset.standard.width
         }
     }
 
@@ -130,6 +145,11 @@ final class WorkspaceStore: ObservableObject {
         return tile(selectedTileID)
     }
 
+    func columns(in workspaceID: UUID) -> [Column] {
+        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return [] }
+        return columns(in: workspace)
+    }
+
     func tiles(in workspaceID: UUID) -> [Tile] {
         workspaces.first(where: { $0.id == workspaceID })?.tiles ?? []
     }
@@ -151,6 +171,35 @@ final class WorkspaceStore: ObservableObject {
             workspaces[workspaceIndex].tiles.append(tile)
         }
 
+        selectedTileID = tile.id
+        markTileVisited(tile.id)
+        normalize()
+        return tile
+    }
+
+    @discardableResult
+    func splitTerminalTile(_ tileID: UUID, workingDirectory: String? = nil, sessionID: UUID) -> Tile? {
+        guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
+            workspace.tiles.contains(where: { $0.id == tileID })
+        }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
+            return nil
+        }
+
+        let sourceTile = workspaces[workspaceIndex].tiles[tileIndex]
+        let splitWeight = max(sourceTile.heightWeight / 2, 0.0001)
+
+        workspaces[workspaceIndex].tiles[tileIndex].heightWeight = splitWeight
+
+        let tile = Tile(
+            columnID: sourceTile.columnID,
+            pwd: resolveWorkingDirectoryForNewTile(nextTo: tileID, workingDirectory: workingDirectory),
+            width: sourceTile.width,
+            heightWeight: splitWeight,
+            surface: .terminal(sessionID: sessionID)
+        )
+        workspaces[workspaceIndex].tiles.insert(tile, at: tileIndex + 1)
+
+        selectedWorkspaceID = workspaces[workspaceIndex].id
         selectedTileID = tile.id
         markTileVisited(tile.id)
         normalize()
@@ -290,8 +339,10 @@ final class WorkspaceStore: ObservableObject {
     }
 
     func setWidth(_ width: CGFloat, for tileID: UUID) {
-        mutateTile(tileID) { tile in
-            tile.width = width.clamped(to: Self.minimumTileWidth...Self.maximumTileWidth)
+        let clampedWidth = width.clamped(to: Self.minimumTileWidth...Self.maximumTileWidth)
+        guard let columnID = tile(tileID)?.columnID else { return }
+        mutateTiles(inColumnID: columnID) { tile in
+            tile.width = clampedWidth
         }
     }
 
@@ -321,7 +372,13 @@ final class WorkspaceStore: ObservableObject {
             aroundTileAt: tileIndex,
             in: workspaces[workspaceIndex]
         )
+        let removedTile = workspaces[workspaceIndex].tiles[tileIndex]
         workspaces[workspaceIndex].tiles.remove(at: tileIndex)
+        redistributeHeightAfterRemovingTile(
+            removedTile,
+            aroundTileAt: tileIndex,
+            in: &workspaces[workspaceIndex]
+        )
 
         if wasSelectedTile {
             selectedTileID = preferredNeighborTileID(
@@ -357,6 +414,15 @@ final class WorkspaceStore: ObservableObject {
         }
     }
 
+    private func mutateTiles(inColumnID columnID: UUID, transform: (inout Tile) -> Void) {
+        for workspaceIndex in workspaces.indices {
+            for tileIndex in workspaces[workspaceIndex].tiles.indices
+            where workspaces[workspaceIndex].tiles[tileIndex].columnID == columnID {
+                transform(&workspaces[workspaceIndex].tiles[tileIndex])
+            }
+        }
+    }
+
     private func markTileVisited(_ tileID: UUID, at date: Date = .now) {
         mutateTile(tileID) { $0.lastVisitedAt = date }
     }
@@ -388,20 +454,21 @@ final class WorkspaceStore: ObservableObject {
         in workspace: Workspace,
         stripLeadingInset: CGFloat
     ) -> UUID? {
-        guard !workspace.tiles.isEmpty else { return nil }
+        let columns = columns(in: workspace)
+        guard !columns.isEmpty else { return nil }
 
         var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
         var bestTileID: UUID?
         var bestDistance = CGFloat.greatestFiniteMagnitude
 
-        for tile in workspace.tiles {
-            let tileMidX = x + (tile.width / 2)
+        for column in columns {
+            let tileMidX = x + (column.width / 2)
             let distance = abs(tileMidX - visibleMidX)
             if distance < bestDistance {
                 bestDistance = distance
-                bestTileID = tile.id
+                bestTileID = column.tiles.first?.id
             }
-            x += tile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+            x += column.width + WorkspaceCanvasLayoutMetrics.tileSpacing
         }
 
         return bestTileID
@@ -477,28 +544,76 @@ final class WorkspaceStore: ObservableObject {
 
     private func tileFrame(for tileID: UUID, in workspace: Workspace, stripLeadingInset: CGFloat) -> CGRect? {
         var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
+        let availableHeight = WorkspaceCanvasLayoutMetrics.minimumTileHeight
 
-        for tile in workspace.tiles {
-            let frame = CGRect(x: x, y: 0, width: tile.width, height: WorkspaceCanvasLayoutMetrics.minimumTileHeight)
-            if tile.id == tileID {
-                return frame
+        for column in columns(in: workspace) {
+            let totalSpacing = CGFloat(max(column.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
+            let totalWeight = max(column.tiles.reduce(CGFloat.zero) { $0 + $1.heightWeight }, 0.0001)
+            let usableHeight = max(availableHeight - totalSpacing, 1)
+            var y: CGFloat = 0
+
+            for (index, tile) in column.tiles.enumerated() {
+                let remainingHeight = availableHeight - y - (CGFloat(max(column.tiles.count - index - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing)
+                let tileHeight: CGFloat
+                if index == column.tiles.count - 1 {
+                    tileHeight = max(remainingHeight, 1)
+                } else {
+                    tileHeight = max((usableHeight * tile.heightWeight / totalWeight).rounded(.down), 1)
+                }
+
+                let frame = CGRect(x: x, y: y, width: column.width, height: tileHeight)
+                if tile.id == tileID {
+                    return frame
+                }
+                y += tileHeight + WorkspaceCanvasLayoutMetrics.tileSpacing
             }
-            x += tile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+
+            x += column.width + WorkspaceCanvasLayoutMetrics.tileSpacing
         }
 
         return nil
     }
 
     private func contentWidth(for workspace: Workspace, stripLeadingInset: CGFloat) -> CGFloat {
-        guard !workspace.tiles.isEmpty else { return 0 }
-        let tileWidths = workspace.tiles.reduce(CGFloat.zero) { partialResult, tile in
-            partialResult + tile.width
+        let columns = columns(in: workspace)
+        guard !columns.isEmpty else { return 0 }
+        let tileWidths = columns.reduce(CGFloat.zero) { partialResult, column in
+            partialResult + column.width
         }
-        let spacing = CGFloat(max(workspace.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
+        let spacing = CGFloat(max(columns.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
         return stripLeadingInset
             + (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2)
             + tileWidths
             + spacing
+    }
+
+    private func columns(in workspace: Workspace) -> [Column] {
+        var result: [Column] = []
+
+        for tile in workspace.tiles {
+            if let lastIndex = result.indices.last, result[lastIndex].id == tile.columnID {
+                result[lastIndex].tiles.append(tile)
+            } else {
+                result.append(Column(id: tile.columnID, tiles: [tile]))
+            }
+        }
+
+        return result
+    }
+
+    private func redistributeHeightAfterRemovingTile(
+        _ removedTile: Tile,
+        aroundTileAt tileIndex: Int,
+        in workspace: inout Workspace
+    ) {
+        let siblingIndices = workspace.tiles.indices.filter { index in
+            workspace.tiles[index].columnID == removedTile.columnID
+        }
+        guard !siblingIndices.isEmpty else { return }
+
+        let preferredIndex = siblingIndices.last(where: { $0 < tileIndex }) ?? siblingIndices.first
+        guard let preferredIndex else { return }
+        workspace.tiles[preferredIndex].heightWeight += removedTile.heightWeight
     }
 
     private func normalize() {

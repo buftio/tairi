@@ -134,6 +134,28 @@ final class WorkspaceInteractionController: ObservableObject {
         return tile
     }
 
+    @discardableResult
+    func splitTerminalTile(
+        _ tileID: UUID,
+        workingDirectory: String? = nil,
+        sessionID: UUID,
+        transition: TileTransition = .preserveViewport
+    ) -> WorkspaceStore.Tile? {
+        guard let tile = store.splitTerminalTile(tileID, workingDirectory: workingDirectory, sessionID: sessionID) else {
+            return nil
+        }
+        if transition != .preserveViewport {
+            tileOpenAnimation = TileOpenAnimation(
+                id: nextTransitionID,
+                tileID: tile.id,
+                animated: transition == .animatedReveal
+            )
+            nextTransitionID += 1
+        }
+        publishTransition(for: tile.id, transition: transition)
+        return tile
+    }
+
     func scrollSelectedWorkspaceHorizontally(
         deltaX: CGFloat,
         viewportWidth: CGFloat,

@@ -106,6 +106,20 @@ bool tairi_ghostty_surface_binding_action(
     const char *action,
     uintptr_t len
 );
+void tairi_ghostty_surface_split(
+    ghostty_surface_t surface,
+    ghostty_action_split_direction_e direction
+);
+void tairi_ghostty_surface_split_focus(
+    ghostty_surface_t surface,
+    ghostty_action_goto_split_e direction
+);
+void tairi_ghostty_surface_split_resize(
+    ghostty_surface_t surface,
+    ghostty_action_resize_split_direction_e direction,
+    uint16_t amount
+);
+void tairi_ghostty_surface_split_equalize(ghostty_surface_t surface);
 bool tairi_ghostty_surface_process_exited(ghostty_surface_t surface);
 
 #ifdef __APPLE__

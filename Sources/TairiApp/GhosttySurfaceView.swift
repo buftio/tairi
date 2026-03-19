@@ -259,6 +259,9 @@ final class GhosttySurfaceView: NSView {
         }
 
         guard let surface else { return }
+        if handleSplitShortcut(event, surface: surface) {
+            return
+        }
         recordInputIfAttached()
 
         var key = ghostty_input_key_s()
@@ -282,10 +285,21 @@ final class GhosttySurfaceView: NSView {
         }
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard let surface else {
+            return super.performKeyEquivalent(with: event)
+        }
+        if handleSplitShortcut(event, surface: surface) {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func keyUp(with event: NSEvent) {
         if workspaceNavigationOffset(for: event) != nil
             || tileNavigationOffset(for: event) != nil
-            || canvasZoomDirection(for: event) != nil {
+            || canvasZoomDirection(for: event) != nil
+            || isHorizontalSplitShortcut(event) {
             return
         }
 
@@ -483,6 +497,23 @@ final class GhosttySurfaceView: NSView {
         action.withCString { ptr in
             _ = tairi_ghostty_surface_binding_action(surface, ptr, uintptr_t(action.lengthOfBytes(using: .utf8)))
         }
+    }
+
+    private func handleSplitShortcut(_ event: NSEvent, surface: ghostty_surface_t) -> Bool {
+        guard isHorizontalSplitShortcut(event) else { return false }
+        guard let tileID = attachedTileID else { return false }
+        let _ = surface
+        TairiLog.write("ghostty local split shortcut session=\(sessionID.uuidString) tile=\(tileID.uuidString)")
+        runtime.splitTileHorizontally(tileID: tileID)
+        return true
+    }
+
+    private func isHorizontalSplitShortcut(_ event: NSEvent) -> Bool {
+        let requiredModifiers: NSEvent.ModifierFlags = [.command, .shift]
+        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard activeModifiers.contains(requiredModifiers) else { return false }
+        guard !activeModifiers.contains(.option), !activeModifiers.contains(.control) else { return false }
+        return event.charactersIgnoringModifiers?.lowercased() == "d"
     }
 
     private func recordInputIfAttached() {

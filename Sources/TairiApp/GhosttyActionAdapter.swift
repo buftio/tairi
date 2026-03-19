@@ -7,7 +7,6 @@ enum GhosttyExitReason: String {
 
 enum GhosttyRuntimeEvent {
     case createTile(nextToSessionID: UUID)
-    case selectAdjacentTile(offset: Int)
     case updateTitle(sessionID: UUID, title: String)
     case updatePWD(sessionID: UUID, pwd: String)
     case openURL(URL)
@@ -29,17 +28,27 @@ enum GhosttyRuntimeEvent {
 struct GhosttyActionAdapter {
     func decode(action: ghostty_action_s, sessionID: UUID?) -> GhosttyRuntimeEvent {
         switch action.tag {
-        case GHOSTTY_ACTION_NEW_WINDOW, GHOSTTY_ACTION_NEW_TAB, GHOSTTY_ACTION_NEW_SPLIT:
+        case GHOSTTY_ACTION_NEW_WINDOW, GHOSTTY_ACTION_NEW_TAB:
             guard let sessionID else { return .ignore }
             return .createTile(nextToSessionID: sessionID)
 
-        case GHOSTTY_ACTION_GOTO_SPLIT:
-            switch action.action.goto_split {
-            case GHOSTTY_GOTO_SPLIT_PREVIOUS, GHOSTTY_GOTO_SPLIT_LEFT:
-                return .selectAdjacentTile(offset: -1)
+        case GHOSTTY_ACTION_NEW_SPLIT:
+            guard let sessionID else { return .ignore }
+            switch action.action.new_split {
+            case GHOSTTY_SPLIT_DIRECTION_RIGHT, GHOSTTY_SPLIT_DIRECTION_LEFT:
+                return .createTile(nextToSessionID: sessionID)
             default:
-                return .selectAdjacentTile(offset: 1)
+                return .ignore
             }
+
+        case GHOSTTY_ACTION_GOTO_SPLIT:
+            return .ignore
+
+        case GHOSTTY_ACTION_RESIZE_SPLIT:
+            return .ignore
+
+        case GHOSTTY_ACTION_EQUALIZE_SPLITS:
+            return .ignore
 
         case GHOSTTY_ACTION_SET_TITLE:
             guard let sessionID, let title = decodeCString(action.action.set_title.title) else {
@@ -85,6 +94,8 @@ struct GhosttyActionAdapter {
         case GHOSTTY_ACTION_NEW_SPLIT: "new_split"
         case GHOSTTY_ACTION_CLOSE_ALL_WINDOWS: "close_all_windows"
         case GHOSTTY_ACTION_GOTO_SPLIT: "goto_split"
+        case GHOSTTY_ACTION_RESIZE_SPLIT: "resize_split"
+        case GHOSTTY_ACTION_EQUALIZE_SPLITS: "equalize_splits"
         case GHOSTTY_ACTION_SET_TITLE: "set_title"
         case GHOSTTY_ACTION_PWD: "pwd"
         case GHOSTTY_ACTION_CLOSE_WINDOW: "close_window"

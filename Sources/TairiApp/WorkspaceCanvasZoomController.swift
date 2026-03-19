@@ -146,10 +146,18 @@ final class WorkspaceCanvasZoomController {
     }
 
     private func rawTileSpan(for workspace: WorkspaceStore.Workspace) -> CGFloat {
-        let tileWidths = workspace.tiles.reduce(CGFloat.zero) { partialResult, tile in
-            partialResult + tile.width
+        var columnWidths: [CGFloat] = []
+        var lastColumnID: UUID?
+
+        for tile in workspace.tiles {
+            if tile.columnID != lastColumnID {
+                columnWidths.append(tile.width)
+                lastColumnID = tile.columnID
+            }
         }
-        let spacing = CGFloat(max(workspace.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
+
+        let tileWidths = columnWidths.reduce(CGFloat.zero, +)
+        let spacing = CGFloat(max(columnWidths.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
         return tileWidths + spacing
     }
 

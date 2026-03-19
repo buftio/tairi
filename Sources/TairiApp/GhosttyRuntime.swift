@@ -207,6 +207,34 @@ final class GhosttyRuntime: ObservableObject {
         TairiLog.write("ghostty focusSurface complete tile=\(tileID.uuidString) session=\(session.id.uuidString)")
     }
 
+    func splitSelectedTileHorizontally() {
+        guard let tileID = store.selectedTileID else { return }
+        splitTileHorizontally(tileID: tileID)
+    }
+
+    func splitTileHorizontally(tileID: UUID) {
+        guard store.tile(tileID) != nil else {
+            TairiLog.write("ghostty split shortcut skipped tile=\(tileID.uuidString) reason=missing-tile")
+            return
+        }
+        let workingDirectory = spawnWorkingDirectory(for: tileID)
+        let sessionID = createSession(workingDirectory: workingDirectory)
+        guard let tile = interactionController.splitTerminalTile(
+            tileID,
+            workingDirectory: workingDirectory,
+            sessionID: sessionID,
+            transition: .animatedReveal
+        ) else {
+            TairiLog.write("ghostty split shortcut skipped tile=\(tileID.uuidString) reason=split-failed")
+            return
+        }
+        sessionRegistry.setSessionID(sessionID, forTileID: tile.id)
+        TairiLog.write(
+            "ghostty command split sourceTile=\(tileID.uuidString) newTile=\(tile.id.uuidString) session=\(sessionID.uuidString)"
+        )
+        focusSurface(tileID: tile.id)
+    }
+
     func finishClosingTile(
         _ tileID: UUID,
         preferredVisibleMidX: CGFloat? = nil,
@@ -267,12 +295,23 @@ final class GhosttyRuntime: ObservableObject {
             return nil
         }
 
-        let hasTrailingTile = tileIndex < workspace.tiles.count - 1
+        let tile = workspace.tiles[tileIndex]
+        let columnTileCount = workspace.tiles.filter { $0.columnID == tile.columnID }.count
+        guard columnTileCount == 1 else { return nil }
+
+        let columns = workspace.tiles.reduce(into: [UUID]()) { partialResult, tile in
+            if partialResult.last != tile.columnID {
+                partialResult.append(tile.columnID)
+            }
+        }
+        guard let columnIndex = columns.firstIndex(of: tile.columnID) else { return nil }
+
+        let hasTrailingTile = columnIndex < columns.count - 1
         return TileCloseAnimationContext(
             workspaceID: workspaceID,
-            insertionIndex: tileIndex,
-            snapshotWidth: workspace.tiles[tileIndex].width,
-            gapWidth: workspace.tiles[tileIndex].width
+            insertionIndex: columnIndex,
+            snapshotWidth: tile.width,
+            gapWidth: tile.width
                 + (hasTrailingTile ? WorkspaceCanvasLayoutMetrics.tileSpacing : 0),
             snapshotImage: snapshotImage
         )

@@ -447,6 +447,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         )
 
         for (workspaceIndex, workspace) in workspaces.enumerated() {
+            let columns = columns(in: workspace)
             let focusedRowOriginY = CGFloat(workspaceIndex) * (baseRowHeight + baseRowSpacing)
             let overviewRowOriginY = overviewTopInsetAdjustment
                 + CGFloat(workspaceIndex) * (overviewRowHeight + overviewRowSpacing)
@@ -454,13 +455,14 @@ final class WorkspaceCanvasDocumentView: NSView {
             var overviewX = anchorX
                 - zoomController.effectiveHorizontalOffset(animator.effectiveHorizontalOffset(for: workspace)) * scale
 
-            for (tileIndex, tile) in workspace.tiles.enumerated() {
-                let gapWidth = animator.closingGapWidth(beforeTileAt: tileIndex, in: workspace.id)
+            for (columnIndex, column) in columns.enumerated() {
+                let representativeTileID = column.tiles.first?.id ?? UUID()
+                let gapWidth = animator.closingGapWidth(beforeTileAt: columnIndex, in: workspace.id)
                 let overviewGapWidth = gapWidth * scale
-                let tileWidth = animator.effectiveTileWidth(tile.width, for: tile.id)
+                let tileWidth = animator.effectiveTileWidth(column.width, for: representativeTileID)
                 layoutClosingTileSnapshotIfNeeded(
                     workspaceID: workspace.id,
-                    insertionIndex: tileIndex,
+                    insertionIndex: columnIndex,
                     originX: isOverviewPresented ? overviewX : focusedX,
                     rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
                     tileHeight: isOverviewPresented ? overviewTileHeight : baseTileHeight,
@@ -468,32 +470,41 @@ final class WorkspaceCanvasDocumentView: NSView {
                 )
                 focusedX += gapWidth
                 overviewX += overviewGapWidth
-                guard let tileView = tileViews[tile.id] else { continue }
-                let focusedFrame = NSRect(
-                    x: focusedX,
-                    y: focusedRowOriginY + baseVerticalPadding,
+                let columnFrames = columnTileFrames(
+                    for: column,
+                    originX: focusedX,
+                    originY: focusedRowOriginY + baseVerticalPadding,
                     width: tileWidth,
                     height: baseTileHeight
                 )
-                let previewFrame = NSRect(
-                    x: overviewX,
-                    y: overviewRowOriginY + overviewVerticalPadding,
+                let previewFrames = columnTileFrames(
+                    for: column,
+                    originX: overviewX,
+                    originY: overviewRowOriginY + overviewVerticalPadding,
                     width: tileWidth * scale,
                     height: overviewTileHeight
                 )
 
-                if isOverviewPresented {
-                    overviewRenderer.layoutPreview(
-                        for: tile.id,
-                        previewFrame: previewFrame,
-                        contentSize: focusedFrame.size
-                    )
-                } else {
-                    overviewRenderer.hidePreview(for: tile.id)
-                    tileView.frame = focusedFrame
+                for tile in column.tiles {
+                    guard let tileView = tileViews[tile.id],
+                          let focusedFrame = columnFrames[tile.id],
+                          let previewFrame = previewFrames[tile.id] else {
+                        continue
+                    }
+
+                    if isOverviewPresented {
+                        overviewRenderer.layoutPreview(
+                            for: tile.id,
+                            previewFrame: previewFrame,
+                            contentSize: focusedFrame.size
+                        )
+                    } else {
+                        overviewRenderer.hidePreview(for: tile.id)
+                        tileView.frame = focusedFrame
+                    }
                 }
 
-                if shouldShowResizeHandle(for: tileIndex, in: workspace), let handle = resizeHandles[tile.id] {
+                if shouldShowResizeHandle(for: columnIndex, in: columns), let handle = resizeHandles[representativeTileID] {
                     handle.isHidden = isOverviewPresented
                     if !isOverviewPresented {
                         let handleCenterX = focusedX + tileWidth + (baseTileSpacing / 2)
@@ -513,10 +524,10 @@ final class WorkspaceCanvasDocumentView: NSView {
                 overviewX += (tileWidth * scale) + overviewTileSpacing
             }
 
-            let trailingGapWidth = animator.closingGapWidth(beforeTileAt: workspace.tiles.count, in: workspace.id)
+            let trailingGapWidth = animator.closingGapWidth(beforeTileAt: columns.count, in: workspace.id)
             layoutClosingTileSnapshotIfNeeded(
                 workspaceID: workspace.id,
-                insertionIndex: workspace.tiles.count,
+                insertionIndex: columns.count,
                 originX: isOverviewPresented ? overviewX : focusedX,
                 rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
                 tileHeight: isOverviewPresented ? overviewTileHeight : baseTileHeight,
@@ -977,18 +988,19 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     private func resizeHandleTileIDs(in workspaces: [WorkspaceStore.Workspace]) -> [UUID] {
         workspaces.flatMap { workspace in
-            if workspace.tiles.count == 1 {
-                return workspace.tiles.map(\.id)
+            let columns = columns(in: workspace)
+            if columns.count == 1 {
+                return columns.compactMap { $0.tiles.first?.id }
             }
-            return Array(workspace.tiles.dropLast()).map(\.id)
+            return Array(columns.dropLast()).compactMap { $0.tiles.first?.id }
         }
     }
 
-    private func shouldShowResizeHandle(for tileIndex: Int, in workspace: WorkspaceStore.Workspace) -> Bool {
-        if workspace.tiles.count == 1 {
-            return tileIndex == 0
+    private func shouldShowResizeHandle(for columnIndex: Int, in columns: [WorkspaceStore.Column]) -> Bool {
+        if columns.count == 1 {
+            return columnIndex == 0
         }
-        return tileIndex < workspace.tiles.count - 1
+        return columnIndex < columns.count - 1
     }
 
     private func makeTileView(for tileID: UUID) -> WorkspaceTileHostView {
@@ -1008,5 +1020,49 @@ final class WorkspaceCanvasDocumentView: NSView {
         resizeHandles[tileID] = handle
         addSubview(handle)
         return handle
+    }
+
+    private func columns(in workspace: WorkspaceStore.Workspace) -> [WorkspaceStore.Column] {
+        var result: [WorkspaceStore.Column] = []
+
+        for tile in workspace.tiles {
+            if let lastIndex = result.indices.last, result[lastIndex].id == tile.columnID {
+                result[lastIndex].tiles.append(tile)
+            } else {
+                result.append(WorkspaceStore.Column(id: tile.columnID, tiles: [tile]))
+            }
+        }
+
+        return result
+    }
+
+    private func columnTileFrames(
+        for column: WorkspaceStore.Column,
+        originX: CGFloat,
+        originY: CGFloat,
+        width: CGFloat,
+        height: CGFloat
+    ) -> [UUID: NSRect] {
+        let totalSpacing = CGFloat(max(column.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
+        let totalWeight = max(column.tiles.reduce(CGFloat.zero) { $0 + $1.heightWeight }, 0.0001)
+        let usableHeight = max(height - totalSpacing, 1)
+        var y = originY
+        var frames: [UUID: NSRect] = [:]
+
+        for (index, tile) in column.tiles.enumerated() {
+            let remainingHeight = (originY + height) - y
+                - (CGFloat(max(column.tiles.count - index - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing)
+            let tileHeight: CGFloat
+            if index == column.tiles.count - 1 {
+                tileHeight = max(remainingHeight, 1)
+            } else {
+                tileHeight = max((usableHeight * tile.heightWeight / totalWeight).rounded(.down), 1)
+            }
+
+            frames[tile.id] = NSRect(x: originX, y: y, width: width, height: tileHeight)
+            y += tileHeight + WorkspaceCanvasLayoutMetrics.tileSpacing
+        }
+
+        return frames
     }
 }

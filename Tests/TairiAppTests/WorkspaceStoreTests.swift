@@ -31,6 +31,24 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(newTile.pwd, TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace())
     }
 
+    func testSplitTileCreatesVerticalSiblingOnSameWorkspaceAndDividesHeight() throws {
+        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let originalTile = try XCTUnwrap(store.selectedTile)
+
+        let splitTile = try XCTUnwrap(store.splitTerminalTile(firstTileID, sessionID: UUID()))
+        let tiles = store.selectedWorkspace.tiles
+
+        XCTAssertEqual(tiles.count, 2)
+        XCTAssertEqual(tiles[0].id, firstTileID)
+        XCTAssertEqual(tiles[1].id, splitTile.id)
+        XCTAssertEqual(tiles[0].columnID, originalTile.columnID)
+        XCTAssertEqual(tiles[1].columnID, originalTile.columnID)
+        XCTAssertEqual(tiles[0].width, originalTile.width, accuracy: 0.001)
+        XCTAssertEqual(tiles[1].width, originalTile.width, accuracy: 0.001)
+        XCTAssertEqual(tiles[0].heightWeight + tiles[1].heightWeight, originalTile.heightWeight, accuracy: 0.001)
+    }
+
     func testInitialTileBindsSessionIdentity() throws {
         let sessionID = UUID()
         let store = WorkspaceStore(

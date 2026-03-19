@@ -320,13 +320,6 @@ extension GhosttyRuntime {
             focusSurface(tileID: tile.id)
             return true
 
-        case .selectAdjacentTile(let offset):
-            interactionController.selectAdjacentTile(offset: offset)
-            if let selectedTileID = store.selectedTileID {
-                focusSurface(tileID: selectedTileID)
-            }
-            return true
-
         case .updateTitle(let sessionID, let title):
             guard let session = sessionRegistry.session(id: sessionID) else { return true }
             session.updateTitle(title)

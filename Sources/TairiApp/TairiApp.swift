@@ -79,6 +79,11 @@ struct TairiApp: App {
                 }
                 .keyboardShortcut("n", modifiers: [.command])
 
+                Button("Split Horizontally") {
+                    runtime.splitSelectedTileHorizontally()
+                }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
+
                 Button("Previous Tile") {
                     interactionController.selectAdjacentTile(offset: -1, transition: .animatedReveal)
                     if let selectedTileID = store.selectedTileID {
