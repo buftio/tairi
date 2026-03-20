@@ -8,6 +8,9 @@ Development uses the vendored runtime under:
 
 - `.local/vendor/Ghostty/...`
 
+`just dev`, `just install`, and `scripts/build-app.sh` ensure the manifest-pinned
+Ghostty runtime is present in that cache before launching or bundling.
+
 Bundled app builds place the runtime at:
 
 - `tairi.app/Contents/Frameworks/GhosttyRuntime.app`

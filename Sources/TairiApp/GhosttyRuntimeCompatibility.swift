@@ -69,7 +69,7 @@ enum GhosttyRuntimeCompatibility {
     }
 
     private static func currentVendoredVersion() -> String? {
-        TairiPaths.latestGhosttyVendorVersionDirectory()?.lastPathComponent
+        TairiPaths.requiredGhosttyVendorVersion()
     }
 
     private static func decodeString(pointer: UnsafePointer<CChar>?, length: UInt) -> String? {

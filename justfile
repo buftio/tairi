@@ -7,13 +7,15 @@ build:
   swift build
 
 dev *args:
+  ./scripts/ensure-ghostty.sh >/dev/null
   swift run tairi {{args}}
 
 dev-shell-diagnose:
+  ./scripts/ensure-ghostty.sh >/dev/null
   env TAIRI_TERMINAL_DIAG=1 swift run tairi
 
-vendor-ghostty source="/Applications/Ghostty.app":
-  ./scripts/vendor-ghostty.sh "{{source}}"
+vendor-ghostty:
+  ./scripts/vendor-ghostty.sh
 
 bundle:
   ./scripts/build-app.sh

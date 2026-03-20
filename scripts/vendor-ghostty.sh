@@ -9,7 +9,6 @@ MANIFEST="$ROOT/Vendor/ghostty-runtime.env"
 CACHE_ROOT="${TAIRI_GHOSTTY_CACHE_ROOT:-$ROOT/.local/vendor/Ghostty}"
 DOWNLOAD_ROOT="${TAIRI_GHOSTTY_DOWNLOAD_ROOT:-$ROOT/.local/cache/ghostty}"
 MOUNT_ROOT="${TAIRI_GHOSTTY_MOUNT_ROOT:-$ROOT/.local/tmp/ghostty-mount}"
-SOURCE_APP="${1:-}"
 
 require_trash() {
   if ! command -v trash >/dev/null 2>&1; then
@@ -80,17 +79,7 @@ vendor_from_dmg() {
     exit 1
   fi
 
-  vendor_from_app "$app_path"
-}
-
-vendor_from_app() {
-  local source_app="$1"
-  local version
-  version="$(
-    defaults read "$source_app/Contents/Info" CFBundleShortVersionString 2>/dev/null \
-      || /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$source_app/Contents/Info.plist"
-  )"
-  local dest="$CACHE_ROOT/$version"
+  local dest="$CACHE_ROOT/$GHOSTTY_VERSION"
 
   mkdir -p "$dest"
   require_trash
@@ -102,28 +91,20 @@ vendor_from_app() {
            "$dest/GhosttyRuntime.app/Contents/Frameworks" \
            "$dest/GhosttyRuntime.app/Contents/Resources"
 
-  cp "$source_app/Contents/MacOS/ghostty" "$dest/GhosttyRuntime.app/Contents/MacOS/ghostty"
-  cp -R "$source_app/Contents/Frameworks/Sparkle.framework" "$dest/GhosttyRuntime.app/Contents/Frameworks/"
-  cp -R "$source_app/Contents/Resources/ghostty" "$dest/GhosttyRuntime.app/Contents/Resources/"
-  cp "$source_app/Contents/Info.plist" "$dest/GhosttyRuntime.app/Contents/Info.plist"
+  cp "$app_path/Contents/MacOS/ghostty" "$dest/GhosttyRuntime.app/Contents/MacOS/ghostty"
+  cp -R "$app_path/Contents/Frameworks/Sparkle.framework" "$dest/GhosttyRuntime.app/Contents/Frameworks/"
+  cp -R "$app_path/Contents/Resources/ghostty" "$dest/GhosttyRuntime.app/Contents/Resources/"
+  cp "$app_path/Contents/Info.plist" "$dest/GhosttyRuntime.app/Contents/Info.plist"
 
   cat > "$dest/VERSION.txt" <<EOF
-$version
+$GHOSTTY_VERSION
 EOF
 
   codesign --force --deep --sign - "$dest/GhosttyRuntime.app" >/dev/null 2>&1 || true
 
-  echo "Vendored Ghostty $version to $dest"
+  echo "Vendored Ghostty $GHOSTTY_VERSION to $dest"
 }
 
 load_manifest
 
-if [[ -n "$SOURCE_APP" ]]; then
-  if [[ ! -d "$SOURCE_APP" ]]; then
-    echo "Ghostty app not found at: $SOURCE_APP" >&2
-    exit 1
-  fi
-  vendor_from_app "$SOURCE_APP"
-else
-  vendor_from_dmg "$(download_official_release)"
-fi
+vendor_from_dmg "$(download_official_release)"

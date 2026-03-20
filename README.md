@@ -20,26 +20,18 @@ Optional:
 
 - `xcodegen` for UI tests
 - an Apple Development signing identity for the UI test runner
-- a local `Ghostty.app` if you want to override the pinned official Ghostty download
 
 ## Quick Start
 
 From a fresh clone:
 
 ```sh
-just vendor-ghostty
 just dev
 ```
 
-`just vendor-ghostty` downloads the pinned Ghostty runtime declared in
+`just dev` automatically downloads the pinned Ghostty runtime declared in
 [`Vendor/ghostty-runtime.env`](Vendor/ghostty-runtime.env) into the local cache
 under `.local/vendor/Ghostty/...`.
-
-If you want to vendor a local `Ghostty.app` instead, pass its path explicitly:
-
-```sh
-just vendor-ghostty "/path/to/Ghostty.app"
-```
 
 Expected result:
 
@@ -71,6 +63,7 @@ just install
 ```
 
 `just install` updates the existing installed copy if one already exists.
+It also ensures the manifest-pinned Ghostty runtime is cached before building.
 
 The bundled runtime is placed at:
 
@@ -159,7 +152,7 @@ Run them with:
 
 Common first-run issues:
 
-- `just vendor-ghostty` fails if the pinned Ghostty download changes or cannot be fetched
+- the pinned Ghostty download may fail if it cannot be fetched
 - `just install` expects `trash` to be installed
 - UI tests fail without a local signing identity
 

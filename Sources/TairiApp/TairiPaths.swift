@@ -18,6 +18,8 @@ enum TairiPaths {
     static let sessionMarkerURL = logsDirectory.appendingPathComponent("tairi.session.json")
     static let signalMarkerURL = logsDirectory.appendingPathComponent("tairi.signal")
     static let exceptionMarkerURL = logsDirectory.appendingPathComponent("tairi.exception.txt")
+    static let ghosttyManifestURL: URL? = repositoryRoot?
+        .appendingPathComponent("Vendor/ghostty-runtime.env")
     static let ghosttyConfigURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/com.mitchellh.ghostty", isDirectory: true)
         .appendingPathComponent("config")
@@ -32,16 +34,61 @@ enum TairiPaths {
         try? fileManager.createDirectory(at: crashReportsDirectory, withIntermediateDirectories: true)
     }
 
-    static func latestGhosttyVendorVersionDirectory() -> URL? {
-        guard let ghosttyVendorDirectory else { return nil }
+    static func requiredGhosttyVendorVersion() -> String? {
+        ghosttyManifestVersion(from: ghosttyManifestURL)
+    }
 
-        return (try? FileManager.default.contentsOfDirectory(
-            at: ghosttyVendorDirectory,
-            includingPropertiesForKeys: nil
-        ))?
-        .filter(\.hasDirectoryPath)
-        .sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
-        .last
+    static func requiredGhosttyVendorVersionDirectory() -> URL? {
+        requiredGhosttyVendorVersionDirectory(
+            ghosttyVendorDirectory: ghosttyVendorDirectory,
+            manifestURL: ghosttyManifestURL
+        )
+    }
+
+    static func requiredGhosttyVendorVersionDirectory(
+        ghosttyVendorDirectory: URL?,
+        manifestURL: URL?
+    ) -> URL? {
+        guard let ghosttyVendorDirectory, let version = ghosttyManifestVersion(from: manifestURL) else {
+            return nil
+        }
+
+        let versionDirectory = ghosttyVendorDirectory.appendingPathComponent(version, isDirectory: true)
+        let runtimeDirectory = versionDirectory.appendingPathComponent("GhosttyRuntime.app", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: runtimeDirectory.path(percentEncoded: false)) else {
+            return nil
+        }
+
+        return versionDirectory
+    }
+
+    static func ghosttyManifestVersion(from manifestURL: URL?) -> String? {
+        guard let manifestURL,
+              let contents = try? String(contentsOf: manifestURL, encoding: .utf8) else {
+            return nil
+        }
+
+        return ghosttyManifestVersion(in: contents)
+    }
+
+    static func ghosttyManifestVersion(in contents: String) -> String? {
+        for line in contents.split(whereSeparator: \.isNewline) {
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            guard trimmedLine.hasPrefix("GHOSTTY_VERSION=") else { continue }
+
+            let rawValue = trimmedLine.dropFirst("GHOSTTY_VERSION=".count)
+                .trimmingCharacters(in: .whitespaces)
+
+            guard !rawValue.isEmpty else { return nil }
+
+            if rawValue.hasPrefix("\""), rawValue.hasSuffix("\""), rawValue.count >= 2 {
+                return String(rawValue.dropFirst().dropLast())
+            }
+
+            return String(rawValue)
+        }
+
+        return nil
     }
 
     private static func resolveRepositoryRoot() -> URL? {

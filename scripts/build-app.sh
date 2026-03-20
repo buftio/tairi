@@ -15,6 +15,7 @@ GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
 APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
 APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
 CACHE_ROOT="${TAIRI_GHOSTTY_CACHE_ROOT:-$ROOT/.local/vendor/Ghostty}"
+GHOSTTY_MANIFEST="$ROOT/Vendor/ghostty-runtime.env"
 CODESIGN_IDENTITY="${TAIRI_CODESIGN_IDENTITY:--}"
 
 trash_path_if_present() {
@@ -42,13 +43,24 @@ sign_path() {
   codesign "${args[@]}" "$@" "$path"
 }
 
-if [[ ! -d "$CACHE_ROOT" ]]; then
-  "$ROOT/scripts/vendor-ghostty.sh"
+if [[ ! -f "$GHOSTTY_MANIFEST" ]]; then
+  echo "Missing Ghostty manifest: $GHOSTTY_MANIFEST" >&2
+  exit 1
 fi
 
-VERSION_DIR="$(find "$CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
-if [[ -z "$VERSION_DIR" ]]; then
-  echo "No cached Ghostty runtime found under $CACHE_ROOT" >&2
+# shellcheck disable=SC1090
+source "$GHOSTTY_MANIFEST"
+
+if [[ -z "${GHOSTTY_VERSION:-}" ]]; then
+  echo "Ghostty manifest must define GHOSTTY_VERSION" >&2
+  exit 1
+fi
+
+"$ROOT/scripts/ensure-ghostty.sh" >/dev/null
+
+VERSION_DIR="$CACHE_ROOT/$GHOSTTY_VERSION"
+if [[ ! -d "$VERSION_DIR/GhosttyRuntime.app" ]]; then
+  echo "Pinned Ghostty runtime $GHOSTTY_VERSION not found under $CACHE_ROOT" >&2
   exit 1
 fi
 
@@ -98,4 +110,4 @@ sign_path "$GHOSTTY_APP_DIR" --deep
 sign_path "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
-echo "Built $APP_DIR using vendored Ghostty from $VERSION_DIR"
+echo "Built $APP_DIR using vendored Ghostty $GHOSTTY_VERSION from $VERSION_DIR"

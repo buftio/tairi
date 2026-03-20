@@ -409,7 +409,7 @@ final class GhosttyRuntime: ObservableObject {
         let bundledResources = resourcesURL?.appendingPathComponent("ghostty")
         let bundledBinary = Bundle.main.bundleURL
             .appendingPathComponent("Contents/Frameworks/GhosttyRuntime.app/Contents/MacOS/ghostty")
-        let vendoredVersion = TairiPaths.latestGhosttyVendorVersionDirectory()
+        let vendoredVersion = TairiPaths.requiredGhosttyVendorVersionDirectory()
         let vendoredResources = vendoredVersion?
             .appendingPathComponent("GhosttyRuntime.app/Contents/Resources/ghostty")
         let vendoredBinary = vendoredVersion?
