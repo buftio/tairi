@@ -1,0 +1,25 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  swift:
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Lint Swift sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/swift-format.sh lint
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test

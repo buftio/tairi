@@ -1,5 +1,6 @@
 import AppKit
 import XCTest
+
 @testable import TairiApp
 
 final class TerminalHeaderIconResolverTests: XCTestCase {
@@ -185,8 +186,8 @@ final class TerminalHeaderIconResolverTests: XCTestCase {
         image.unlockFocus()
 
         guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:])
+            let bitmap = NSBitmapImageRep(data: tiffData),
+            let pngData = bitmap.representation(using: .png, properties: [:])
         else {
             XCTFail("Failed to create test PNG data")
             return

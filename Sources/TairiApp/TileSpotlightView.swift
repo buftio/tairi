@@ -50,10 +50,11 @@ struct TileSpotlightView: View {
                 spotlightPanel
                     .frame(width: min(TileSpotlightMetrics.panelWidth, proxy.size.width - 40))
                     .offset(y: -(min(proxy.size.height * 0.13, 88)))
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.95, anchor: .center).combined(with: .opacity),
-                        removal: .scale(scale: 0.98).combined(with: .opacity)
-                    ))
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.95, anchor: .center).combined(with: .opacity),
+                            removal: .scale(scale: 0.98).combined(with: .opacity)
+                        ))
             }
         }
         .background(

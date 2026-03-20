@@ -4,10 +4,10 @@ import PackageDescription
 let package = Package(
     name: "tairi",
     platforms: [
-        .macOS(.v14),
+        .macOS(.v14)
     ],
     products: [
-        .executable(name: "tairi", targets: ["TairiApp"]),
+        .executable(name: "tairi", targets: ["TairiApp"])
     ],
     targets: [
         .target(
@@ -18,23 +18,23 @@ let package = Package(
         .executableTarget(
             name: "TairiApp",
             dependencies: [
-                "GhosttyDyn",
+                "GhosttyDyn"
             ],
             path: "Sources/TairiApp",
             resources: [
-                .process("Resources"),
+                .process("Resources")
             ],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-rpath",
                     "-Xlinker", "@executable_path/../Frameworks",
-                ]),
+                ])
             ]
         ),
         .testTarget(
             name: "TairiAppTests",
             dependencies: [
-                "TairiApp",
+                "TairiApp"
             ],
             path: "Tests/TairiAppTests"
         ),

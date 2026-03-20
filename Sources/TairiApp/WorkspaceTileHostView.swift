@@ -120,7 +120,8 @@ final class WorkspaceTileHostView: NSView {
         headerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
         let closeButtonY = floor((Metrics.headerHeight - Metrics.closeButtonHitSize) / 2)
         titleField.frame = NSRect(
-            x: Metrics.headerHorizontalInset + Metrics.closeButtonSize + Metrics.interItemSpacing + Metrics.iconSize + Metrics.interItemSpacing,
+            x: Metrics.headerHorizontalInset + Metrics.closeButtonSize + Metrics.interItemSpacing + Metrics.iconSize
+                + Metrics.interItemSpacing,
             y: floor((Metrics.headerHeight - 18) / 2),
             width: max(
                 bounds.width
@@ -183,19 +184,20 @@ final class WorkspaceTileHostView: NSView {
         setAccessibilityLabel("Workspace tile \(displayTitle)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
-        titleField.textColor = selected
+        titleField.textColor =
+            selected
             ? theme.primaryText
             : theme.primaryText.withAlphaComponent(0.84)
         contentContainerView.layer?.backgroundColor = theme.background.cgColor
         layer?.backgroundColor = NSColor.clear.cgColor
-        borderShapeLayer.lineWidth = selected
+        borderShapeLayer.lineWidth =
+            selected
             ? WorkspaceTileChromeMetrics.activeBorderWidth
             : WorkspaceTileChromeMetrics.inactiveBorderWidth
-        borderShapeLayer.strokeColor = (
-            selected
-                ? theme.tileActiveBorder
-                : theme.tileInactiveBorder
-        ).cgColor
+        borderShapeLayer.strokeColor =
+            (selected
+            ? theme.tileActiveBorder
+            : theme.tileInactiveBorder).cgColor
         needsLayout = true
         layer?.shadowColor = theme.tileShadow.cgColor
         layer?.shadowOpacity = selected ? 0.6 : 0

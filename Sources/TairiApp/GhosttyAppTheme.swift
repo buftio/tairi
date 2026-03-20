@@ -47,13 +47,17 @@ struct GhosttyAppTheme: Equatable {
         // Ghostty palette slots 0...15 are ANSI semantic colors, not arbitrary accents.
         // Tairi treats bright/dim green as the active accent, red as destructive, and
         // blue/cyan as fallback accents when selection/background colors are weak.
-        let red = Self.readPaletteColor(index: 9, from: config)
+        let red =
+            Self.readPaletteColor(index: 9, from: config)
             ?? Self.readPaletteColor(index: 1, from: config)
-        let green = Self.readPaletteColor(index: 10, from: config)
+        let green =
+            Self.readPaletteColor(index: 10, from: config)
             ?? Self.readPaletteColor(index: 2, from: config)
-        let blue = Self.readPaletteColor(index: 12, from: config)
+        let blue =
+            Self.readPaletteColor(index: 12, from: config)
             ?? Self.readPaletteColor(index: 4, from: config)
-        let cyan = Self.readPaletteColor(index: 14, from: config)
+        let cyan =
+            Self.readPaletteColor(index: 14, from: config)
             ?? Self.readPaletteColor(index: 6, from: config)
         let accent = Self.pickAccent(
             background: background,
@@ -245,8 +249,8 @@ struct GhosttyAppTheme: Equatable {
     }
 }
 
-private extension NSColor {
-    convenience init(ghosttyColor: ghostty_config_color_s) {
+extension NSColor {
+    fileprivate convenience init(ghosttyColor: ghostty_config_color_s) {
         self.init(
             calibratedRed: CGFloat(ghosttyColor.r) / 255,
             green: CGFloat(ghosttyColor.g) / 255,
@@ -255,15 +259,15 @@ private extension NSColor {
         )
     }
 
-    var srgb: NSColor {
+    fileprivate var srgb: NSColor {
         usingColorSpace(.sRGB) ?? self
     }
 
-    var isLightTheme: Bool {
+    fileprivate var isLightTheme: Bool {
         relativeLuminance > 0.5
     }
 
-    var saturation: CGFloat {
+    fileprivate var saturation: CGFloat {
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var brightness: CGFloat = 0
@@ -277,14 +281,14 @@ private extension NSColor {
         return saturation
     }
 
-    var relativeLuminance: CGFloat {
+    fileprivate var relativeLuminance: CGFloat {
         let components = rgbaComponents
         return (0.2126 * components.red.luminanceComponent)
             + (0.7152 * components.green.luminanceComponent)
             + (0.0722 * components.blue.luminanceComponent)
     }
 
-    func contrastRatio(with other: NSColor) -> CGFloat {
+    fileprivate func contrastRatio(with other: NSColor) -> CGFloat {
         let lhs = relativeLuminance
         let rhs = other.relativeLuminance
         let lighter = max(lhs, rhs)
@@ -292,7 +296,7 @@ private extension NSColor {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
-    func mixed(with other: NSColor, fraction: CGFloat) -> NSColor {
+    fileprivate func mixed(with other: NSColor, fraction: CGFloat) -> NSColor {
         let clampedFraction = max(0, min(fraction, 1))
         let lhs = rgbaComponents
         let rhs = other.rgbaComponents
@@ -316,8 +320,8 @@ private extension NSColor {
     }
 }
 
-private extension CGFloat {
-    var luminanceComponent: CGFloat {
+extension CGFloat {
+    fileprivate var luminanceComponent: CGFloat {
         if self <= 0.03928 {
             return self / 12.92
         }

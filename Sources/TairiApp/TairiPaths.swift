@@ -8,7 +8,8 @@ enum TairiPaths {
             return repositoryRoot.appendingPathComponent(".local/logs", isDirectory: true)
         }
 
-        let libraryDirectory = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
+        let libraryDirectory =
+            FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library", isDirectory: true)
         return libraryDirectory.appendingPathComponent("Logs/tairi", isDirectory: true)
     }()
@@ -64,7 +65,8 @@ enum TairiPaths {
 
     static func ghosttyManifestVersion(from manifestURL: URL?) -> String? {
         guard let manifestURL,
-              let contents = try? String(contentsOf: manifestURL, encoding: .utf8) else {
+            let contents = try? String(contentsOf: manifestURL, encoding: .utf8)
+        else {
             return nil
         }
 

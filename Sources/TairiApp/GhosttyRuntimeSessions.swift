@@ -19,10 +19,12 @@ extension GhosttyRuntime {
 
         for tile in liveTiles {
             sessionRegistry.setSessionID(tile.surface.terminalSessionID, forTileID: tile.id)
-            guard let session = ensureSessionExists(
-                id: tile.surface.terminalSessionID,
-                workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
-            ) else {
+            guard
+                let session = ensureSessionExists(
+                    id: tile.surface.terminalSessionID,
+                    workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
+                )
+            else {
                 continue
             }
             if session.pwd == nil, let pwd = tile.pwd, !pwd.isEmpty {
@@ -117,10 +119,10 @@ extension GhosttyRuntime {
         let overrideURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("tairi-\(UUID().uuidString).ghostty")
         let overrideContents = """
-        wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")
-        quit-after-last-window-closed = false
-        bell-features = no-system
-        """
+            wait-after-command = \(waitAfterCommandEnabled ? "true" : "false")
+            quit-after-last-window-closed = false
+            bell-features = no-system
+            """
 
         do {
             try overrideContents.write(to: overrideURL, atomically: true, encoding: .utf8)
@@ -375,14 +377,16 @@ extension GhosttyRuntime {
 
     func inheritedWorkingDirectory(for tileID: UUID) -> String? {
         guard let session = session(for: tileID),
-              let surface = session.surfaceView.surface else {
+            let surface = session.surfaceView.surface
+        else {
             return nil
         }
 
         let inheritedConfig = tairi_ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_WINDOW)
         guard let workingDirectory = inheritedConfig.working_directory,
-              let path = String(validatingCString: workingDirectory),
-              !path.isEmpty else {
+            let path = String(validatingCString: workingDirectory),
+            !path.isEmpty
+        else {
             return nil
         }
 
@@ -390,8 +394,8 @@ extension GhosttyRuntime {
     }
 }
 
-private extension NSColor {
-    var hexString: String {
+extension NSColor {
+    fileprivate var hexString: String {
         let color = usingColorSpace(.sRGB) ?? self
         let red = Int((color.redComponent * 255).rounded())
         let green = Int((color.greenComponent * 255).rounded())

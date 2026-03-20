@@ -151,7 +151,8 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
 
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
         guard let targetWorkspaceID = workspaceID,
-              let draggedWorkspaceID = draggedWorkspaceID(from: sender) else {
+            let draggedWorkspaceID = draggedWorkspaceID(from: sender)
+        else {
             return false
         }
         return draggedWorkspaceID != targetWorkspaceID
@@ -173,8 +174,8 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
 
     private func updateReorderTarget(using draggingInfo: NSDraggingInfo) {
         guard let targetWorkspaceID = workspaceID,
-              let draggedWorkspaceID = draggedWorkspaceID(from: draggingInfo),
-              draggedWorkspaceID != targetWorkspaceID
+            let draggedWorkspaceID = draggedWorkspaceID(from: draggingInfo),
+            draggedWorkspaceID != targetWorkspaceID
         else {
             return
         }
@@ -186,8 +187,8 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
 
     private func updateReorderHover(using draggingInfo: NSDraggingInfo) {
         guard let targetWorkspaceID = workspaceID,
-              let draggedWorkspaceID = draggedWorkspaceID(from: draggingInfo),
-              draggedWorkspaceID != targetWorkspaceID
+            let draggedWorkspaceID = draggedWorkspaceID(from: draggingInfo),
+            draggedWorkspaceID != targetWorkspaceID
         else {
             onReorderHoverEnd?()
             return

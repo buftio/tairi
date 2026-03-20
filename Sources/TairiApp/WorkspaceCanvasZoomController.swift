@@ -42,8 +42,10 @@ final class WorkspaceCanvasZoomController {
         animated: Bool
     ) {
         let nextProgress: CGFloat = mode == .overview ? 1 : 0
-        guard abs(targetOverviewProgress - nextProgress) > 0.001
-                || abs(renderedOverviewProgress - nextProgress) > 0.001 else {
+        guard
+            abs(targetOverviewProgress - nextProgress) > 0.001
+                || abs(renderedOverviewProgress - nextProgress) > 0.001
+        else {
             targetOverviewProgress = nextProgress
             renderedOverviewProgress = nextProgress
             stopAnimation()
@@ -147,7 +149,8 @@ final class WorkspaceCanvasZoomController {
             WorkspaceCanvasLayoutMetrics.minimumTileHeight
         )
         let baseRowHeight = baseTileHeight + (WorkspaceCanvasLayoutMetrics.verticalPadding * 2)
-        let totalHeight = baseRowHeight * CGFloat(workspaces.count)
+        let totalHeight =
+            baseRowHeight * CGFloat(workspaces.count)
             + WorkspaceCanvasLayoutMetrics.rowSpacing * CGFloat(max(workspaces.count - 1, 0))
         let heightScale = totalHeight > 0 ? min(viewportSize.height / totalHeight, 1) : 1
 
@@ -169,7 +172,8 @@ final class WorkspaceCanvasZoomController {
         }
         let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
-        renderedOverviewProgress = animationStartProgress
+        renderedOverviewProgress =
+            animationStartProgress
             + ((targetOverviewProgress - animationStartProgress) * eased)
         onChange?()
 

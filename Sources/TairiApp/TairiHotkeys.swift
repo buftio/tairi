@@ -169,7 +169,7 @@ enum TairiHotkeys {
             id: "search",
             title: "Search",
             entries: [
-                .init(id: "searchTiles", title: "Search Tiles", hotkey: searchTiles),
+                .init(id: "searchTiles", title: "Search Tiles", hotkey: searchTiles)
             ]
         ),
         TairiHotkeySection(
@@ -221,8 +221,8 @@ extension View {
     }
 }
 
-private extension EventModifiers {
-    var nsEventModifiers: NSEvent.ModifierFlags {
+extension EventModifiers {
+    fileprivate var nsEventModifiers: NSEvent.ModifierFlags {
         var flags: NSEvent.ModifierFlags = []
         if contains(.control) { flags.insert(.control) }
         if contains(.option) { flags.insert(.option) }
@@ -231,7 +231,7 @@ private extension EventModifiers {
         return flags
     }
 
-    var displayPrefix: String {
+    fileprivate var displayPrefix: String {
         var prefix = ""
         if contains(.control) { prefix += "⌃" }
         if contains(.option) { prefix += "⌥" }
@@ -240,7 +240,7 @@ private extension EventModifiers {
         return prefix
     }
 
-    var displayTokens: [String] {
+    fileprivate var displayTokens: [String] {
         var tokens: [String] = []
         if contains(.control) { tokens.append("⌃") }
         if contains(.option) { tokens.append("⌥") }
@@ -250,6 +250,6 @@ private extension EventModifiers {
     }
 }
 
-private extension NSEvent.ModifierFlags {
-    static let tairiShortcutRelevant: Self = [.command, .option, .control, .shift]
+extension NSEvent.ModifierFlags {
+    fileprivate static let tairiShortcutRelevant: Self = [.command, .option, .control, .shift]
 }

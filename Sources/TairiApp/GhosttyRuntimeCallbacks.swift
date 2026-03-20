@@ -73,7 +73,8 @@ extension GhosttyRuntime {
 
     static let action: ghostty_runtime_action_cb = { app, target, action in
         guard let userdata = tairi_ghostty_app_userdata(app) else {
-            TairiLog.write("ghostty action dropped app=\(GhosttyRuntime.describeHandle(app)) reason=missing_userdata tag=\(action.tag.rawValue)")
+            TairiLog.write(
+                "ghostty action dropped app=\(GhosttyRuntime.describeHandle(app)) reason=missing_userdata tag=\(action.tag.rawValue)")
             return false
         }
         return GhosttyRuntime.onMain {
@@ -132,10 +133,12 @@ extension GhosttyRuntime {
         GhosttyRuntime.onMain {
             guard let content, len > 0 else { return }
             let items = UnsafeBufferPointer(start: content, count: len)
-            guard let first = items.first(where: { item in
-                guard let mime = item.mime else { return false }
-                return String(cString: mime) == "text/plain"
-            }), let data = first.data else {
+            guard
+                let first = items.first(where: { item in
+                    guard let mime = item.mime else { return false }
+                    return String(cString: mime) == "text/plain"
+                }), let data = first.data
+            else {
                 return
             }
             NSPasteboard.general.clearContents()

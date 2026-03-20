@@ -188,7 +188,7 @@ final class TairiUITests: XCTestCase {
         configuration.activates = true
         configuration.promptsUserIfNeeded = false
         configuration.environment = [
-            "TAIRI_UI_TEST": "1",
+            "TAIRI_UI_TEST": "1"
         ]
 
         let launched = expectation(description: "Launch app bundle")

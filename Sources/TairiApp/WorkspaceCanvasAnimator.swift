@@ -65,7 +65,8 @@ final class WorkspaceCanvasAnimator {
             workspaces.contains(where: { $0.id == entry.key })
         }
         if let closingGapAnimation,
-           !workspaces.contains(where: { $0.id == closingGapAnimation.workspaceID }) {
+            !workspaces.contains(where: { $0.id == closingGapAnimation.workspaceID })
+        {
             stopClosingGapAnimation()
         }
         if let openingTileAnimation {
@@ -84,9 +85,10 @@ final class WorkspaceCanvasAnimator {
             return
         }
 
-        pendingAnimatedRevealWorkspaceID = workspaces.first(where: { workspace in
-            workspace.tiles.contains(where: { $0.id == tileID })
-        })?.id
+        pendingAnimatedRevealWorkspaceID =
+            workspaces.first(where: { workspace in
+                workspace.tiles.contains(where: { $0.id == tileID })
+            })?.id
     }
 
     func effectiveHorizontalOffset(for workspace: WorkspaceStore.Workspace) -> CGFloat {
@@ -138,8 +140,9 @@ final class WorkspaceCanvasAnimator {
 
     func closingGapWidth(beforeTileAt insertionIndex: Int, in workspaceID: UUID) -> CGFloat {
         guard let closingGapAnimation,
-              closingGapAnimation.workspaceID == workspaceID,
-              closingGapAnimation.insertionIndex == insertionIndex else {
+            closingGapAnimation.workspaceID == workspaceID,
+            closingGapAnimation.insertionIndex == insertionIndex
+        else {
             return 0
         }
         return renderedClosingGapWidth
@@ -186,8 +189,9 @@ final class WorkspaceCanvasAnimator {
         style: OpeningTileAnimationStyle
     ) -> CGFloat? {
         guard let openingTileAnimation,
-              openingTileAnimation.tileID == tileID,
-              openingTileAnimation.style == style else {
+            openingTileAnimation.tileID == tileID,
+            openingTileAnimation.style == style
+        else {
             return nil
         }
         return renderedOpeningTileProgress
@@ -271,7 +275,8 @@ final class WorkspaceCanvasAnimator {
         }
         let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
-        let currentOffset = horizontalRevealAnimationStartOffset
+        let currentOffset =
+            horizontalRevealAnimationStartOffset
             + (horizontalRevealAnimationTargetOffset - horizontalRevealAnimationStartOffset) * eased
 
         renderedHorizontalOffsets[workspaceID] = currentOffset
@@ -293,7 +298,8 @@ final class WorkspaceCanvasAnimator {
 
     private func startStripLeadingInsetAnimation(to targetInset: CGFloat) {
         if stripLeadingInsetAnimationTimer != nil,
-           abs(stripLeadingInsetAnimationTargetValue - targetInset) <= 0.5 {
+            abs(stripLeadingInsetAnimationTargetValue - targetInset) <= 0.5
+        {
             return
         }
 
@@ -321,7 +327,8 @@ final class WorkspaceCanvasAnimator {
         }
         let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
-        renderedStripLeadingInset = stripLeadingInsetAnimationStartValue
+        renderedStripLeadingInset =
+            stripLeadingInsetAnimationStartValue
             + (stripLeadingInsetAnimationTargetValue - stripLeadingInsetAnimationStartValue) * eased
         onChange?()
 
@@ -348,7 +355,8 @@ final class WorkspaceCanvasAnimator {
         }
         let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
-        renderedClosingGapWidth = closingGapAnimation.startWidth
+        renderedClosingGapWidth =
+            closingGapAnimation.startWidth
             + (closingGapAnimation.targetWidth - closingGapAnimation.startWidth) * eased
         onChange?()
 

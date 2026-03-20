@@ -204,7 +204,8 @@ final class WorkspaceStore: ObservableObject {
         }
 
         if let tileID,
-           let index = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) {
+            let index = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID })
+        {
             workspaces[workspaceIndex].tiles.insert(tile, at: index + 1)
         } else {
             workspaces[workspaceIndex].tiles.append(tile)
@@ -218,9 +219,11 @@ final class WorkspaceStore: ObservableObject {
 
     @discardableResult
     func splitTerminalTile(_ tileID: UUID, workingDirectory: String? = nil, sessionID: UUID) -> Tile? {
-        guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
-            workspace.tiles.contains(where: { $0.id == tileID })
-        }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
+        guard
+            let workspaceIndex = workspaces.firstIndex(where: { workspace in
+                workspace.tiles.contains(where: { $0.id == tileID })
+            }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID })
+        else {
             return nil
         }
 
@@ -255,14 +258,16 @@ final class WorkspaceStore: ObservableObject {
         }
 
         if let tileID,
-           let pwd = tile(tileID)?.pwd,
-           !pwd.isEmpty {
+            let pwd = tile(tileID)?.pwd,
+            !pwd.isEmpty
+        {
             return pwd
         }
 
         if let selectedTileID,
-           let pwd = tile(selectedTileID)?.pwd,
-           !pwd.isEmpty {
+            let pwd = tile(selectedTileID)?.pwd,
+            !pwd.isEmpty
+        {
             return pwd
         }
 
@@ -271,8 +276,9 @@ final class WorkspaceStore: ObservableObject {
 
     private func assignedFolderPathForNewTile(nextTo tileID: UUID?) -> String? {
         if let tileID,
-           let workspace = workspaceContaining(tileID),
-           let folderPath = usableAssignedFolderPath(workspace.folderPath) {
+            let workspace = workspaceContaining(tileID),
+            let folderPath = usableAssignedFolderPath(workspace.folderPath)
+        {
             return folderPath
         }
 
@@ -319,7 +325,7 @@ final class WorkspaceStore: ObservableObject {
 
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: normalizedPath, isDirectory: &isDirectory),
-              isDirectory.boolValue
+            isDirectory.boolValue
         else {
             return nil
         }
@@ -361,9 +367,10 @@ final class WorkspaceStore: ObservableObject {
         let tiles = selectedWorkspace.tiles
         guard !tiles.isEmpty else { return }
 
-        let currentIndex = selectedTileID.flatMap { id in
-            tiles.firstIndex(where: { $0.id == id })
-        } ?? 0
+        let currentIndex =
+            selectedTileID.flatMap { id in
+                tiles.firstIndex(where: { $0.id == id })
+            } ?? 0
 
         let nextIndex = min(max(currentIndex + offset, 0), tiles.count - 1)
         selectedTileID = tiles[nextIndex].id
@@ -502,8 +509,8 @@ final class WorkspaceStore: ObservableObject {
 
     func moveWorkspace(_ workspaceID: UUID, relativeTo targetWorkspaceID: UUID, position: WorkspaceDropPosition) {
         guard workspaceID != targetWorkspaceID,
-              let sourceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
-              let targetIndex = workspaces.firstIndex(where: { $0.id == targetWorkspaceID })
+            let sourceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
+            let targetIndex = workspaces.firstIndex(where: { $0.id == targetWorkspaceID })
         else {
             return
         }
@@ -532,9 +539,11 @@ final class WorkspaceStore: ObservableObject {
         preferredVisibleMidX: CGFloat? = nil,
         stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     ) -> UUID? {
-        guard let workspaceIndex = workspaces.firstIndex(where: { workspace in
-            workspace.tiles.contains(where: { $0.id == tileID })
-        }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {
+        guard
+            let workspaceIndex = workspaces.firstIndex(where: { workspace in
+                workspace.tiles.contains(where: { $0.id == tileID })
+            }), let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID })
+        else {
             return selectedTileID
         }
 
@@ -553,16 +562,17 @@ final class WorkspaceStore: ObservableObject {
         )
 
         if wasSelectedTile {
-            selectedTileID = preferredNeighborTileID(
-                neighboringTileIDs,
-                in: workspaces[workspaceIndex],
-                preferredVisibleMidX: preferredVisibleMidX,
-                stripLeadingInset: stripLeadingInset
-            ) ?? preferredTileID(
-                in: workspaceID,
-                preferredVisibleMidX: preferredVisibleMidX,
-                stripLeadingInset: stripLeadingInset
-            ) ?? workspaces[workspaceIndex].tiles.first?.id
+            selectedTileID =
+                preferredNeighborTileID(
+                    neighboringTileIDs,
+                    in: workspaces[workspaceIndex],
+                    preferredVisibleMidX: preferredVisibleMidX,
+                    stripLeadingInset: stripLeadingInset
+                ) ?? preferredTileID(
+                    in: workspaceID,
+                    preferredVisibleMidX: preferredVisibleMidX,
+                    stripLeadingInset: stripLeadingInset
+                ) ?? workspaces[workspaceIndex].tiles.first?.id
         }
         normalize()
         return selectedTileID
@@ -816,8 +826,8 @@ final class WorkspaceStore: ObservableObject {
     }
 }
 
-private extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
+extension Comparable {
+    fileprivate func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }

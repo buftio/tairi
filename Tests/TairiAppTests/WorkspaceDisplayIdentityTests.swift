@@ -1,5 +1,6 @@
 import AppKit
 import XCTest
+
 @testable import TairiApp
 
 @MainActor
@@ -15,7 +16,7 @@ final class WorkspaceDisplayIdentityTests: XCTestCase {
 
         XCTAssertNil(branding.title)
         XCTAssertFalse(branding.usesWorkspaceIdentity)
-        guard case let .image(icon)? = branding.icon else {
+        guard case .image(let icon)? = branding.icon else {
             return XCTFail("Expected default image branding")
         }
         XCTAssertEqual(icon, defaultIcon)
@@ -73,7 +74,7 @@ final class WorkspaceDisplayIdentityTests: XCTestCase {
 
         XCTAssertEqual(branding.title, WorkspaceDisplayIdentity.untitledStripTitle)
         XCTAssertTrue(branding.usesWorkspaceIdentity)
-        guard case let .symbol(symbolName)? = branding.icon else {
+        guard case .symbol(let symbolName)? = branding.icon else {
             return XCTFail("Expected symbol branding")
         }
         XCTAssertEqual(symbolName, "terminal")
@@ -124,8 +125,8 @@ final class WorkspaceDisplayIdentityTests: XCTestCase {
         image.unlockFocus()
 
         guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:])
+            let bitmap = NSBitmapImageRep(data: tiffData),
+            let pngData = bitmap.representation(using: .png, properties: [:])
         else {
             XCTFail("Failed to create test PNG data")
             return

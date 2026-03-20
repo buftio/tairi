@@ -1,5 +1,6 @@
-import XCTest
 import GhosttyDyn
+import XCTest
+
 @testable import TairiApp
 
 final class GhosttyActionAdapterTests: XCTestCase {

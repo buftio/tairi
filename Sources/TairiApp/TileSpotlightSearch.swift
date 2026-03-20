@@ -25,7 +25,8 @@ enum TileSpotlightSearch {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let shouldBoostCurrentSelection = !trimmedQuery.isEmpty
 
-        return workspaces
+        return
+            workspaces
             .flatMap { workspace in
                 workspace.tiles.map { tile -> TileSpotlightResult? in
                     let folderName = folderName(for: tile.pwd)
@@ -42,7 +43,8 @@ enum TileSpotlightSearch {
 
                     let isCurrentWorkspace = workspace.id == selectedWorkspaceID
                     let isSelectedTile = tile.id == selectedTileID
-                    let totalScore = matchScore
+                    let totalScore =
+                        matchScore
                         + (shouldBoostCurrentSelection && isSelectedTile ? 220 : 0)
                         + (shouldBoostCurrentSelection && isCurrentWorkspace ? 60 : 0)
 
@@ -112,7 +114,8 @@ enum TileSpotlightSearch {
 
         var total = 0
         for token in tokens {
-            let bestFieldScore = fields
+            let bestFieldScore =
+                fields
                 .compactMap { fieldScore(token, in: $0.value, weight: $0.weight) }
                 .max()
             guard let bestFieldScore else {

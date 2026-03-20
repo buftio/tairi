@@ -156,7 +156,8 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         layer?.borderWidth = 1
         let accentBorderWidth = min(max(min(bounds.width, bounds.height) * 0.012, 4), 8)
         selectionOverlayView.isHidden = !isSelected
-        selectionOverlayView.layer?.backgroundColor = theme.accent
+        selectionOverlayView.layer?.backgroundColor =
+            theme.accent
             .withAlphaComponent(theme.isLightTheme ? 0.08 : 0.12)
             .cgColor
         selectionOverlayView.layer?.borderColor = theme.tileActiveBorder.cgColor

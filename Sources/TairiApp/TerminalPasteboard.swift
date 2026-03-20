@@ -15,8 +15,10 @@ enum TerminalPasteboard {
 
     static func preferredPasteString(from pasteboard: NSPasteboard) -> String? {
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL],
-           !urls.isEmpty {
-            return urls
+            !urls.isEmpty
+        {
+            return
+                urls
                 .map { $0.isFileURL ? shellEscape($0.path) : $0.absoluteString }
                 .joined(separator: " ")
         }

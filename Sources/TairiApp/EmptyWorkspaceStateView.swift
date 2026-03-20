@@ -164,7 +164,7 @@ struct EmptyWorkspaceStateView: View {
     @ViewBuilder
     private func brandingIcon(_ icon: WorkspaceDisplayIcon, usesWorkspaceIdentity: Bool) -> some View {
         switch icon {
-        case let .image(image):
+        case .image(let image):
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
@@ -179,7 +179,7 @@ struct EmptyWorkspaceStateView: View {
                 .saturation(usesWorkspaceIdentity ? 1 : 0)
                 .opacity(usesWorkspaceIdentity ? (theme.isLightTheme ? 0.90 : 0.96) : (theme.isLightTheme ? 0.10 : 0.14))
                 .padding(.top, -12)
-        case let .symbol(symbolName):
+        case .symbol(let symbolName):
             Image(systemName: symbolName)
                 .resizable()
                 .scaledToFit()
@@ -293,9 +293,10 @@ struct EmptyWorkspaceStateView: View {
 
     private func initialFolderPickerURL() -> URL? {
         if let selectedTileID = store.selectedTileID,
-           let tile = store.tile(selectedTileID),
-           let pwd = tile.pwd,
-           !pwd.isEmpty {
+            let tile = store.tile(selectedTileID),
+            let pwd = tile.pwd,
+            !pwd.isEmpty
+        {
             return URL(fileURLWithPath: pwd, isDirectory: true)
         }
 

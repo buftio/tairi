@@ -77,7 +77,8 @@ enum WorkspaceColumnLayout {
         var frames: [UUID: CGRect] = [:]
 
         for (index, tile) in column.tiles.enumerated() {
-            let remainingHeight = (originY + height) - y
+            let remainingHeight =
+                (originY + height) - y
                 - (CGFloat(max(column.tiles.count - index - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing)
             let tileHeight: CGFloat
             if index == column.tiles.count - 1 {

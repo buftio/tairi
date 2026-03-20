@@ -145,8 +145,9 @@ final class WorkspaceCanvasDocumentView: NSView {
         zoomController.animationPolicy = animationPolicy
 
         if !animationPolicy.effectiveAnimationsEnabled,
-           workspaceScrollAnimationTimer != nil,
-           let clipView = enclosingScrollView?.contentView {
+            workspaceScrollAnimationTimer != nil,
+            let clipView = enclosingScrollView?.contentView
+        {
             stopWorkspaceScrollAnimation()
             clipView.setBoundsOrigin(workspaceScrollAnimationTargetOrigin)
             enclosingScrollView?.reflectScrolledClipView(clipView)
@@ -244,10 +245,12 @@ final class WorkspaceCanvasDocumentView: NSView {
         for (workspaceIndex, workspace) in workspaces.enumerated() {
             let columns = WorkspaceColumnLayout.columns(in: workspace)
             let focusedRowOriginY = CGFloat(workspaceIndex) * (rowHeight + baseRowSpacing)
-            let overviewRowOriginY = overviewTopInsetAdjustment
+            let overviewRowOriginY =
+                overviewTopInsetAdjustment
                 + CGFloat(workspaceIndex) * (overviewRowHeight + overviewRowSpacing)
             var focusedX = anchorX - animator.effectiveHorizontalOffset(for: workspace)
-            var overviewX = anchorX
+            var overviewX =
+                anchorX
                 - zoomController.effectiveHorizontalOffset(animator.effectiveHorizontalOffset(for: workspace)) * scale
 
             for (columnIndex, column) in columns.enumerated() {
@@ -282,8 +285,9 @@ final class WorkspaceCanvasDocumentView: NSView {
 
                 for tile in column.tiles {
                     guard let tileView = tileViews[tile.id],
-                          let focusedFrame = columnFrames[tile.id],
-                          let previewFrame = previewFrames[tile.id] else {
+                        let focusedFrame = columnFrames[tile.id],
+                        let previewFrame = previewFrames[tile.id]
+                    else {
                         continue
                     }
 
@@ -330,7 +334,8 @@ final class WorkspaceCanvasDocumentView: NSView {
             )
         }
 
-        let totalHeight = isOverviewPresented
+        let totalHeight =
+            isOverviewPresented
             ? overviewTopInsetAdjustment
                 + overviewRowHeight * CGFloat(workspaces.count)
                 + overviewRowSpacing * CGFloat(max(workspaces.count - 1, 0))
@@ -356,12 +361,14 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     func ensureSelectedTileClearsSidebar(animated: Bool) {
         guard !isSidebarHidden,
-              let selectedTileID,
-              let tileView = tileViews[selectedTileID] else {
+            let selectedTileID,
+            let tileView = tileViews[selectedTileID]
+        else {
             return
         }
 
-        let safeLeadingX = targetStripLeadingInset
+        let safeLeadingX =
+            targetStripLeadingInset
             + WorkspaceCanvasLayoutMetrics.horizontalPadding
         guard tileView.frame.minX < safeLeadingX - 0.5 else { return }
 
@@ -385,7 +392,8 @@ final class WorkspaceCanvasDocumentView: NSView {
         animated: Bool = true
     ) {
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
-              let clipView = enclosingScrollView?.contentView else {
+            let clipView = enclosingScrollView?.contentView
+        else {
             return
         }
 

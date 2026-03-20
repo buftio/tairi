@@ -154,7 +154,7 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
             NSWindow.didResignKeyNotification,
             NSWindow.didChangeScreenNotification,
             NSWindow.didEnterFullScreenNotification,
-            NSWindow.didExitFullScreenNotification
+            NSWindow.didExitFullScreenNotification,
         ]
 
         for name in notifications {
@@ -181,7 +181,7 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
 
         let containerNotifications: [Notification.Name] = [
             NSView.frameDidChangeNotification,
-            NSView.boundsDidChangeNotification
+            NSView.boundsDidChangeNotification,
         ]
 
         for name in containerNotifications {
@@ -228,9 +228,10 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
         let generation = deferredLayoutGeneration
         DispatchQueue.main.async { [weak self, weak window] in
             guard let self,
-                  let window,
-                  self.window === window,
-                  self.deferredLayoutGeneration == generation else {
+                let window,
+                self.window === window,
+                self.deferredLayoutGeneration == generation
+            else {
                 return
             }
 
@@ -255,10 +256,12 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
             return
         }
 
-        let startX = sidebarHidden
+        let startX =
+            sidebarHidden
             ? WindowTrafficLightsMetrics.leadingInsetWhenSidebarHidden
             : sidebarLeadingInset + WindowTrafficLightsMetrics.leadingInsetInsideSidebar
-        let topInset = sidebarHidden
+        let topInset =
+            sidebarHidden
             ? WindowTrafficLightsMetrics.topInsetWhenSidebarHidden
             : WindowTrafficLightsMetrics.topInsetInsideSidebar
         let y = buttonContainer.bounds.height - topInset - firstButton.frame.height

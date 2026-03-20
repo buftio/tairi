@@ -72,6 +72,18 @@ For day-to-day development, the main loop is:
 just dev
 ```
 
+Format Swift sources with:
+
+```sh
+just format
+```
+
+Lint Swift sources with:
+
+```sh
+just lint
+```
+
 Run unit tests with:
 
 ```sh

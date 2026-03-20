@@ -116,7 +116,8 @@ struct SettingsView: View {
                     }
                 }
             } footer: {
-                Text("Animations are disabled immediately when this switch is on, during UI tests, or while macOS Reduce Motion is enabled.")
+                Text(
+                    "Animations are disabled immediately when this switch is on, during UI tests, or while macOS Reduce Motion is enabled.")
             }
         }
         .formStyle(.grouped)

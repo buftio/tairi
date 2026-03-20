@@ -29,14 +29,14 @@ struct WorkspaceSidebarStripIconView: View {
     @ViewBuilder
     private func iconContent(_ icon: WorkspaceDisplayIcon) -> some View {
         switch icon {
-        case let .image(image):
+        case .image(let image):
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
                 .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                 .padding(0.5)
-        case let .symbol(symbolName):
+        case .symbol(let symbolName):
             Image(systemName: symbolName)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.78))

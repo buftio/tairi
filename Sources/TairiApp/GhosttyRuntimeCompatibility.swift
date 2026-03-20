@@ -42,19 +42,21 @@ enum GhosttyRuntimeCompatibility {
     static func validate(version: String, vendoredVersion: String?) -> Result<Void, GhosttyRuntimeCompatibilityError> {
         if let vendoredVersion {
             guard vendoredVersion == version else {
-                return .failure(.message(
-                    "Ghostty runtime version \(version) does not match vendored headers \(vendoredVersion). " +
-                    "Header signature: \(headerSignature)"
-                ))
+                return .failure(
+                    .message(
+                        "Ghostty runtime version \(version) does not match vendored headers \(vendoredVersion). "
+                            + "Header signature: \(headerSignature)"
+                    ))
             }
             return .success(())
         }
 
         guard supportedHeaderVersions.contains(version) else {
-            return .failure(.message(
-                "Unsupported Ghostty runtime version \(version). Supported header versions: \(supportedHeaderVersions.sorted().joined(separator: ", ")). " +
-                "Header signature: \(headerSignature)"
-            ))
+            return .failure(
+                .message(
+                    "Unsupported Ghostty runtime version \(version). Supported header versions: \(supportedHeaderVersions.sorted().joined(separator: ", ")). "
+                        + "Header signature: \(headerSignature)"
+                ))
         }
 
         return .success(())

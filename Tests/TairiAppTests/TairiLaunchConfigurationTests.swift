@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import TairiApp
 
 final class TairiLaunchConfigurationTests: XCTestCase {
@@ -7,7 +8,7 @@ final class TairiLaunchConfigurationTests: XCTestCase {
             "/tmp/tairi",
             "--strip", "1,1,1",
             "--fullscreen",
-            "--strip=0.5,1"
+            "--strip=0.5,1",
         ])
 
         XCTAssertNil(configuration.parseError)
@@ -24,7 +25,7 @@ final class TairiLaunchConfigurationTests: XCTestCase {
     func testInvalidStripValueReturnsParseError() {
         let configuration = TairiLaunchConfiguration.fromProcessArguments([
             "/tmp/tairi",
-            "--strip", "1,nope"
+            "--strip", "1,nope",
         ])
 
         XCTAssertEqual(

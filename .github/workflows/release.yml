@@ -38,6 +38,12 @@ jobs:
           bash -n scripts/release-config.sh
           bash -n scripts/misc/retry.sh
 
+      - name: Lint Swift sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/swift-format.sh lint
+
       - name: Run tests
         shell: bash
         run: |

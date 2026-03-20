@@ -38,8 +38,9 @@ enum WorkspaceStripIconFilePicker {
         }
 
         if let selectedTileID = store.selectedTileID,
-           let pwd = store.tile(selectedTileID)?.pwd,
-           !pwd.isEmpty {
+            let pwd = store.tile(selectedTileID)?.pwd,
+            !pwd.isEmpty
+        {
             return URL(fileURLWithPath: pwd, isDirectory: true)
         }
 

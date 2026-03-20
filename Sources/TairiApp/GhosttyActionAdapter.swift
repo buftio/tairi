@@ -114,7 +114,7 @@ struct GhosttyActionAdapter {
 
         let length = Int(payload.len)
         let address = UInt(bitPattern: pointer)
-        guard length > 0, length <= 8_192, address > 0x100000000 else {
+        guard length > 0, length <= 8_192, address > 0x1_0000_0000 else {
             return nil
         }
 

@@ -13,14 +13,15 @@ extension WorkspaceCanvasDocumentView {
         animated: Bool
     ) {
         guard animated,
-              let workspace = workspaces.first(where: { workspace in
-                  workspace.tiles.contains(where: { $0.id == tileID })
-              }),
-              let newTile = workspace.tiles.first(where: { $0.id == tileID }),
-              let sourceTile = workspace.tiles.first(where: { $0.id == sourceTileID }),
-              newTile.columnID == sourceTile.columnID,
-              let sourceFrame = tileViews[sourceTileID]?.frame,
-              !sourceFrame.isEmpty else {
+            let workspace = workspaces.first(where: { workspace in
+                workspace.tiles.contains(where: { $0.id == tileID })
+            }),
+            let newTile = workspace.tiles.first(where: { $0.id == tileID }),
+            let sourceTile = workspace.tiles.first(where: { $0.id == sourceTileID }),
+            newTile.columnID == sourceTile.columnID,
+            let sourceFrame = tileViews[sourceTileID]?.frame,
+            !sourceFrame.isEmpty
+        else {
             verticalSplitOpenAnimation = nil
             animator.queueOpeningTile(
                 tileID: tileID,
@@ -77,10 +78,12 @@ extension WorkspaceCanvasDocumentView {
             return targetFrame
         }
 
-        guard let progress = animator.openingTileProgress(
-            for: animation.tileID,
-            style: .verticalSplit
-        ) else {
+        guard
+            let progress = animator.openingTileProgress(
+                for: animation.tileID,
+                style: .verticalSplit
+            )
+        else {
             verticalSplitOpenAnimation = nil
             return targetFrame
         }

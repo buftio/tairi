@@ -135,7 +135,8 @@ final class TairiCrashReporter {
         let detectedAt = isoTimestamp(Date())
         let reason = terminationReason(signalNumber: signalNumber, exceptionDetails: exceptionDetails)
         let recentLogLines = TairiLog.recentLines(limit: 400)
-        let sessionLogLines = recentLogLines
+        let sessionLogLines =
+            recentLogLines
             .filter { line in
                 guard
                     let closingBracket = line.firstIndex(of: "]"),
@@ -153,33 +154,33 @@ final class TairiCrashReporter {
         let diagnosticPath = TairiPaths.diagnosticReportsDirectory.path(percentEncoded: false)
 
         return """
-        # tairi unexpected termination
+            # tairi unexpected termination
 
-        detected_at: \(detectedAt)
-        launched_at: \(session.launchedAt)
-        reason: \(reason)
-        pid: \(session.pid)
-        executable: \(session.executablePath)
-        bundle_identifier: \(session.bundleIdentifier)
-        app_version: \(session.shortVersion) (\(session.bundleVersion))
-        os_version: \(session.operatingSystemVersion)
-        logs_directory: \(session.logsDirectory)
-        diagnostic_reports_directory: \(diagnosticPath)
+            detected_at: \(detectedAt)
+            launched_at: \(session.launchedAt)
+            reason: \(reason)
+            pid: \(session.pid)
+            executable: \(session.executablePath)
+            bundle_identifier: \(session.bundleIdentifier)
+            app_version: \(session.shortVersion) (\(session.bundleVersion))
+            os_version: \(session.operatingSystemVersion)
+            logs_directory: \(session.logsDirectory)
+            diagnostic_reports_directory: \(diagnosticPath)
 
-        ## Notes
+            ## Notes
 
-        Attach this report and the matching `.ips` file from `\(diagnosticPath)` when filing a crash.
+            Attach this report and the matching `.ips` file from `\(diagnosticPath)` when filing a crash.
 
-        ## Exception Details
+            ## Exception Details
 
-        \(exceptionDetails?.isEmpty == false ? exceptionDetails! : "_No uncaught Objective-C exception was recorded before termination._")
+            \(exceptionDetails?.isEmpty == false ? exceptionDetails! : "_No uncaught Objective-C exception was recorded before termination._")
 
-        ## Recent Log Tail
+            ## Recent Log Tail
 
-        ```text
-        \(logTailSection)
-        ```
-        """
+            ```text
+            \(logTailSection)
+            ```
+            """
     }
 
     private func terminationReason(signalNumber: Int32?, exceptionDetails: String?) -> String {
@@ -236,12 +237,12 @@ final class TairiCrashReporter {
         TairiPaths.ensureLogDirectories()
 
         let report = """
-        name: \(exception.name.rawValue)
-        reason: \(exception.reason ?? "unknown")
+            name: \(exception.name.rawValue)
+            reason: \(exception.reason ?? "unknown")
 
-        call_stack:
-        \(exception.callStackSymbols.joined(separator: "\n"))
-        """
+            call_stack:
+            \(exception.callStackSymbols.joined(separator: "\n"))
+            """
 
         do {
             try report.write(to: TairiPaths.exceptionMarkerURL, atomically: true, encoding: .utf8)

@@ -69,7 +69,8 @@ final class WindowChromeController: ObservableObject {
         }
         let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
-        renderedStripLeadingInset = stripLeadingInsetAnimationStartValue
+        renderedStripLeadingInset =
+            stripLeadingInsetAnimationStartValue
             + (stripLeadingInsetAnimationTargetValue - stripLeadingInsetAnimationStartValue) * eased
 
         if progress >= 1 {

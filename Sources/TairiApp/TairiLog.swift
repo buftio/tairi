@@ -57,7 +57,8 @@ enum TairiLog {
             return []
         }
 
-        return contents
+        return
+            contents
             .split(separator: "\n", omittingEmptySubsequences: true)
             .suffix(limit)
             .map(String.init)

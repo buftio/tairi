@@ -6,6 +6,12 @@ default:
 build:
   swift build
 
+format:
+  ./scripts/swift-format.sh format
+
+lint:
+  ./scripts/swift-format.sh lint
+
 dev *args:
   ./scripts/ensure-ghostty.sh >/dev/null
   swift run tairi {{args}}

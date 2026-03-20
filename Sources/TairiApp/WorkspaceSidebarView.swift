@@ -78,7 +78,8 @@ struct WorkspaceSidebarView: View {
             )
         ) {
             if let workspaceID = iconPickerWorkspaceID,
-               let workspace = store.workspaces.first(where: { $0.id == workspaceID }) {
+                let workspace = store.workspaces.first(where: { $0.id == workspaceID })
+            {
                 WorkspaceIconPickerSheet(
                     theme: theme,
                     selectedSymbolName: workspace.iconSymbolName,
@@ -164,7 +165,8 @@ struct WorkspaceSidebarView: View {
                     }
                     .overlay(alignment: workspaceDropIndicator?.position.sidebarAlignment ?? .center) {
                         if let indicator = workspaceDropIndicator,
-                           indicator.workspaceID == workspace.id {
+                            indicator.workspaceID == workspace.id
+                        {
                             WorkspaceSidebarDropIndicatorView(
                                 for: workspace.id,
                                 position: indicator.position,
@@ -268,7 +270,7 @@ struct WorkspaceSidebarView: View {
                 iconSymbolName: iconSymbolName,
                 iconFilePath: iconFilePath
             )
-                .padding(.top, 1)
+            .padding(.top, 1)
 
             content()
         }
@@ -421,9 +423,10 @@ struct WorkspaceSidebarView: View {
         }
 
         if let selectedTileID = store.selectedTileID,
-           let tile = store.tile(selectedTileID),
-           let pwd = tile.pwd,
-           !pwd.isEmpty {
+            let tile = store.tile(selectedTileID),
+            let pwd = tile.pwd,
+            !pwd.isEmpty
+        {
             return URL(fileURLWithPath: pwd, isDirectory: true)
         }
 

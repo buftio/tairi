@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import TairiApp
 
 final class AppAnimationPolicyTests: XCTestCase {

@@ -34,12 +34,14 @@ final class TileSpotlightController: ObservableObject {
 
     func syncSelection(with results: [TileSpotlightResult], preferredID: UUID? = nil) {
         if let selectedResultID,
-           results.contains(where: { $0.id == selectedResultID }) {
+            results.contains(where: { $0.id == selectedResultID })
+        {
             return
         }
 
         if let preferredID,
-           results.contains(where: { $0.id == preferredID }) {
+            results.contains(where: { $0.id == preferredID })
+        {
             selectedResultID = preferredID
             return
         }
@@ -54,7 +56,8 @@ final class TileSpotlightController: ObservableObject {
         }
 
         guard let selectedResultID,
-              let currentIndex = results.firstIndex(where: { $0.id == selectedResultID }) else {
+            let currentIndex = results.firstIndex(where: { $0.id == selectedResultID })
+        else {
             self.selectedResultID = results[0].id
             return
         }

@@ -31,12 +31,14 @@ enum WorkspaceDisplayIdentity {
         iconFilePath: String? = nil
     ) -> WorkspaceDisplayIcon? {
         if let iconFilePath = WorkspaceStore.normalizedWorkspaceIconFilePath(iconFilePath),
-           let icon = NSImage(contentsOfFile: iconFilePath) {
+            let icon = NSImage(contentsOfFile: iconFilePath)
+        {
             return .image(icon)
         }
 
         if let iconSymbolName = WorkspaceStore.normalizedWorkspaceIconSymbolName(iconSymbolName),
-           WorkspaceStripIconCatalog.isSymbolAvailable(iconSymbolName) {
+            WorkspaceStripIconCatalog.isSymbolAvailable(iconSymbolName)
+        {
             return .symbol(iconSymbolName)
         }
 
@@ -55,8 +57,9 @@ enum WorkspaceDisplayIdentity {
         for workspace: WorkspaceStore.Workspace,
         defaultIcon: NSImage?
     ) -> WorkspaceEmptyStateBranding {
-        if (workspace.hasAssignedFolder || workspace.hasCustomIcon),
-           let icon = icon(for: workspace) {
+        if workspace.hasAssignedFolder || workspace.hasCustomIcon,
+            let icon = icon(for: workspace)
+        {
             return WorkspaceEmptyStateBranding(
                 title: emptyStateTitle(for: workspace),
                 icon: icon,

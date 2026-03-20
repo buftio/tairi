@@ -11,10 +11,12 @@ enum WindowLayoutMetrics {
 
 private enum WindowTexture {
     static let appIcon: NSImage? = {
-        guard let url = Bundle.module.url(
-            forResource: "AppIcon",
-            withExtension: "png"
-        ) else {
+        guard
+            let url = Bundle.module.url(
+                forResource: "AppIcon",
+                withExtension: "png"
+            )
+        else {
             return nil
         }
         return NSImage(contentsOf: url)
@@ -168,8 +170,8 @@ struct ContentView: View {
                     toggleSidebar: chromeController.toggleSidebarVisibility,
                     openKeyboardShortcuts: shortcutsController.present
                 )
-                    .padding(.horizontal, 24)
-                    .offset(x: chromeController.renderedStripLeadingInset / 2)
+                .padding(.horizontal, 24)
+                .offset(x: chromeController.renderedStripLeadingInset / 2)
             }
         }
         .overlay(alignment: .bottomTrailing) {

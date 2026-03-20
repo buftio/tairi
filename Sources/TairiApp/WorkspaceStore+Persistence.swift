@@ -15,7 +15,8 @@ extension WorkspaceStore {
                     return nil
                 }
 
-                let customTitle = workspace.usesAutomaticTitle
+                let customTitle =
+                    workspace.usesAutomaticTitle
                     ? nil
                     : workspace.title.trimmingCharacters(in: .whitespacesAndNewlines)
 

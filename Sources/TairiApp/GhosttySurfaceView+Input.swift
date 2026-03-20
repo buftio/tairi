@@ -9,12 +9,13 @@ extension GhosttySurfaceView {
         }
 
         if let tileID = attachedTileID,
-           let workspaceOffset = TairiHotkeys.workspaceScrollOffset(
-               modifierFlags: event.modifierFlags,
-               deltaX: event.scrollingDeltaX,
-               deltaY: event.scrollingDeltaY
-           ),
-           interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true {
+            let workspaceOffset = TairiHotkeys.workspaceScrollOffset(
+                modifierFlags: event.modifierFlags,
+                deltaX: event.scrollingDeltaX,
+                deltaY: event.scrollingDeltaY
+            ),
+            interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true
+        {
             return
         }
 
@@ -38,19 +39,22 @@ extension GhosttySurfaceView {
 
     override func keyDown(with event: NSEvent) {
         if let zoomDirection = canvasZoomDirection(for: event),
-           interactionCoordinator?.handleZoomKeyCommand(zoomDirection, preferredTileID: attachedTileID) == true {
+            interactionCoordinator?.handleZoomKeyCommand(zoomDirection, preferredTileID: attachedTileID) == true
+        {
             return
         }
 
         if let tileID = attachedTileID,
-           let tileOffset = tileNavigationOffset(for: event),
-           interactionCoordinator?.handleTileKeyNavigation(offset: tileOffset, from: tileID) == true {
+            let tileOffset = tileNavigationOffset(for: event),
+            interactionCoordinator?.handleTileKeyNavigation(offset: tileOffset, from: tileID) == true
+        {
             return
         }
 
         if let tileID = attachedTileID,
-           let workspaceOffset = workspaceNavigationOffset(for: event),
-           interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true {
+            let workspaceOffset = workspaceNavigationOffset(for: event),
+            interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true
+        {
             return
         }
 
@@ -86,7 +90,8 @@ extension GhosttySurfaceView {
             return super.performKeyEquivalent(with: event)
         }
         if window?.firstResponder === self,
-           handleSplitShortcut(event, surface: surface) {
+            handleSplitShortcut(event, surface: surface)
+        {
             return true
         }
         return super.performKeyEquivalent(with: event)
@@ -96,7 +101,8 @@ extension GhosttySurfaceView {
         if workspaceNavigationOffset(for: event) != nil
             || tileNavigationOffset(for: event) != nil
             || canvasZoomDirection(for: event) != nil
-            || isHorizontalSplitShortcut(event) {
+            || isHorizontalSplitShortcut(event)
+        {
             return
         }
 

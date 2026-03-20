@@ -58,9 +58,10 @@ final class GhosttySurfaceView: NSView {
 
         var config = tairi_ghostty_surface_config_new()
         config.platform_tag = GHOSTTY_PLATFORM_MACOS
-        config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
-            nsview: Unmanaged.passUnretained(self).toOpaque()
-        ))
+        config.platform = ghostty_platform_u(
+            macos: ghostty_platform_macos_s(
+                nsview: Unmanaged.passUnretained(self).toOpaque()
+            ))
         config.userdata = Unmanaged.passUnretained(self).toOpaque()
         config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2)
 
@@ -179,7 +180,8 @@ final class GhosttySurfaceView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         if let tileID = attachedTileID,
-           interactionCoordinator?.handleOverviewClick(tileID: tileID) == true {
+            interactionCoordinator?.handleOverviewClick(tileID: tileID) == true
+        {
             return
         }
         recordInputIfAttached()
@@ -238,9 +240,7 @@ final class GhosttySurfaceView: NSView {
         let yScale = bounds.height > 0 ? backing.height / bounds.height : 1
 
         let didChange =
-            lastLoggedBounds != bounds.size ||
-            lastLoggedBacking != backing.size ||
-            lastLoggedScale != CGSize(width: xScale, height: yScale)
+            lastLoggedBounds != bounds.size || lastLoggedBacking != backing.size || lastLoggedScale != CGSize(width: xScale, height: yScale)
         if didChange {
             logLifecycle(
                 "syncScaleAndSize surface=\(describeHandle(surface)) bounds=\(describe(size: bounds.size)) backing=\(describe(size: backing.size)) scale=\(String(format: "%.3f", xScale))x\(String(format: "%.3f", yScale))"
@@ -256,7 +256,8 @@ final class GhosttySurfaceView: NSView {
 
     private func syncDisplayID() {
         guard let surface,
-              let screenNumber = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            let screenNumber = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+        else {
             return
         }
         if lastLoggedDisplayID != screenNumber.uint32Value {

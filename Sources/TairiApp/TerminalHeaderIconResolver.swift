@@ -76,7 +76,7 @@ enum TerminalHeaderIconResolver {
         "src-tauri/icons/128x128.png",
         "src-tauri/icons/128x128@2x.png",
         "src-tauri/icons/Square310x310Logo.png",
-        "src-tauri/icons/Square44x44Logo.png"
+        "src-tauri/icons/Square44x44Logo.png",
     ]
 
     private static let iconSourceFiles = [
@@ -86,7 +86,7 @@ enum TerminalHeaderIconResolver {
         "src/routes/__root.tsx",
         "app/root.tsx",
         "src/root.tsx",
-        "src/index.html"
+        "src/index.html",
     ]
 
     private static let projectRootMarkers = [
@@ -119,7 +119,7 @@ enum TerminalHeaderIconResolver {
         "astro.config.ts",
         "svelte.config.js",
         "svelte.config.ts",
-        "angular.json"
+        "angular.json",
     ]
 
     private static let linkIconHTMLRegex = try! NSRegularExpression(
@@ -147,7 +147,8 @@ enum TerminalHeaderIconResolver {
         }
 
         if let iconURL = resolvedProjectIconURL(forWorkingDirectory: pwd),
-           let assetIcon = NSImage(contentsOf: iconURL) {
+            let assetIcon = NSImage(contentsOf: iconURL)
+        {
             resolvedIconCache[cacheKey] = assetIcon
             return assetIcon
         }
@@ -188,7 +189,8 @@ enum TerminalHeaderIconResolver {
     }
 
     private static func workingDirectoryURL(for pwd: String?) -> URL? {
-        let rawPath = pwd?.isEmpty == false
+        let rawPath =
+            pwd?.isEmpty == false
             ? pwd!
             : TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
         let url = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
@@ -245,14 +247,14 @@ enum TerminalHeaderIconResolver {
         for relativePath in iconSourceFiles {
             let sourceURL = directoryURL.appendingPathComponent(relativePath, isDirectory: false)
             guard let source = try? String(contentsOf: sourceURL, encoding: .utf8),
-                  let href = extractIconHref(from: source)
+                let href = extractIconHref(from: source)
             else {
                 continue
             }
 
             for candidateURL in resolveIconHref(projectDirectoryURL: directoryURL, href: href) {
                 guard isPathWithinProject(projectDirectoryURL: directoryURL, candidateURL: candidateURL),
-                      FileManager.default.fileExists(atPath: candidateURL.path(percentEncoded: false))
+                    FileManager.default.fileExists(atPath: candidateURL.path(percentEncoded: false))
                 else {
                     continue
                 }
@@ -270,8 +272,8 @@ enum TerminalHeaderIconResolver {
     private static func firstCapture(in source: String, using regex: NSRegularExpression) -> String? {
         let range = NSRange(source.startIndex..<source.endIndex, in: source)
         guard let match = regex.firstMatch(in: source, options: [], range: range),
-              match.numberOfRanges > 1,
-              let captureRange = Range(match.range(at: 1), in: source)
+            match.numberOfRanges > 1,
+            let captureRange = Range(match.range(at: 1), in: source)
         else {
             return nil
         }
@@ -279,7 +281,8 @@ enum TerminalHeaderIconResolver {
     }
 
     private static func resolveIconHref(projectDirectoryURL: URL, href: String) -> [URL] {
-        let cleanHref = href
+        let cleanHref =
+            href
             .split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
             .first
             .map(String.init) ?? href
@@ -289,7 +292,7 @@ enum TerminalHeaderIconResolver {
 
         return [
             URL(fileURLWithPath: relativePath, relativeTo: publicDirectoryURL).standardizedFileURL,
-            URL(fileURLWithPath: relativePath, relativeTo: projectDirectoryURL).standardizedFileURL
+            URL(fileURLWithPath: relativePath, relativeTo: projectDirectoryURL).standardizedFileURL,
         ]
     }
 
@@ -297,7 +300,8 @@ enum TerminalHeaderIconResolver {
         let rawProjectPath = projectDirectoryURL.standardizedFileURL
             .resolvingSymlinksInPath()
             .path(percentEncoded: false)
-        let projectPath = rawProjectPath.hasSuffix("/") && rawProjectPath.count > 1
+        let projectPath =
+            rawProjectPath.hasSuffix("/") && rawProjectPath.count > 1
             ? String(rawProjectPath.dropLast())
             : rawProjectPath
         let candidatePath = candidateURL.standardizedFileURL

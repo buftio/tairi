@@ -118,9 +118,10 @@ extension WorkspaceCanvasDocumentView {
         gapWidth: CGFloat
     ) {
         guard let animation = closingTileSnapshotAnimation,
-              animation.workspaceID == workspaceID,
-              animation.insertionIndex == insertionIndex,
-              let closingTileSnapshotView else {
+            animation.workspaceID == workspaceID,
+            animation.insertionIndex == insertionIndex,
+            let closingTileSnapshotView
+        else {
             return
         }
 
@@ -142,7 +143,8 @@ extension WorkspaceCanvasDocumentView {
 
     func activateOverviewTile(_ tileID: UUID) {
         guard store.tile(tileID) != nil,
-              let workspaceID = store.workspaceID(containing: tileID) else { return }
+            let workspaceID = store.workspaceID(containing: tileID)
+        else { return }
 
         stopWorkspaceScrollAnimation()
         store.selectTile(tileID)
@@ -308,7 +310,8 @@ extension WorkspaceCanvasDocumentView {
 
     func syncAnchoredZoomViewportIfNeeded(contentHeight: CGFloat) {
         guard let anchoredZoomTransition,
-              let clipView = enclosingScrollView?.contentView else {
+            let clipView = enclosingScrollView?.contentView
+        else {
             return
         }
 
@@ -339,7 +342,8 @@ extension WorkspaceCanvasDocumentView {
     private func focusedViewportOrigin(for workspaceID: UUID, in clipView: NSClipView) -> NSPoint {
         let rowHeight = baseRowHeight()
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
-              let workspace = workspaces.first(where: { $0.id == workspaceID }) else {
+            let workspace = workspaces.first(where: { $0.id == workspaceID })
+        else {
             return clipView.bounds.origin
         }
 

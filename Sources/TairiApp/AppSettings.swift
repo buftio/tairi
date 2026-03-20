@@ -1,7 +1,7 @@
-import Combine
 @preconcurrency import AppKit
-import Foundation
+import Combine
 import CoreGraphics
+import Foundation
 
 enum TerminalExitBehavior: String, CaseIterable, Identifiable {
     case closeImmediately
@@ -131,7 +131,8 @@ final class AppSettings: ObservableObject {
         systemReduceMotionEnabled = reduceMotionProvider()
 
         if let rawValue = userDefaults.string(forKey: Self.terminalExitBehaviorKey),
-           let behavior = TerminalExitBehavior(rawValue: rawValue) {
+            let behavior = TerminalExitBehavior(rawValue: rawValue)
+        {
             terminalExitBehavior = behavior
         } else {
             terminalExitBehavior = Self.defaultTerminalExitBehavior

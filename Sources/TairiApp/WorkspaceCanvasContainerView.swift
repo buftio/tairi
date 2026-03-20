@@ -117,9 +117,10 @@ final class WorkspaceCanvasContainerView: NSView {
             }
             lastCanvasTransitionID = canvasTransition.id
         } else if lastSelectedWorkspaceID == selectedWorkspaceID,
-                  lastSelectedTileID != selectedTileID,
-                  let selectedTileID,
-                  !shouldSuppressFallbackReveal {
+            lastSelectedTileID != selectedTileID,
+            let selectedTileID,
+            !shouldSuppressFallbackReveal
+        {
             scheduleReveal(tileID: selectedTileID, animated: false)
         } else {
             shouldSuppressFallbackReveal = false
@@ -145,8 +146,9 @@ final class WorkspaceCanvasContainerView: NSView {
         }
 
         if canvasZoomMode != .overview,
-           !documentView.isManagingAnchoredZoomTransition,
-           lastCanvasZoomMode == .overview || lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID {
+            !documentView.isManagingAnchoredZoomTransition,
+            lastCanvasZoomMode == .overview || lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID
+        {
             documentView.scrollWorkspaceToVisible(
                 selectedWorkspaceID,
                 preserveHorizontalOrigin: true,
@@ -168,9 +170,10 @@ final class WorkspaceCanvasContainerView: NSView {
 
     private func stabilizeInitialViewportIfNeeded() {
         guard !hasStabilizedInitialViewport,
-              scrollView.contentView.bounds.width > 0,
-              scrollView.contentView.bounds.height > 0,
-              let currentSelectedWorkspaceID else {
+            scrollView.contentView.bounds.width > 0,
+            scrollView.contentView.bounds.height > 0,
+            let currentSelectedWorkspaceID
+        else {
             return
         }
 
@@ -203,8 +206,9 @@ final class WorkspaceCanvasContainerView: NSView {
         pendingRevealRequest = (tileID: tileID, animated: animated)
         DispatchQueue.main.async { [weak self] in
             guard let self,
-                  let request = self.pendingRevealRequest,
-                  self.window != nil else {
+                let request = self.pendingRevealRequest,
+                self.window != nil
+            else {
                 return
             }
             self.pendingRevealRequest = nil
@@ -216,8 +220,9 @@ final class WorkspaceCanvasContainerView: NSView {
         pendingSidebarClearRevealAnimated = settings.animationPolicy.shouldAnimate(animated)
         DispatchQueue.main.async { [weak self] in
             guard let self,
-                  let animated = self.pendingSidebarClearRevealAnimated,
-                  self.window != nil else {
+                let animated = self.pendingSidebarClearRevealAnimated,
+                self.window != nil
+            else {
                 return
             }
             self.pendingSidebarClearRevealAnimated = nil

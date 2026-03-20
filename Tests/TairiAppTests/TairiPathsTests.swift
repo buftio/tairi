@@ -1,20 +1,21 @@
 import XCTest
+
 @testable import TairiApp
 
 final class TairiPathsTests: XCTestCase {
     func testGhosttyManifestVersionParsesQuotedValue() {
         let contents = """
-        GHOSTTY_VERSION="1.3.1"
-        GHOSTTY_URL="https://example.invalid/Ghostty.dmg"
-        """
+            GHOSTTY_VERSION="1.3.1"
+            GHOSTTY_URL="https://example.invalid/Ghostty.dmg"
+            """
 
         XCTAssertEqual(TairiPaths.ghosttyManifestVersion(in: contents), "1.3.1")
     }
 
     func testGhosttyManifestVersionParsesUnquotedValue() {
         let contents = """
-        GHOSTTY_VERSION=1.3.1
-        """
+            GHOSTTY_VERSION=1.3.1
+            """
 
         XCTAssertEqual(TairiPaths.ghosttyManifestVersion(in: contents), "1.3.1")
     }
