@@ -10,6 +10,8 @@ struct WorkspaceRowInteractionView: NSViewRepresentable {
     let onClick: () -> Void
     let onIconClick: () -> Void
     let onRenameRequest: () -> Void
+    let onReorderHover: (UUID, WorkspaceStore.WorkspaceDropPosition) -> Void
+    let onReorderHoverEnd: () -> Void
     let onReorderRequest: (UUID, WorkspaceStore.WorkspaceDropPosition) -> Void
 
     func makeNSView(context: Context) -> WorkspaceRowInteractionNSView {
@@ -18,6 +20,8 @@ struct WorkspaceRowInteractionView: NSViewRepresentable {
         view.onClick = onClick
         view.onIconClick = onIconClick
         view.onRenameRequest = onRenameRequest
+        view.onReorderHover = onReorderHover
+        view.onReorderHoverEnd = onReorderHoverEnd
         view.onReorderRequest = onReorderRequest
         view.configureAccessibility(
             identifier: accessibilityIdentifier,
@@ -32,6 +36,8 @@ struct WorkspaceRowInteractionView: NSViewRepresentable {
         nsView.onClick = onClick
         nsView.onIconClick = onIconClick
         nsView.onRenameRequest = onRenameRequest
+        nsView.onReorderHover = onReorderHover
+        nsView.onReorderHoverEnd = onReorderHoverEnd
         nsView.onReorderRequest = onReorderRequest
         nsView.setAccessibilityIdentifier(accessibilityIdentifier)
         nsView.setAccessibilityLabel(accessibilityLabel)
@@ -43,6 +49,8 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
     var onClick: (() -> Void)?
     var onIconClick: (() -> Void)?
     var onRenameRequest: (() -> Void)?
+    var onReorderHover: ((UUID, WorkspaceStore.WorkspaceDropPosition) -> Void)?
+    var onReorderHoverEnd: (() -> Void)?
     var onReorderRequest: ((UUID, WorkspaceStore.WorkspaceDropPosition) -> Void)?
 
     private var didTriggerDeepClick = false
@@ -127,11 +135,18 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        updateReorderHover(using: sender)
         return .move
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        updateReorderHover(using: sender)
         return .move
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onReorderHoverEnd?()
+        super.draggingExited(sender)
     }
 
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
@@ -144,7 +159,16 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         updateReorderTarget(using: sender)
+        onReorderHoverEnd?()
         return true
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession,
+        endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        onReorderHoverEnd?()
     }
 
     private func updateReorderTarget(using draggingInfo: NSDraggingInfo) {
@@ -158,6 +182,20 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
         let localPoint = convert(draggingInfo.draggingLocation, from: nil)
         let position: WorkspaceStore.WorkspaceDropPosition = localPoint.y > bounds.midY ? .before : .after
         onReorderRequest?(draggedWorkspaceID, position)
+    }
+
+    private func updateReorderHover(using draggingInfo: NSDraggingInfo) {
+        guard let targetWorkspaceID = workspaceID,
+              let draggedWorkspaceID = draggedWorkspaceID(from: draggingInfo),
+              draggedWorkspaceID != targetWorkspaceID
+        else {
+            onReorderHoverEnd?()
+            return
+        }
+
+        let localPoint = convert(draggingInfo.draggingLocation, from: nil)
+        let position: WorkspaceStore.WorkspaceDropPosition = localPoint.y > bounds.midY ? .before : .after
+        onReorderHover?(targetWorkspaceID, position)
     }
 
     private func draggedWorkspaceID(from draggingInfo: NSDraggingInfo) -> UUID? {

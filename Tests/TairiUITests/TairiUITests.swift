@@ -9,9 +9,6 @@ private enum Identifiers {
     static let workspaceTitle = "workspace-title"
     static let workspaceCanvas = "workspace-canvas"
     static let widthPicker = "tile-width-picker"
-    static let newTileButton = "new-tile-button"
-    static let nextWorkspaceButton = "next-workspace-button"
-    static let toggleSidebarButton = "toggle-sidebar-button"
     static let tileSpotlight = "tile-spotlight"
     static let tileSpotlightSearchField = "tile-spotlight-search-field"
     static let workspaceButtonPrefix = "workspace-button-"
@@ -35,13 +32,13 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(workspaceButton(in: app, titled: "01").exists)
         XCTAssertTrue(workspaceButton(in: app, titled: "02").exists)
 
-        app.buttons[Identifiers.newTileButton].click()
+        createNewTile(in: app)
         XCTAssertEqual(tileQuery(in: app).count, 2)
 
         workspaceButton(in: app, titled: "02").click()
         XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 02")
 
-        app.buttons[Identifiers.newTileButton].click()
+        createNewTile(in: app)
         XCTAssertTrue(app.segmentedControls[Identifiers.widthPicker].waitForExistence(timeout: 5))
         app.segmentedControls[Identifiers.widthPicker].buttons["Wide"].click()
     }
@@ -65,15 +62,15 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(app.otherElements[Identifiers.workspaceList].waitForExistence(timeout: 10))
 
         for workspaceNumber in 2...15 {
-            app.buttons[Identifiers.nextWorkspaceButton].click()
+            selectNextWorkspace(in: app)
             XCTAssertEqual(
                 app.staticTexts[Identifiers.workspaceTitle].label,
                 "Workspace \(String(format: "%02d", workspaceNumber))"
             )
-            app.buttons[Identifiers.newTileButton].click()
+            createNewTile(in: app)
         }
 
-        app.buttons[Identifiers.nextWorkspaceButton].click()
+        selectNextWorkspace(in: app)
 
         let lastWorkspaceButton = workspaceButton(in: app, titled: "16")
         XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
@@ -139,8 +136,8 @@ final class TairiUITests: XCTestCase {
         let app = try launchApp()
         defer { app.terminate() }
 
-        XCTAssertTrue(app.buttons[Identifiers.newTileButton].waitForExistence(timeout: 10))
-        app.buttons[Identifiers.newTileButton].click()
+        XCTAssertTrue(app.otherElements[Identifiers.appRoot].waitForExistence(timeout: 10))
+        createNewTile(in: app)
         XCTAssertEqual(tileQuery(in: app).count, 2)
 
         let canvas = app.otherElements[Identifiers.workspaceCanvas]
@@ -224,6 +221,14 @@ final class TairiUITests: XCTestCase {
 
     private func tileQuery(in app: XCUIApplication) -> XCUIElementQuery {
         app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "workspace-tile-"))
+    }
+
+    private func createNewTile(in app: XCUIApplication) {
+        app.typeKey("n", modifierFlags: [.command])
+    }
+
+    private func selectNextWorkspace(in app: XCUIApplication) {
+        app.typeKey(XCUIKeyboardKey.downArrow.rawValue, modifierFlags: [.command, .option])
     }
 
     private func workspaceButton(in app: XCUIApplication, titled title: String) -> XCUIElement {

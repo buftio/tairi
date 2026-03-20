@@ -732,7 +732,10 @@ final class WorkspaceStore: ObservableObject {
         for index in next.indices {
             let automaticTitle = String(format: "%02d", index + 1)
             if next[index].usesAutomaticTitle {
-                next[index].title = automaticTitle
+                next[index].title = Self.automaticWorkspaceTitle(
+                    for: next[index],
+                    fallbackIndexTitle: automaticTitle
+                )
             } else if next[index].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 next[index].title = automaticTitle
                 next[index].usesAutomaticTitle = true
@@ -748,6 +751,20 @@ final class WorkspaceStore: ObservableObject {
         }
 
         workspaces = next
+    }
+
+    private static func automaticWorkspaceTitle(
+        for workspace: Workspace,
+        fallbackIndexTitle: String
+    ) -> String {
+        guard let folderPath = normalizedAssignedFolderPath(workspace.folderPath) else {
+            return fallbackIndexTitle
+        }
+
+        let folderName = URL(fileURLWithPath: folderPath, isDirectory: true)
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return folderName.isEmpty ? fallbackIndexTitle : folderName
     }
 }
 

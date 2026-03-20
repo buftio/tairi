@@ -82,6 +82,13 @@ struct ContentView: View {
 
     private var theme: GhosttyAppTheme { runtime.appTheme }
     private var isSelectedWorkspaceEmpty: Bool { store.selectedWorkspace.tiles.isEmpty }
+    @MainActor
+    private var emptyWorkspaceBranding: WorkspaceEmptyStateBranding {
+        WorkspaceDisplayIdentity.emptyStateBranding(
+            for: store.selectedWorkspace,
+            defaultIcon: WindowTexture.appIcon
+        )
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -154,97 +161,16 @@ struct ContentView: View {
         }
         .overlay {
             if runtime.errorMessage == nil, isSelectedWorkspaceEmpty {
-                emptyWorkspaceState
+                EmptyWorkspaceStateView(
+                    theme: theme,
+                    branding: emptyWorkspaceBranding,
+                    createNewTile: createNewTile,
+                    toggleSidebar: chromeController.toggleSidebarVisibility
+                )
                     .padding(.horizontal, 24)
             }
         }
         .accessibilityIdentifier(TairiAccessibility.mainPanel)
-    }
-
-    private var emptyWorkspaceState: some View {
-        VStack(spacing: 34) {
-            if let appIcon = WindowTexture.appIcon {
-                Image(nsImage: appIcon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 132, height: 132)
-                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                    .saturation(0)
-                    .opacity(theme.isLightTheme ? 0.10 : 0.14)
-                    .padding(.top, -12)
-            }
-
-            VStack(alignment: .leading, spacing: 14) {
-                emptyWorkspaceActionButton(
-                    title: "Create new tile",
-                    hotkey: TairiHotkeys.newTile,
-                    id: TairiAccessibility.emptyWorkspaceCreateTileHint,
-                    action: createNewTile
-                )
-                emptyWorkspaceActionButton(
-                    title: "Toggle sidebar",
-                    hotkey: TairiHotkeys.toggleSidebar,
-                    id: TairiAccessibility.emptyWorkspaceToggleSidebarHint,
-                    action: chromeController.toggleSidebarVisibility
-                )
-            }
-        }
-        .frame(maxWidth: 347)
-        .accessibilityIdentifier(TairiAccessibility.emptyWorkspaceState)
-    }
-
-    private func emptyWorkspaceActionButton(
-        title: String,
-        hotkey: TairiHotkey,
-        id: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: 20) {
-                Text(title)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.7))
-                    .shadow(
-                        color: Color(nsColor: theme.background).opacity(theme.isLightTheme ? 0.85 : 0.95),
-                        radius: 2,
-                        x: 0,
-                        y: 1
-                    )
-
-                Spacer(minLength: 16)
-
-                HStack(spacing: 8) {
-                    ForEach(Array(hotkey.displayTokens.enumerated()), id: \.offset) { _, token in
-                        emptyWorkspaceShortcutKeycap(token)
-                    }
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(id)
-    }
-
-    private func emptyWorkspaceShortcutKeycap(_ token: String) -> some View {
-        Text(token)
-            .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.86))
-            .shadow(
-                color: Color(nsColor: theme.background).opacity(theme.isLightTheme ? 0.85 : 0.95),
-                radius: 2,
-                x: 0,
-                y: 1
-            )
-            .frame(minWidth: 22)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.white.opacity(theme.isLightTheme ? 0.22 : 0.07))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.white.opacity(theme.isLightTheme ? 0.12 : 0.08), lineWidth: 0.8)
-            )
     }
 
     private var windowBackground: some View {

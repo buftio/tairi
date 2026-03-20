@@ -143,6 +143,33 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertTrue(workspace.tiles.isEmpty)
     }
 
+    func testAutomaticWorkspaceTitleUsesAssignedFolderName() throws {
+        let tempDirectory = try makeTemporaryDirectory(named: "Inbox")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+
+        store.setWorkspaceFolder(workspaceID, to: tempDirectory)
+
+        let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
+        XCTAssertEqual(workspace.folderPath, tempDirectory)
+        XCTAssertEqual(workspace.title, "Inbox")
+        XCTAssertTrue(workspace.usesAutomaticTitle)
+    }
+
+    func testCustomWorkspaceTitleSurvivesAssignedFolderName() throws {
+        let tempDirectory = try makeTemporaryDirectory(named: "Inbox")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+
+        store.renameWorkspace(workspaceID, to: "Today")
+        store.setWorkspaceFolder(workspaceID, to: tempDirectory)
+
+        let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
+        XCTAssertEqual(workspace.folderPath, tempDirectory)
+        XCTAssertEqual(workspace.title, "Today")
+        XCTAssertFalse(workspace.usesAutomaticTitle)
+    }
+
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -245,9 +272,9 @@ final class WorkspaceStoreTests: XCTestCase {
         )
     }
 
-    private func makeTemporaryDirectory() throws -> String {
+    private func makeTemporaryDirectory(named name: String = UUID().uuidString) throws -> String {
         let directoryURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         return directoryURL.path(percentEncoded: false)
     }

@@ -13,6 +13,7 @@ struct WorkspaceSidebarView: View {
     @State private var renamingWorkspaceID: UUID?
     @State private var renameDraft = ""
     @State private var renameFolderDraft: String?
+    @State private var workspaceDropIndicator: WorkspaceSidebarDropIndicator?
 
     let theme: GhosttyAppTheme
 
@@ -27,13 +28,6 @@ struct WorkspaceSidebarView: View {
             .padding(.bottom, 8)
 
             workspaceList
-
-            Rectangle()
-                .fill(Color(nsColor: theme.divider).opacity(0.4))
-                .frame(height: 0.5)
-                .padding(.horizontal, 10)
-
-            sidebarActions
         }
         .frame(width: WindowLayoutMetrics.sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .top)
@@ -83,6 +77,7 @@ struct WorkspaceSidebarView: View {
                 .padding(.vertical, 8)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scrollBounceBehavior(.basedOnSize, axes: .vertical)
             .clipped()
             .onAppear {
                 scrollSelectedWorkspace(in: proxy, animated: false)
@@ -92,47 +87,6 @@ struct WorkspaceSidebarView: View {
             }
             .accessibilityIdentifier(TairiAccessibility.workspaceList)
         }
-    }
-
-    private var sidebarActions: some View {
-        HStack(spacing: 6) {
-            sidebarIconButton(icon: "plus", label: "New tile", id: TairiAccessibility.newTileButton) {
-                createNewTile()
-            }
-            sidebarIconButton(
-                icon: "chevron.up",
-                label: "Prev workspace",
-                id: TairiAccessibility.previousWorkspaceButton
-            ) {
-                selectAdjacentWorkspace(offset: -1)
-            }
-            sidebarIconButton(
-                icon: "chevron.down",
-                label: "Next workspace",
-                id: TairiAccessibility.nextWorkspaceButton
-            ) {
-                selectAdjacentWorkspace(offset: 1)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-    }
-
-    private func sidebarIconButton(icon: String, label: String, id: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: WindowLayoutMetrics.rowCornerRadius, style: .continuous)
-                        .fill(Color.white.opacity(theme.isLightTheme ? 0.08 : 0.06))
-                )
-                .foregroundStyle(Color(nsColor: theme.secondaryText))
-        }
-        .buttonStyle(.plain)
-        .help(label)
-        .accessibilityIdentifier(id)
     }
 
     private func workspaceRow(for workspace: WorkspaceStore.Workspace) -> some View {
@@ -157,10 +111,29 @@ struct WorkspaceSidebarView: View {
                             onRenameRequest: {
                                 beginRenaming(workspace)
                             },
+                            onReorderHover: { targetWorkspaceID, position in
+                                showWorkspaceDropIndicator(
+                                    for: targetWorkspaceID,
+                                    position: position
+                                )
+                            },
+                            onReorderHoverEnd: {
+                                clearWorkspaceDropIndicator()
+                            },
                             onReorderRequest: { draggedWorkspaceID, position in
                                 reorderWorkspace(draggedWorkspaceID, around: workspace.id, position: position)
                             }
                         )
+                    }
+                    .overlay(alignment: workspaceDropIndicator?.position.sidebarAlignment ?? .center) {
+                        if let indicator = workspaceDropIndicator,
+                           indicator.workspaceID == workspace.id {
+                            WorkspaceSidebarDropIndicatorView(
+                                for: workspace.id,
+                                position: indicator.position,
+                                theme: theme
+                            )
+                        }
                     }
                     .contextMenu {
                         Button("Rename") {
@@ -278,10 +251,7 @@ struct WorkspaceSidebarView: View {
     }
 
     private func workspaceIconImage(for folderPath: String?) -> NSImage? {
-        guard let folderPath = WorkspaceStore.normalizedAssignedFolderPath(folderPath) else {
-            return nil
-        }
-        return TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: folderPath)
+        WorkspaceDisplayIdentity.icon(forFolderPath: folderPath)
     }
 
     private func folderLabel(for folderPath: String?) -> String? {
@@ -355,6 +325,7 @@ struct WorkspaceSidebarView: View {
     }
 
     private func beginRenaming(_ workspace: WorkspaceStore.Workspace) {
+        clearWorkspaceDropIndicator()
         interactionController.selectWorkspace(workspace.id)
         renameDraft = workspace.usesAutomaticTitle ? "" : workspace.title
         renameFolderDraft = workspace.folderPath
@@ -369,6 +340,7 @@ struct WorkspaceSidebarView: View {
     }
 
     private func cancelRenaming() {
+        clearWorkspaceDropIndicator()
         renamingWorkspaceID = nil
         renameDraft = ""
         renameFolderDraft = nil
@@ -436,21 +408,23 @@ struct WorkspaceSidebarView: View {
         position: WorkspaceStore.WorkspaceDropPosition
     ) {
         guard renamingWorkspaceID == nil else { return }
+        clearWorkspaceDropIndicator()
         store.moveWorkspace(draggedWorkspaceID, relativeTo: targetWorkspaceID, position: position)
     }
 
-    private func createNewTile() {
-        _ = runtime.createTile(
-            nextTo: store.selectedTileID,
-            transition: .animatedReveal
+    private func showWorkspaceDropIndicator(
+        for workspaceID: UUID,
+        position: WorkspaceStore.WorkspaceDropPosition
+    ) {
+        guard renamingWorkspaceID == nil else { return }
+        workspaceDropIndicator = WorkspaceSidebarDropIndicator(
+            workspaceID: workspaceID,
+            position: position
         )
-        focusSelectedTileIfNeeded()
     }
 
-    private func selectAdjacentWorkspace(offset: Int) {
-        cancelRenaming()
-        interactionController.selectAdjacentWorkspace(offset: offset)
-        focusSelectedTileIfNeeded()
+    private func clearWorkspaceDropIndicator() {
+        workspaceDropIndicator = nil
     }
 
     private func focusSelectedTileIfNeeded() {

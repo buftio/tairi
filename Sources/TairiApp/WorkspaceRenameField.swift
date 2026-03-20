@@ -7,9 +7,33 @@ struct WorkspaceRenameField: NSViewRepresentable {
     let placeholder: String
     let isFocused: Bool
     let theme: GhosttyAppTheme
+    let font: NSFont
+    let alignment: NSTextAlignment
     let accessibilityIdentifier: String
     let onSubmit: () -> Void
     let onCancel: () -> Void
+
+    init(
+        text: Binding<String>,
+        placeholder: String,
+        isFocused: Bool,
+        theme: GhosttyAppTheme,
+        font: NSFont = .systemFont(ofSize: 13, weight: .medium),
+        alignment: NSTextAlignment = .left,
+        accessibilityIdentifier: String,
+        onSubmit: @escaping () -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        _text = text
+        self.placeholder = placeholder
+        self.isFocused = isFocused
+        self.theme = theme
+        self.font = font
+        self.alignment = alignment
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.onSubmit = onSubmit
+        self.onCancel = onCancel
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, onSubmit: onSubmit, onCancel: onCancel)
@@ -20,8 +44,9 @@ struct WorkspaceRenameField: NSViewRepresentable {
         textField.delegate = context.coordinator
         textField.onSubmit = onSubmit
         textField.onCancel = onCancel
-        textField.placeholderString = placeholder
+        textField.placeholderString = isFocused ? nil : placeholder
         textField.stringValue = text
+        textField.applyTheme(theme, font: font, alignment: alignment)
         textField.configureAccessibility(
             identifier: accessibilityIdentifier,
             label: placeholder,
@@ -34,8 +59,8 @@ struct WorkspaceRenameField: NSViewRepresentable {
         context.coordinator.text = $text
         nsView.onSubmit = onSubmit
         nsView.onCancel = onCancel
-        nsView.placeholderString = placeholder
-        nsView.applyTheme(theme)
+        nsView.placeholderString = isFocused ? nil : placeholder
+        nsView.applyTheme(theme, font: font, alignment: alignment)
         if nsView.stringValue != text {
             nsView.stringValue = text
         }
@@ -99,7 +124,6 @@ final class WorkspaceRenameTextField: NSTextField {
         drawsBackground = false
         focusRingType = .none
         lineBreakMode = .byTruncatingTail
-        font = .systemFont(ofSize: 13, weight: .medium)
         cell?.wraps = false
         cell?.isScrollable = true
     }
@@ -114,15 +138,24 @@ final class WorkspaceRenameTextField: NSTextField {
         placeCursorAtEnd()
     }
 
-    func applyTheme(_ theme: GhosttyAppTheme) {
+    func applyTheme(_ theme: GhosttyAppTheme, font: NSFont, alignment: NSTextAlignment) {
+        self.font = font
+        self.alignment = alignment
         textColor = theme.primaryText
-        placeholderAttributedString = NSAttributedString(
-            string: placeholderString ?? "",
-            attributes: [
-                .foregroundColor: theme.secondaryText.withAlphaComponent(0.65),
-                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
-            ]
-        )
+        if let placeholderString, !placeholderString.isEmpty {
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = alignment
+            placeholderAttributedString = NSAttributedString(
+                string: placeholderString,
+                attributes: [
+                    .foregroundColor: theme.secondaryText.withAlphaComponent(0.65),
+                    .font: font,
+                    .paragraphStyle: paragraphStyle,
+                ]
+            )
+        } else {
+            placeholderAttributedString = nil
+        }
 
         guard let editor = currentEditor() as? NSTextView else { return }
         editor.insertionPointColor = theme.primaryText.withAlphaComponent(0.82)
