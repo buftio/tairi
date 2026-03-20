@@ -2,6 +2,12 @@ import AppKit
 import Foundation
 
 enum TerminalHeaderIconResolver {
+    @MainActor
+    private static var resolvedIconCache: [String: NSImage] = [:]
+
+    @MainActor
+    private static var missingIconCache: Set<String> = []
+
     private static let frontendIconCandidates = [
         "public/favicon.ico",
         "public/favicon.png",
@@ -126,12 +132,33 @@ enum TerminalHeaderIconResolver {
         options: [.caseInsensitive]
     )
 
+    @MainActor
     static func resolveIcon(forWorkingDirectory pwd: String?) -> NSImage? {
+        guard let directoryURL = workingDirectoryURL(for: pwd) else {
+            return nil
+        }
+
+        let cacheKey = directoryURL.path(percentEncoded: false)
+        if let cachedIcon = resolvedIconCache[cacheKey] {
+            return cachedIcon
+        }
+        if missingIconCache.contains(cacheKey) {
+            return nil
+        }
+
         if let iconURL = resolvedProjectIconURL(forWorkingDirectory: pwd),
            let assetIcon = NSImage(contentsOf: iconURL) {
+            resolvedIconCache[cacheKey] = assetIcon
             return assetIcon
         }
-        return directoryIcon(for: pwd)
+
+        if let directoryIcon = directoryIcon(for: pwd) {
+            resolvedIconCache[cacheKey] = directoryIcon
+            return directoryIcon
+        }
+
+        missingIconCache.insert(cacheKey)
+        return nil
     }
 
     static func resolvedProjectIconURL(forWorkingDirectory pwd: String?) -> URL? {
@@ -152,6 +179,7 @@ enum TerminalHeaderIconResolver {
         return nil
     }
 
+    @MainActor
     private static func directoryIcon(for pwd: String?) -> NSImage? {
         guard let directoryURL = workingDirectoryURL(for: pwd) else {
             return nil

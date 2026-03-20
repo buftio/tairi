@@ -127,13 +127,19 @@ final class WorkspaceRowInteractionNSView: NSView, NSDraggingSource {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        updateReorderTarget(using: sender)
         return .move
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        updateReorderTarget(using: sender)
         return .move
+    }
+
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let targetWorkspaceID = workspaceID,
+              let draggedWorkspaceID = draggedWorkspaceID(from: sender) else {
+            return false
+        }
+        return draggedWorkspaceID != targetWorkspaceID
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {

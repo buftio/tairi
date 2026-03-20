@@ -175,7 +175,7 @@ final class WorkspaceStore: ObservableObject {
 
     func columns(in workspaceID: UUID) -> [Column] {
         guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return [] }
-        return columns(in: workspace)
+        return WorkspaceColumnLayout.columns(in: workspace)
     }
 
     func tiles(in workspaceID: UUID) -> [Tile] {
@@ -578,7 +578,7 @@ final class WorkspaceStore: ObservableObject {
         in workspace: Workspace,
         stripLeadingInset: CGFloat
     ) -> UUID? {
-        let columns = columns(in: workspace)
+        let columns = WorkspaceColumnLayout.columns(in: workspace)
         guard !columns.isEmpty else { return nil }
 
         var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
@@ -667,62 +667,16 @@ final class WorkspaceStore: ObservableObject {
     }
 
     private func tileFrame(for tileID: UUID, in workspace: Workspace, stripLeadingInset: CGFloat) -> CGRect? {
-        var x = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
-        let availableHeight = WorkspaceCanvasLayoutMetrics.minimumTileHeight
-
-        for column in columns(in: workspace) {
-            let totalSpacing = CGFloat(max(column.tiles.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
-            let totalWeight = max(column.tiles.reduce(CGFloat.zero) { $0 + $1.heightWeight }, 0.0001)
-            let usableHeight = max(availableHeight - totalSpacing, 1)
-            var y: CGFloat = 0
-
-            for (index, tile) in column.tiles.enumerated() {
-                let remainingHeight = availableHeight - y - (CGFloat(max(column.tiles.count - index - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing)
-                let tileHeight: CGFloat
-                if index == column.tiles.count - 1 {
-                    tileHeight = max(remainingHeight, 1)
-                } else {
-                    tileHeight = max((usableHeight * tile.heightWeight / totalWeight).rounded(.down), 1)
-                }
-
-                let frame = CGRect(x: x, y: y, width: column.width, height: tileHeight)
-                if tile.id == tileID {
-                    return frame
-                }
-                y += tileHeight + WorkspaceCanvasLayoutMetrics.tileSpacing
-            }
-
-            x += column.width + WorkspaceCanvasLayoutMetrics.tileSpacing
-        }
-
-        return nil
+        WorkspaceColumnLayout.tileFrame(
+            for: tileID,
+            in: workspace,
+            stripLeadingInset: stripLeadingInset,
+            availableHeight: WorkspaceCanvasLayoutMetrics.minimumTileHeight
+        )
     }
 
     private func contentWidth(for workspace: Workspace, stripLeadingInset: CGFloat) -> CGFloat {
-        let columns = columns(in: workspace)
-        guard !columns.isEmpty else { return 0 }
-        let tileWidths = columns.reduce(CGFloat.zero) { partialResult, column in
-            partialResult + column.width
-        }
-        let spacing = CGFloat(max(columns.count - 1, 0)) * WorkspaceCanvasLayoutMetrics.tileSpacing
-        return stripLeadingInset
-            + (WorkspaceCanvasLayoutMetrics.horizontalPadding * 2)
-            + tileWidths
-            + spacing
-    }
-
-    private func columns(in workspace: Workspace) -> [Column] {
-        var result: [Column] = []
-
-        for tile in workspace.tiles {
-            if let lastIndex = result.indices.last, result[lastIndex].id == tile.columnID {
-                result[lastIndex].tiles.append(tile)
-            } else {
-                result.append(Column(id: tile.columnID, tiles: [tile]))
-            }
-        }
-
-        return result
+        WorkspaceColumnLayout.contentWidth(for: workspace, stripLeadingInset: stripLeadingInset)
     }
 
     private func redistributeHeightAfterRemovingTile(

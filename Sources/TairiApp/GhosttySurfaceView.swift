@@ -29,6 +29,7 @@ final class GhosttySurfaceView: NSView {
     let sessionID: UUID
 
     private(set) var surface: ghostty_surface_t?
+    var interactionCoordinator: GhosttySurfaceInteractionCoordinator?
     private var trackingAreaRef: NSTrackingArea?
     private var lastLoggedBounds = CGSize.zero
     private var lastLoggedBacking = CGSize.zero
@@ -178,8 +179,7 @@ final class GhosttySurfaceView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         if let tileID = attachedTileID,
-           let canvasDocumentView = workspaceCanvasDocumentView(),
-           canvasDocumentView.handleTileOverviewClick(tileID) {
+           interactionCoordinator?.handleOverviewClick(tileID: tileID) == true {
             return
         }
         recordInputIfAttached()
@@ -211,124 +211,6 @@ final class GhosttySurfaceView: NSView {
 
     override func rightMouseDragged(with event: NSEvent) {
         sendMousePosition(event)
-    }
-
-    override func scrollWheel(with event: NSEvent) {
-        if let canvasDocumentView = workspaceCanvasDocumentView(), canvasDocumentView.handleScrollWheel(event) {
-            return
-        }
-
-        guard let surface else { return }
-        var deltaX = event.scrollingDeltaX
-        var deltaY = event.scrollingDeltaY
-        if event.hasPreciseScrollingDeltas {
-            deltaX *= 2
-            deltaY *= 2
-        }
-
-        tairi_ghostty_surface_mouse_scroll(surface, deltaX, deltaY, ghosttyScrollMods(from: event))
-    }
-
-    override func magnify(with event: NSEvent) {
-        if let canvasDocumentView = workspaceCanvasDocumentView(),
-           canvasDocumentView.handleMagnify(event, preferredTileID: attachedTileID) {
-            return
-        }
-        super.magnify(with: event)
-    }
-
-    override func keyDown(with event: NSEvent) {
-        if let canvasDocumentView = workspaceCanvasDocumentView(),
-           let zoomDirection = canvasZoomDirection(for: event),
-           canvasDocumentView.handleZoomKeyCommand(zoomDirection, preferredTileID: attachedTileID) {
-            return
-        }
-
-        if let canvasDocumentView = workspaceCanvasDocumentView(),
-           let tileID = attachedTileID,
-           let tileOffset = tileNavigationOffset(for: event),
-           canvasDocumentView.handleTileKeyNavigation(offset: tileOffset, from: tileID) {
-            return
-        }
-
-        if let canvasDocumentView = workspaceCanvasDocumentView(),
-           let tileID = attachedTileID,
-           let workspaceOffset = workspaceNavigationOffset(for: event),
-           canvasDocumentView.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) {
-            return
-        }
-
-        guard let surface else { return }
-        if handleSplitShortcut(event, surface: surface) {
-            return
-        }
-        recordInputIfAttached()
-
-        var key = ghostty_input_key_s()
-        key.action = GHOSTTY_ACTION_PRESS
-        key.keycode = UInt32(event.keyCode)
-        key.mods = ghosttyMods(from: event.modifierFlags)
-        key.consumed_mods = ghosttyMods(from: event.modifierFlags.subtracting([.control, .command]))
-        key.composing = false
-
-        if let chars = event.characters(byApplyingModifiers: []), let scalar = chars.unicodeScalars.first {
-            key.unshifted_codepoint = scalar.value
-        }
-
-        if let text = event.ghosttyCharacters {
-            text.withCString { ptr in
-                key.text = ptr
-                _ = tairi_ghostty_surface_key(surface, key)
-            }
-        } else {
-            _ = tairi_ghostty_surface_key(surface, key)
-        }
-    }
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard let surface else {
-            return super.performKeyEquivalent(with: event)
-        }
-        if handleSplitShortcut(event, surface: surface) {
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-
-    override func keyUp(with event: NSEvent) {
-        if workspaceNavigationOffset(for: event) != nil
-            || tileNavigationOffset(for: event) != nil
-            || canvasZoomDirection(for: event) != nil
-            || isHorizontalSplitShortcut(event) {
-            return
-        }
-
-        guard let surface else { return }
-
-        var key = ghostty_input_key_s()
-        key.action = GHOSTTY_ACTION_RELEASE
-        key.keycode = UInt32(event.keyCode)
-        key.mods = ghosttyMods(from: event.modifierFlags)
-        key.consumed_mods = ghosttyMods(from: event.modifierFlags.subtracting([.control, .command]))
-        key.composing = false
-
-        if let chars = event.characters(byApplyingModifiers: []), let scalar = chars.unicodeScalars.first {
-            key.unshifted_codepoint = scalar.value
-        }
-
-        _ = tairi_ghostty_surface_key(surface, key)
-    }
-
-    @IBAction func copy(_ sender: Any?) {
-        performBindingAction("copy_to_clipboard")
-    }
-
-    @IBAction func paste(_ sender: Any?) {
-        performBindingAction("paste_from_clipboard")
-    }
-
-    @IBAction override func selectAll(_ sender: Any?) {
-        performBindingAction("select_all")
     }
 
     private func sendMouseButton(
@@ -386,140 +268,8 @@ final class GhosttySurfaceView: NSView {
         tairi_ghostty_surface_set_display_id(surface, screenNumber.uint32Value)
     }
 
-    private func workspaceCanvasDocumentView() -> WorkspaceCanvasDocumentView? {
-        var ancestor = superview
-        while let view = ancestor {
-            if let documentView = view as? WorkspaceCanvasDocumentView {
-                return documentView
-            }
-            ancestor = view.superview
-        }
-        return nil
-    }
-
-    private func workspaceTileHostView() -> WorkspaceTileHostView? {
-        var ancestor = superview
-        while let view = ancestor {
-            if let tileHostView = view as? WorkspaceTileHostView {
-                return tileHostView
-            }
-            ancestor = view.superview
-        }
-        return nil
-    }
-
     func closeContext(for tileID: UUID) -> TileCloseContext? {
-        guard let documentView = workspaceCanvasDocumentView() else { return nil }
-        let workspaceID = runtime.store.workspaceID(containing: tileID) ?? runtime.store.selectedWorkspaceID
-        return TileCloseContext(
-            preferredVisibleMidX: documentView.visibleMidX(forWorkspaceID: workspaceID),
-            stripLeadingInset: documentView.currentStripLeadingInset,
-            snapshotImage: workspaceTileHostView()?.tairiSnapshotImage()
-        )
-    }
-
-    private func workspaceNavigationOffset(for event: NSEvent) -> Int? {
-        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
-        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard activeModifiers.contains(requiredModifiers) else { return nil }
-
-        switch event.keyCode {
-        case 126:
-            return -1
-        case 125:
-            return 1
-        default:
-            return nil
-        }
-    }
-
-    private func tileNavigationOffset(for event: NSEvent) -> Int? {
-        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
-        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard activeModifiers.contains(requiredModifiers) else { return nil }
-
-        switch event.keyCode {
-        case 123:
-            return -1
-        case 124:
-            return 1
-        default:
-            return nil
-        }
-    }
-
-    private func canvasZoomDirection(for event: NSEvent) -> WorkspaceCanvasZoomController.Command? {
-        let requiredModifiers: NSEvent.ModifierFlags = [.option, .command]
-        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard activeModifiers.contains(requiredModifiers) else { return nil }
-
-        switch event.keyCode {
-        case 24, 69:
-            return .zoomIn
-        case 27, 78:
-            return .zoomOut
-        default:
-            return nil
-        }
-    }
-
-    private func ghosttyScrollMods(from event: NSEvent) -> ghostty_input_scroll_mods_t {
-        var value: Int32 = 0
-        if event.hasPreciseScrollingDeltas {
-            value |= 0b0000_0001
-        }
-        value |= Int32(ghosttyMomentum(from: event.momentumPhase).rawValue) << 1
-        return value
-    }
-
-    private func ghosttyMomentum(from phase: NSEvent.Phase) -> ghostty_input_mouse_momentum_e {
-        if phase.contains(.began) { return GHOSTTY_MOUSE_MOMENTUM_BEGAN }
-        if phase.contains(.stationary) { return GHOSTTY_MOUSE_MOMENTUM_STATIONARY }
-        if phase.contains(.changed) { return GHOSTTY_MOUSE_MOMENTUM_CHANGED }
-        if phase.contains(.ended) { return GHOSTTY_MOUSE_MOMENTUM_ENDED }
-        if phase.contains(.cancelled) { return GHOSTTY_MOUSE_MOMENTUM_CANCELLED }
-        if phase.contains(.mayBegin) { return GHOSTTY_MOUSE_MOMENTUM_MAY_BEGIN }
-        return GHOSTTY_MOUSE_MOMENTUM_NONE
-    }
-
-    private func ghosttyMods(from flags: NSEvent.ModifierFlags) -> ghostty_input_mods_e {
-        var value = GHOSTTY_MODS_NONE.rawValue
-        if flags.contains(.shift) { value |= GHOSTTY_MODS_SHIFT.rawValue }
-        if flags.contains(.control) { value |= GHOSTTY_MODS_CTRL.rawValue }
-        if flags.contains(.option) { value |= GHOSTTY_MODS_ALT.rawValue }
-        if flags.contains(.command) { value |= GHOSTTY_MODS_SUPER.rawValue }
-        if flags.contains(.capsLock) { value |= GHOSTTY_MODS_CAPS.rawValue }
-        return ghostty_input_mods_e(rawValue: value)
-    }
-
-    private func performBindingAction(_ action: String) {
-        guard let surface else { return }
-        action.withCString { ptr in
-            _ = tairi_ghostty_surface_binding_action(surface, ptr, uintptr_t(action.lengthOfBytes(using: .utf8)))
-        }
-    }
-
-    private func handleSplitShortcut(_ event: NSEvent, surface: ghostty_surface_t) -> Bool {
-        guard isHorizontalSplitShortcut(event) else { return false }
-        guard let tileID = attachedTileID else { return false }
-        let _ = surface
-        TairiLog.write("ghostty local split shortcut session=\(sessionID.uuidString) tile=\(tileID.uuidString)")
-        runtime.splitTileHorizontally(tileID: tileID)
-        return true
-    }
-
-    private func isHorizontalSplitShortcut(_ event: NSEvent) -> Bool {
-        TairiHotkeys.splitHorizontally.matches(event)
-    }
-
-    private func recordInputIfAttached() {
-        guard let tileID = attachedTileID else { return }
-        runtime.recordInput(for: tileID)
-    }
-
-    private func focusAttachedTile(transition: WorkspaceInteractionController.TileTransition) {
-        guard let tileID = attachedTileID else { return }
-        runtime.focus(tileID: tileID, transition: transition)
+        interactionCoordinator?.closeContext(for: tileID)
     }
 
     private func logLifecycle(_ message: String) {

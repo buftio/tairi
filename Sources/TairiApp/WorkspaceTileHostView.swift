@@ -27,6 +27,9 @@ final class WorkspaceTileHostView: NSView {
 
     private let tileID: UUID
     private var currentTile: WorkspaceStore.Tile?
+    private var lastHeaderIconPWD: String?
+    private weak var coordinatedDocumentView: WorkspaceCanvasDocumentView?
+    private var surfaceInteractionCoordinator: GhosttySurfaceInteractionCoordinator?
 
     override var isFlipped: Bool { true }
 
@@ -149,6 +152,16 @@ final class WorkspaceTileHostView: NSView {
         )
     }
 
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        syncSurfaceInteractionCoordinator()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        syncSurfaceInteractionCoordinator()
+    }
+
     override func mouseDown(with event: NSEvent) {
         if workspaceCanvasDocumentView()?.handleTileOverviewClick(tileID) == true {
             return
@@ -159,10 +172,14 @@ final class WorkspaceTileHostView: NSView {
 
     func update(tile: WorkspaceStore.Tile, selected: Bool) {
         let theme = runtime.appTheme
+        let previousHeaderIconPWD = lastHeaderIconPWD
         currentTile = tile
+        syncSurfaceInteractionCoordinator()
         let displayTitle = displayTitle(for: tile)
         titleField.stringValue = displayTitle
-        refreshHeaderIcon()
+        if previousHeaderIconPWD != tile.pwd || iconView.image == nil {
+            refreshHeaderIcon(for: tile.pwd)
+        }
         setAccessibilityLabel("Workspace tile \(displayTitle)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
@@ -195,6 +212,9 @@ final class WorkspaceTileHostView: NSView {
     }
 
     func dispose() {
+        runtime.session(for: tileID)?.surfaceView.interactionCoordinator = nil
+        surfaceInteractionCoordinator = nil
+        coordinatedDocumentView = nil
         runtime.detachTile(tileID, reason: .uiChurn)
     }
 
@@ -225,17 +245,9 @@ final class WorkspaceTileHostView: NSView {
             : Metrics.cornerRadius
     }
 
-    private func refreshHeaderIcon() {
-        guard let currentTile else { return }
-        guard let resolvedIcon = TerminalHeaderIconResolver.resolveIcon(
-            forWorkingDirectory: currentTile.pwd
-        )?.copy() as? NSImage else {
-            iconView.image = nil
-            return
-        }
-
-        resolvedIcon.size = NSSize(width: Metrics.iconSize, height: Metrics.iconSize)
-        iconView.image = resolvedIcon
+    private func refreshHeaderIcon(for workingDirectory: String?) {
+        lastHeaderIconPWD = workingDirectory
+        iconView.image = TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: workingDirectory)
     }
 
     private func displayTitle(for tile: WorkspaceStore.Tile) -> String {
@@ -244,6 +256,29 @@ final class WorkspaceTileHostView: NSView {
         }
 
         return NSString(string: pwd).abbreviatingWithTildeInPath
+    }
+
+    private func syncSurfaceInteractionCoordinator() {
+        guard let surfaceView = runtime.session(for: tileID)?.surfaceView else { return }
+        guard let documentView = workspaceCanvasDocumentView() else {
+            surfaceView.interactionCoordinator = nil
+            coordinatedDocumentView = nil
+            surfaceInteractionCoordinator = nil
+            return
+        }
+
+        if coordinatedDocumentView !== documentView || surfaceInteractionCoordinator == nil {
+            coordinatedDocumentView = documentView
+            surfaceInteractionCoordinator = GhosttySurfaceInteractionCoordinator(
+                runtime: runtime,
+                documentView: documentView,
+                snapshotImageProvider: { [weak self] in
+                    self?.tairiSnapshotImage()
+                }
+            )
+        }
+
+        surfaceView.interactionCoordinator = surfaceInteractionCoordinator
     }
 }
 
