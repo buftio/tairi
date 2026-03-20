@@ -12,6 +12,7 @@ private enum TileSpotlightMetrics {
 }
 
 struct TileSpotlightView: View {
+    @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
@@ -209,6 +210,7 @@ struct TileSpotlightView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(results) { result in
                         TileSpotlightRow(
+                            animationPolicy: settings.animationPolicy,
                             theme: theme,
                             result: result,
                             isSelected: result.id == spotlightController.selectedResultID,
@@ -228,7 +230,7 @@ struct TileSpotlightView: View {
             .frame(height: resultListHeight)
             .onChange(of: spotlightController.selectedResultID) { _, selectedResultID in
                 guard let selectedResultID else { return }
-                withAnimation(.easeInOut(duration: 0.12)) {
+                withAnimation(settings.animationPolicy.swiftUIAnimation(.easeInOut, duration: 0.12)) {
                     proxy.scrollTo(selectedResultID, anchor: .center)
                 }
             }
@@ -275,6 +277,7 @@ struct TileSpotlightView: View {
 // MARK: - Row
 
 private struct TileSpotlightRow: View {
+    let animationPolicy: AppAnimationPolicy
     let theme: GhosttyAppTheme
     let result: TileSpotlightResult
     let isSelected: Bool
@@ -338,8 +341,8 @@ private struct TileSpotlightRow: View {
     private var rowBackground: some View {
         RoundedRectangle(cornerRadius: TileSpotlightMetrics.rowCornerRadius, style: .continuous)
             .fill(rowFill)
-            .animation(.easeInOut(duration: 0.10), value: isSelected)
-            .animation(.easeInOut(duration: 0.10), value: isHovered)
+            .animation(animationPolicy.swiftUIAnimation(.easeInOut, duration: 0.10), value: isSelected)
+            .animation(animationPolicy.swiftUIAnimation(.easeInOut, duration: 0.10), value: isHovered)
     }
 
     private var rowFill: Color {

@@ -48,7 +48,7 @@ struct TairiApp: App {
         .commands {
             CommandGroup(after: .appSettings) {
                 Button("Ghostty Settings...") {
-                    openGhosttySettings()
+                    GhosttyConfigAccess.openSettingsFile()
                 }
                 .tairiKeyboardShortcut(TairiHotkeys.openGhosttySettings)
 
@@ -156,22 +156,6 @@ struct TairiApp: App {
             SettingsView()
                 .environmentObject(settings)
                 .environmentObject(runtime)
-        }
-    }
-
-    private func openGhosttySettings() {
-        let fileManager = FileManager.default
-        let configURL = TairiPaths.ghosttyConfigURL
-        let directoryURL = configURL.deletingLastPathComponent()
-
-        do {
-            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-            if !fileManager.fileExists(atPath: configURL.path) {
-                try Data().write(to: configURL, options: .atomic)
-            }
-            NSWorkspace.shared.open(configURL)
-        } catch {
-            TairiLog.write("open ghostty settings failed error=\(error.localizedDescription)")
         }
     }
 

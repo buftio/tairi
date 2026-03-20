@@ -40,6 +40,12 @@ final class WindowChromeController: ObservableObject {
             return
         }
 
+        guard settings.animationPolicy.shouldAnimate() else {
+            renderedStripLeadingInset = targetInset
+            stopStripLeadingInsetAnimation()
+            return
+        }
+
         stripLeadingInsetAnimationStartValue = renderedStripLeadingInset
         stripLeadingInsetAnimationTargetValue = targetInset
         stripLeadingInsetAnimationStartedAt = Date()
@@ -56,7 +62,12 @@ final class WindowChromeController: ObservableObject {
 
     private func stepStripLeadingInsetAnimation() {
         let elapsed = Date().timeIntervalSince(stripLeadingInsetAnimationStartedAt)
-        let progress = min(max(elapsed / Metrics.toggleAnimationDuration, 0), 1)
+        let duration = settings.animationPolicy.scaledDuration(Metrics.toggleAnimationDuration)
+        guard duration > 0 else {
+            stopStripLeadingInsetAnimation()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         renderedStripLeadingInset = stripLeadingInsetAnimationStartValue
             + (stripLeadingInsetAnimationTargetValue - stripLeadingInsetAnimationStartValue) * eased

@@ -133,12 +133,23 @@ final class WorkspaceCanvasDocumentView: NSView {
         sidebarHidden: Bool,
         renderedStripLeadingInset: CGFloat
     ) {
+        let animationPolicy = settings.animationPolicy
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.selectedTileID = selectedTileID
         zoomMode = canvasZoomMode
         isSidebarHidden = sidebarHidden
         currentStripLeadingInset = renderedStripLeadingInset
+        animator.animationPolicy = animationPolicy
+        zoomController.animationPolicy = animationPolicy
+
+        if !animationPolicy.effectiveAnimationsEnabled,
+           workspaceScrollAnimationTimer != nil,
+           let clipView = enclosingScrollView?.contentView {
+            stopWorkspaceScrollAnimation()
+            clipView.setBoundsOrigin(workspaceScrollAnimationTargetOrigin)
+            enclosingScrollView?.reflectScrolledClipView(clipView)
+        }
 
         let handleIDs = Set(resizeHandleTileIDs(in: workspaces))
         let shouldKeepTileViewsInDocument = canvasZoomMode != .overview
@@ -179,7 +190,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         animator.syncRenderedHorizontalOffsets(for: workspaces)
         zoomController.sync(
             mode: zoomMode,
-            animated: !TairiEnvironment.isUITesting
+            animated: true
         )
         overviewRenderer.sync(
             tileViews: tileViews,

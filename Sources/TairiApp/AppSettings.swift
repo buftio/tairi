@@ -1,4 +1,5 @@
 import Combine
+@preconcurrency import AppKit
 import Foundation
 import CoreGraphics
 
@@ -38,9 +39,13 @@ final class AppSettings: ObservableObject {
     static let legacyWindowOpacityPercentKey = "windowOpacityPercent"
     static let legacyTileBackgroundOpacityPercentKey = "tileBackgroundOpacityPercent"
     static let sidebarHiddenKey = "sidebarHidden"
+    static let animationsEnabledKey = "animationsEnabled"
+    static let animationSpeedMultiplierKey = "animationSpeedMultiplier"
     static let defaultTerminalExitBehavior: TerminalExitBehavior = .closeImmediately
     static let defaultWindowGlassOpacityPercent: Double = 0
     static let defaultSidebarHidden = false
+    static let defaultAnimationsEnabled = true
+    static let defaultAnimationSpeedMultiplier: Double = 1
 
     @Published var terminalExitBehavior: TerminalExitBehavior {
         didSet {
@@ -75,10 +80,55 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    private let userDefaults: UserDefaults
+    @Published var animationsEnabled: Bool {
+        didSet {
+            guard animationsEnabled != oldValue else { return }
+            userDefaults.set(animationsEnabled, forKey: Self.animationsEnabledKey)
+            TairiLog.write("settings animationsEnabled=\(animationsEnabled)")
+        }
+    }
 
-    init(userDefaults: UserDefaults = .standard) {
+    @Published var animationSpeedMultiplier: Double {
+        didSet {
+            let clampedValue = Self.clampedAnimationSpeedMultiplier(animationSpeedMultiplier)
+            if clampedValue != animationSpeedMultiplier {
+                animationSpeedMultiplier = clampedValue
+                return
+            }
+            guard clampedValue != oldValue else { return }
+            userDefaults.set(clampedValue, forKey: Self.animationSpeedMultiplierKey)
+            TairiLog.write("settings animationSpeedMultiplier=\(clampedValue)")
+        }
+    }
+
+    @Published private(set) var systemReduceMotionEnabled: Bool
+
+    var animationPolicy: AppAnimationPolicy {
+        AppAnimationPolicy(
+            animationsEnabled: animationsEnabled,
+            speedMultiplier: animationSpeedMultiplier,
+            systemReduceMotionEnabled: systemReduceMotionEnabled,
+            uiTesting: uiTestingProvider()
+        )
+    }
+
+    private let userDefaults: UserDefaults
+    private let reduceMotionProvider: () -> Bool
+    private let uiTestingProvider: () -> Bool
+    private let notificationCenter: NotificationCenter
+    private var accessibilityObserver: NSObjectProtocol?
+
+    init(
+        userDefaults: UserDefaults = .standard,
+        reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+        uiTestingProvider: @escaping () -> Bool = { TairiEnvironment.isUITesting },
+        notificationCenter: NotificationCenter = .default
+    ) {
         self.userDefaults = userDefaults
+        self.reduceMotionProvider = reduceMotionProvider
+        self.uiTestingProvider = uiTestingProvider
+        self.notificationCenter = notificationCenter
+        systemReduceMotionEnabled = reduceMotionProvider()
 
         if let rawValue = userDefaults.string(forKey: Self.terminalExitBehaviorKey),
            let behavior = TerminalExitBehavior(rawValue: rawValue) {
@@ -100,9 +150,47 @@ final class AppSettings: ObservableObject {
         } else {
             sidebarHidden = Self.defaultSidebarHidden
         }
+
+        if userDefaults.object(forKey: Self.animationsEnabledKey) != nil {
+            animationsEnabled = userDefaults.bool(forKey: Self.animationsEnabledKey)
+        } else {
+            animationsEnabled = Self.defaultAnimationsEnabled
+        }
+
+        let storedAnimationSpeedMultiplier =
+            (userDefaults.object(forKey: Self.animationSpeedMultiplierKey) as? Double)
+            ?? Self.defaultAnimationSpeedMultiplier
+        animationSpeedMultiplier = Self.clampedAnimationSpeedMultiplier(storedAnimationSpeedMultiplier)
+
+        accessibilityObserver = notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refreshSystemReduceMotionEnabled()
+            }
+        }
+    }
+
+    deinit {
+        if let accessibilityObserver {
+            notificationCenter.removeObserver(accessibilityObserver)
+        }
     }
 
     private static func clampedWindowGlassOpacityPercent(_ value: Double) -> Double {
         min(max(value, 0), 100)
+    }
+
+    private static func clampedAnimationSpeedMultiplier(_ value: Double) -> Double {
+        min(max(value, 0.5), 2)
+    }
+
+    private func refreshSystemReduceMotionEnabled() {
+        let nextValue = reduceMotionProvider()
+        guard nextValue != systemReduceMotionEnabled else { return }
+        systemReduceMotionEnabled = nextValue
+        TairiLog.write("settings systemReduceMotionEnabled=\(nextValue)")
     }
 }

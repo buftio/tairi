@@ -23,6 +23,17 @@ final class WorkspaceCanvasAnimator {
     }
 
     var onChange: (() -> Void)?
+    var animationPolicy: AppAnimationPolicy = .defaultValue {
+        didSet {
+            guard animationPolicy != oldValue else { return }
+            guard !animationPolicy.effectiveAnimationsEnabled else { return }
+            stopHorizontalRevealAnimation()
+            stopStripLeadingInsetAnimation()
+            stopClosingGapAnimation()
+            stopOpeningTileAnimation()
+            onChange?()
+        }
+    }
 
     private var renderedHorizontalOffsets: [UUID: CGFloat] = [:]
     private var pendingAnimatedRevealWorkspaceID: UUID?
@@ -62,7 +73,7 @@ final class WorkspaceCanvasAnimator {
     }
 
     func queueReveal(for tileID: UUID, animated: Bool, in workspaces: [WorkspaceStore.Workspace]) {
-        guard animated else {
+        guard animationPolicy.shouldAnimate(animated) else {
             pendingAnimatedRevealWorkspaceID = nil
             return
         }
@@ -91,7 +102,7 @@ final class WorkspaceCanvasAnimator {
     ) {
         guard width > 0.5 else { return }
 
-        if !animated {
+        if !animationPolicy.shouldAnimate(animated) {
             closingGapAnimation = nil
             renderedClosingGapWidth = 0
             stopClosingGapAnimation()
@@ -129,7 +140,7 @@ final class WorkspaceCanvasAnimator {
     }
 
     func queueOpeningTile(tileID: UUID, animated: Bool) {
-        guard animated else {
+        guard animationPolicy.shouldAnimate(animated) else {
             stopOpeningTileAnimation()
             onChange?()
             return
@@ -196,7 +207,7 @@ final class WorkspaceCanvasAnimator {
             return
         }
 
-        guard animated else {
+        guard animationPolicy.shouldAnimate(animated) else {
             renderedStripLeadingInset = targetInset
             stopStripLeadingInsetAnimation()
             onChange?()
@@ -226,7 +237,13 @@ final class WorkspaceCanvasAnimator {
         guard let workspaceID = animatingWorkspaceID else { return }
 
         let elapsed = Date().timeIntervalSince(horizontalRevealAnimationStartedAt)
-        let progress = min(max(elapsed / Metrics.horizontalRevealAnimationDuration, 0), 1)
+        let duration = animationPolicy.scaledDuration(Metrics.horizontalRevealAnimationDuration)
+        guard duration > 0 else {
+            stopHorizontalRevealAnimation()
+            onChange?()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         let currentOffset = horizontalRevealAnimationStartOffset
             + (horizontalRevealAnimationTargetOffset - horizontalRevealAnimationStartOffset) * eased
@@ -270,7 +287,13 @@ final class WorkspaceCanvasAnimator {
 
     private func stepStripLeadingInsetAnimation() {
         let elapsed = Date().timeIntervalSince(stripLeadingInsetAnimationStartedAt)
-        let progress = min(max(elapsed / Metrics.stripLeadingInsetAnimationDuration, 0), 1)
+        let duration = animationPolicy.scaledDuration(Metrics.stripLeadingInsetAnimationDuration)
+        guard duration > 0 else {
+            stopStripLeadingInsetAnimation()
+            onChange?()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         renderedStripLeadingInset = stripLeadingInsetAnimationStartValue
             + (stripLeadingInsetAnimationTargetValue - stripLeadingInsetAnimationStartValue) * eased
@@ -291,7 +314,13 @@ final class WorkspaceCanvasAnimator {
         guard let closingGapAnimation else { return }
 
         let elapsed = Date().timeIntervalSince(closingGapAnimation.startedAt)
-        let progress = min(max(elapsed / Metrics.closingGapAnimationDuration, 0), 1)
+        let duration = animationPolicy.scaledDuration(Metrics.closingGapAnimationDuration)
+        guard duration > 0 else {
+            stopClosingGapAnimation()
+            onChange?()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         renderedClosingGapWidth = closingGapAnimation.startWidth
             + (closingGapAnimation.targetWidth - closingGapAnimation.startWidth) * eased
@@ -313,7 +342,13 @@ final class WorkspaceCanvasAnimator {
         guard let openingTileAnimation else { return }
 
         let elapsed = Date().timeIntervalSince(openingTileAnimation.startedAt)
-        let progress = min(max(elapsed / Metrics.openingTileAnimationDuration, 0), 1)
+        let duration = animationPolicy.scaledDuration(Metrics.openingTileAnimationDuration)
+        guard duration > 0 else {
+            stopOpeningTileAnimation()
+            onChange?()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         renderedOpeningTileProgress = eased
         onChange?()

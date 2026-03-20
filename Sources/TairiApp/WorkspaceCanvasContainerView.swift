@@ -2,6 +2,7 @@ import AppKit
 
 @MainActor
 final class WorkspaceCanvasContainerView: NSView {
+    private let settings: AppSettings
     private let store: WorkspaceStore
     private let scrollView = WorkspaceCanvasScrollView()
     private let documentView: WorkspaceCanvasDocumentView
@@ -29,6 +30,7 @@ final class WorkspaceCanvasContainerView: NSView {
         interactionController: WorkspaceInteractionController,
         runtime: GhosttyRuntime
     ) {
+        self.settings = settings
         self.store = store
         documentView = WorkspaceCanvasDocumentView(
             settings: settings,
@@ -103,7 +105,7 @@ final class WorkspaceCanvasContainerView: NSView {
         if canvasZoomMode == .overview {
             if lastCanvasZoomMode != .overview {
                 shouldSuppressFallbackReveal = true
-                documentView.scrollOverviewToOrigin(animated: !TairiEnvironment.isUITesting)
+                documentView.scrollOverviewToOrigin(animated: true)
             }
         } else if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
             switch canvasTransition.kind {
@@ -148,14 +150,14 @@ final class WorkspaceCanvasContainerView: NSView {
             documentView.scrollWorkspaceToVisible(
                 selectedWorkspaceID,
                 preserveHorizontalOrigin: true,
-                animated: !TairiEnvironment.isUITesting
+                animated: true
             )
         }
 
         documentView.layoutSubtreeIfNeeded()
         stabilizeInitialViewportIfNeeded()
         if lastSidebarHidden == true, !sidebarHidden {
-            scheduleSidebarClearReveal(animated: !TairiEnvironment.isUITesting)
+            scheduleSidebarClearReveal(animated: true)
         }
 
         lastSelectedTileID = selectedTileID
@@ -211,7 +213,7 @@ final class WorkspaceCanvasContainerView: NSView {
     }
 
     private func scheduleSidebarClearReveal(animated: Bool) {
-        pendingSidebarClearRevealAnimated = animated
+        pendingSidebarClearRevealAnimated = settings.animationPolicy.shouldAnimate(animated)
         DispatchQueue.main.async { [weak self] in
             guard let self,
                   let animated = self.pendingSidebarClearRevealAnimated,

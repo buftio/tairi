@@ -16,6 +16,15 @@ final class WorkspaceCanvasZoomController {
     }
 
     var onChange: (() -> Void)?
+    var animationPolicy: AppAnimationPolicy = .defaultValue {
+        didSet {
+            guard animationPolicy != oldValue else { return }
+            guard !animationPolicy.effectiveAnimationsEnabled else { return }
+            renderedOverviewProgress = targetOverviewProgress
+            stopAnimation()
+            onChange?()
+        }
+    }
 
     private(set) var renderedOverviewProgress: CGFloat = 0
 
@@ -43,7 +52,7 @@ final class WorkspaceCanvasZoomController {
 
         targetOverviewProgress = nextProgress
 
-        guard animated else {
+        guard animationPolicy.shouldAnimate(animated) else {
             renderedOverviewProgress = nextProgress
             stopAnimation()
             onChange?()
@@ -151,7 +160,14 @@ final class WorkspaceCanvasZoomController {
 
     private func stepAnimation() {
         let elapsed = Date().timeIntervalSince(animationStartedAt)
-        let progress = min(max(elapsed / Metrics.animationDuration, 0), 1)
+        let duration = animationPolicy.scaledDuration(Metrics.animationDuration)
+        guard duration > 0 else {
+            renderedOverviewProgress = targetOverviewProgress
+            stopAnimation()
+            onChange?()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         renderedOverviewProgress = animationStartProgress
             + ((targetOverviewProgress - animationStartProgress) * eased)

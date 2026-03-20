@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
+    @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
@@ -310,7 +311,7 @@ struct WorkspaceSidebarView: View {
         }
 
         if animated {
-            withAnimation(.easeInOut(duration: 0.18)) {
+            withAnimation(settings.animationPolicy.swiftUIAnimation(.easeInOut, duration: 0.18)) {
                 scroll()
             }
         } else {

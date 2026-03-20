@@ -118,6 +118,7 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
     private var sidebarHidden = false
     private var isHovering = false
     private var sidebarLeadingInset: CGFloat = 0
+    private var animationPolicy: AppAnimationPolicy = .defaultValue
 
     func attach(to window: NSWindow) {
         guard self.window !== window else { return }
@@ -131,12 +132,14 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
         sidebarHidden: Bool,
         isHovering: Bool,
         sidebarLeadingInset: CGFloat,
+        animationPolicy: AppAnimationPolicy,
         in window: NSWindow
     ) {
         attach(to: window)
         self.sidebarHidden = sidebarHidden
         self.isHovering = isHovering
         self.sidebarLeadingInset = sidebarLeadingInset
+        self.animationPolicy = animationPolicy
 
         applyLayout(in: window, animated: true)
         scheduleDeferredLayout(in: window)
@@ -288,12 +291,12 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
 
         for button in buttons {
             button.isEnabled = shouldReveal
-            if animated, shouldReveal, button.alphaValue < 0.99 {
+            if animationPolicy.shouldAnimate(animated), shouldReveal, button.alphaValue < 0.99 {
                 button.alphaValue = 0
             }
         }
 
-        guard animated else {
+        guard animationPolicy.shouldAnimate(animated) else {
             for button in buttons {
                 button.alphaValue = targetAlpha
             }
@@ -301,7 +304,7 @@ final class WindowTrafficLightsController: NSObject, ObservableObject {
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.18
+            context.duration = animationPolicy.scaledDuration(0.18)
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             for button in buttons {
                 button.animator().alphaValue = targetAlpha

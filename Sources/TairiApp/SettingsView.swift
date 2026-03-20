@@ -4,12 +4,14 @@ import SwiftUI
 
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case terminal = "Terminal"
+    case interface = "Interface"
 
     var id: Self { self }
 
     var icon: String {
         switch self {
         case .terminal: "terminal"
+        case .interface: "switch.2"
         }
     }
 }
@@ -32,6 +34,8 @@ struct SettingsView: View {
             switch selectedSection ?? .terminal {
             case .terminal:
                 terminalForm
+            case .interface:
+                interfaceForm
             }
         }
         .frame(width: 600, height: 440)
@@ -55,6 +59,27 @@ struct SettingsView: View {
             }
 
             Section {
+                Button("Open Ghostty config") {
+                    GhosttyConfigAccess.openSettingsFile()
+                }
+
+                Button("Reload Ghostty config") {
+                    runtime.reloadConfiguration()
+                }
+                .disabled(runtime.errorMessage != nil)
+            } footer: {
+                Text("Open the Ghostty config file in your editor, or reload it into running sessions without leaving Settings.")
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Terminal")
+    }
+
+    // MARK: - Interface
+
+    private var interfaceForm: some View {
+        Form {
+            Section {
                 LabeledContent("Window glass") {
                     HStack(spacing: 10) {
                         Slider(
@@ -71,8 +96,37 @@ struct SettingsView: View {
             } footer: {
                 Text("Controls how strong the frosted-glass background appears behind the app content without fading the content itself.")
             }
+
+            Section {
+                Toggle("Disable animations", isOn: disableAnimationsBinding)
+
+                LabeledContent("Animation speed") {
+                    HStack(spacing: 10) {
+                        Slider(
+                            value: $settings.animationSpeedMultiplier,
+                            in: 0.5...2,
+                            step: 0.25
+                        )
+                        .disabled(!settings.animationsEnabled)
+
+                        Text("\(settings.animationSpeedMultiplier, format: .number.precision(.fractionLength(2)))x")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 52, alignment: .trailing)
+                    }
+                }
+            } footer: {
+                Text("Animations are disabled immediately when this switch is on, during UI tests, or while macOS Reduce Motion is enabled.")
+            }
         }
         .formStyle(.grouped)
-        .navigationTitle("Terminal")
+        .navigationTitle("Interface")
+    }
+
+    private var disableAnimationsBinding: Binding<Bool> {
+        Binding(
+            get: { !settings.animationsEnabled },
+            set: { settings.animationsEnabled = !$0 }
+        )
     }
 }

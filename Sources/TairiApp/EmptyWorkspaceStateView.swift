@@ -9,6 +9,7 @@ struct EmptyWorkspaceStateView: View {
         static let fadeInDuration: TimeInterval = 0.22
     }
 
+    @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var store: WorkspaceStore
 
     @State private var isVisible = false
@@ -47,7 +48,7 @@ struct EmptyWorkspaceStateView: View {
         .opacity(isVisible ? 1 : 0)
         .onAppear {
             isVisible = false
-            withAnimation(.easeOut(duration: Metrics.fadeInDuration)) {
+            withAnimation(settings.animationPolicy.swiftUIAnimation(.easeOut, duration: Metrics.fadeInDuration)) {
                 isVisible = true
             }
         }

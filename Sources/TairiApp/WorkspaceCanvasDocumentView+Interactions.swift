@@ -230,7 +230,7 @@ extension WorkspaceCanvasDocumentView {
     func animateWorkspaceScroll(to targetOrigin: NSPoint, in clipView: NSClipView, animated: Bool) {
         anchoredZoomTransition = nil
         let currentOrigin = clipView.bounds.origin
-        guard animated else {
+        guard settings.animationPolicy.shouldAnimate(animated) else {
             stopWorkspaceScrollAnimation()
             clipView.setBoundsOrigin(targetOrigin)
             enclosingScrollView?.reflectScrolledClipView(clipView)
@@ -261,7 +261,14 @@ extension WorkspaceCanvasDocumentView {
 
     private func stepWorkspaceScrollAnimation(in clipView: NSClipView) {
         let elapsed = Date().timeIntervalSince(workspaceScrollAnimationStartedAt)
-        let progress = min(max(elapsed / Metrics.workspaceScrollAnimationDuration, 0), 1)
+        let duration = settings.animationPolicy.scaledDuration(Metrics.workspaceScrollAnimationDuration)
+        guard duration > 0 else {
+            clipView.setBoundsOrigin(workspaceScrollAnimationTargetOrigin)
+            enclosingScrollView?.reflectScrolledClipView(clipView)
+            stopWorkspaceScrollAnimation()
+            return
+        }
+        let progress = min(max(elapsed / duration, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         let currentOrigin = NSPoint(
             x: workspaceScrollAnimationStartOrigin.x
@@ -278,7 +285,7 @@ extension WorkspaceCanvasDocumentView {
         }
     }
 
-    private func stopWorkspaceScrollAnimation() {
+    func stopWorkspaceScrollAnimation() {
         workspaceScrollAnimationTimer?.invalidate()
         workspaceScrollAnimationTimer = nil
     }

@@ -55,7 +55,8 @@
 - Keep app shortcuts in a single source of truth: [Sources/TairiApp/TairiHotkeys.swift](Sources/TairiApp/TairiHotkeys.swift).
 - UI hints, menu bindings, and event matching should derive from that file rather than hardcoding key combos in multiple places.
 
-# cmux
+## Animations
 
-cmux is oss app which as well it's loated in ~/p/oss/cmux
-consult with it's source in
+- Keep animation speed and enable/disable behavior in the shared policy, not per-view constants.
+- Start with [Sources/TairiApp/AppAnimation.swift](Sources/TairiApp/AppAnimation.swift) and [Sources/TairiApp/AppSettings.swift](Sources/TairiApp/AppSettings.swift) before changing motion behavior.
+- App-owned animations should respect the centralized policy, including UI test mode and macOS Reduce Motion.

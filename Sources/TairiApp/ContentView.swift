@@ -123,6 +123,9 @@ struct ContentView: View {
         .onChange(of: isTrafficLightsHovering) {
             syncWindowChrome()
         }
+        .onChange(of: settings.animationPolicy) {
+            syncWindowChrome()
+        }
         .background(
             WindowAccessor { window in
                 let isNewWindow = resolvedWindow !== window
@@ -189,12 +192,6 @@ struct ContentView: View {
                             opacity: min(settings.windowGlassOpacity * 0.55, 1)
                         )
                     }
-                )
-
-            Rectangle()
-                .fill(
-                    Color(nsColor: theme.background)
-                        .opacity(theme.isLightTheme ? 0.40 : 0.74)
                 )
 
             if theme.isLightTheme {
@@ -327,6 +324,7 @@ struct ContentView: View {
             sidebarHidden: chromeController.isSidebarHidden,
             isHovering: isTrafficLightsHovering,
             sidebarLeadingInset: WindowLayoutMetrics.sidebarLeadingInset,
+            animationPolicy: settings.animationPolicy,
             in: window
         )
     }
