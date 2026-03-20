@@ -71,7 +71,11 @@ final class GhosttyRuntime: ObservableObject {
         workingDirectory: String? = nil,
         transition: WorkspaceInteractionController.TileTransition = .animatedReveal
     ) -> WorkspaceStore.Tile {
-        let resolvedWorkingDirectory = workingDirectory ?? spawnWorkingDirectory(for: tileID)
+        let resolvedWorkingDirectory = workingDirectory
+            ?? store.preferredWorkingDirectoryForNewTile(
+                nextTo: tileID,
+                fallback: spawnWorkingDirectory(for: tileID)
+            )
         let sessionID = createSession(workingDirectory: resolvedWorkingDirectory)
         let tile = interactionController.addTerminalTile(
             nextTo: tileID,

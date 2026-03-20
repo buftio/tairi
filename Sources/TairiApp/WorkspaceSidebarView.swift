@@ -1,13 +1,18 @@
+import AppKit
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
+    private enum Metrics {
+        static let toggleAnimationDuration: TimeInterval = 0.28
+    }
+
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
     @EnvironmentObject private var chromeController: WindowChromeController
-    @FocusState private var focusedRenameWorkspaceID: UUID?
     @State private var renamingWorkspaceID: UUID?
     @State private var renameDraft = ""
+    @State private var renameFolderDraft: String?
 
     let theme: GhosttyAppTheme
 
@@ -53,13 +58,9 @@ struct WorkspaceSidebarView: View {
         .padding(.top, WindowLayoutMetrics.sidebarTopInset)
         .padding(.bottom, WindowLayoutMetrics.sidebarBottomInset)
         .opacity(chromeController.isSidebarHidden ? 0 : 1)
-        .offset(
-            x: chromeController.isSidebarHidden
-                ? -(WindowLayoutMetrics.sidebarWidth + WindowLayoutMetrics.sidebarLeadingInset + 24)
-                : 0
-        )
+        .offset(x: chromeController.isSidebarHidden ? -WorkspaceCanvasLayoutMetrics.visibleStripLeadingInset : 0)
         .allowsHitTesting(!chromeController.isSidebarHidden)
-        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: chromeController.isSidebarHidden)
+        .animation(.easeOut(duration: Metrics.toggleAnimationDuration), value: chromeController.isSidebarHidden)
         .onChange(of: chromeController.isSidebarHidden) {
             if chromeController.isSidebarHidden {
                 cancelRenaming()
@@ -139,72 +140,109 @@ struct WorkspaceSidebarView: View {
 
         return Group {
             if renamingWorkspaceID == workspace.id {
-                workspaceRenameField(for: workspace, isSelected: isSelected)
+                workspaceEditorRow(for: workspace, isSelected: isSelected)
             } else {
-                workspaceRowContent(
-                    titleView: AnyView(
-                        Text(workspace.title)
-                            .font(.system(size: 13, weight: isSelected ? .medium : .regular))
-                            .lineLimit(1)
-                    ),
-                    workspace: workspace,
-                    isSelected: isSelected
-                )
-                .overlay {
-                    WorkspaceRowInteractionView(
-                        accessibilityIdentifier: TairiAccessibility.workspaceButton(workspace.id),
-                        accessibilityLabel: workspace.title,
-                        onClick: {
-                            selectWorkspace(workspace)
-                        },
-                        onRenameRequest: {
+                workspaceDisplayRow(for: workspace, isSelected: isSelected)
+                    .overlay {
+                        WorkspaceRowInteractionView(
+                            workspaceID: workspace.id,
+                            accessibilityIdentifier: TairiAccessibility.workspaceButton(workspace.id),
+                            accessibilityLabel: workspace.title,
+                            onClick: {
+                                selectWorkspace(workspace)
+                            },
+                            onIconClick: {
+                                assignFolder(for: workspace)
+                            },
+                            onRenameRequest: {
+                                beginRenaming(workspace)
+                            },
+                            onReorderRequest: { draggedWorkspaceID, position in
+                                reorderWorkspace(draggedWorkspaceID, around: workspace.id, position: position)
+                            }
+                        )
+                    }
+                    .contextMenu {
+                        Button("Rename") {
                             beginRenaming(workspace)
                         }
-                    )
-                }
-                .contextMenu {
-                    Button("Rename") {
-                        beginRenaming(workspace)
+
+                        Button(workspace.folderPath == nil ? "Assign Folder..." : "Change Folder...") {
+                            beginRenaming(workspace)
+                            chooseFolderForRename()
+                        }
+
+                        if workspace.folderPath != nil {
+                            Button("Clear Folder") {
+                                store.setWorkspaceFolder(workspace.id, to: nil)
+                            }
+                        }
                     }
-                }
-                .help("Double-click or force click to rename")
+                    .help("Double-click, force click, or drag to rename or reorder")
             }
         }
     }
 
-    private func workspaceRenameField(for workspace: WorkspaceStore.Workspace, isSelected: Bool) -> some View {
-        workspaceRowContent(
-            titleView: AnyView(
-                TextField("Workspace name", text: $renameDraft)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13, weight: .medium))
-                    .focused($focusedRenameWorkspaceID, equals: workspace.id)
-                    .onSubmit {
-                        commitRenaming()
-                    }
-                    .onExitCommand {
-                        cancelRenaming()
-                    }
-                    .onAppear {
-                        DispatchQueue.main.async {
-                            focusedRenameWorkspaceID = workspace.id
-                        }
-                    }
-                    .accessibilityIdentifier(TairiAccessibility.workspaceRenameField(workspace.id))
-            ),
+    private func workspaceDisplayRow(for workspace: WorkspaceStore.Workspace, isSelected: Bool) -> some View {
+        workspaceRowShell(
             workspace: workspace,
-            isSelected: isSelected
-        )
+            isSelected: isSelected,
+            folderPath: workspace.folderPath
+        ) {
+            VStack(alignment: .leading, spacing: workspace.folderPath == nil ? 0 : 2) {
+                titleText(workspace.title, isSelected: isSelected)
+
+                if let folderLabel = folderLabel(for: workspace.folderPath) {
+                    Text(folderLabel)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color(nsColor: theme.secondaryText))
+                        .lineLimit(1)
+                }
+            }
+        }
     }
 
-    private func workspaceRowContent(
-        titleView: AnyView,
+    private func workspaceEditorRow(for workspace: WorkspaceStore.Workspace, isSelected: Bool) -> some View {
+        workspaceRowShell(
+            workspace: workspace,
+            isSelected: isSelected,
+            folderPath: renameFolderDraft
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                WorkspaceRenameField(
+                    text: $renameDraft,
+                    placeholder: "Workspace name",
+                    isFocused: renamingWorkspaceID == workspace.id,
+                    theme: theme,
+                    accessibilityIdentifier: TairiAccessibility.workspaceRenameField(workspace.id),
+                    onSubmit: commitRenaming,
+                    onCancel: cancelRenaming
+                )
+
+                if let folderLabel = folderLabel(for: renameFolderDraft) {
+                    Text(folderLabel)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color(nsColor: theme.secondaryText))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    private func workspaceRowShell<Content: View>(
         workspace: WorkspaceStore.Workspace,
-        isSelected: Bool
+        isSelected: Bool,
+        folderPath: String?,
+        @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(spacing: 8) {
-            titleView
-            Spacer(minLength: 4)
+        HStack(alignment: .top, spacing: 10) {
+            workspaceIconView(for: folderPath)
+                .padding(.top, 1)
+
+            content()
+
+            Spacer(minLength: 6)
+
             Text("\(workspace.tiles.count)")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(
@@ -212,6 +250,7 @@ struct WorkspaceSidebarView: View {
                         ? Color(nsColor: theme.accent)
                         : Color(nsColor: theme.secondaryText)
                 )
+                .padding(.top, 2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -230,6 +269,48 @@ struct WorkspaceSidebarView: View {
                 : Color(nsColor: theme.primaryText).opacity(0.75)
         )
         .contentShape(Rectangle())
+    }
+
+    private func titleText(_ title: String, isSelected: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: isSelected ? .medium : .regular))
+            .lineLimit(1)
+    }
+
+    private func workspaceIconImage(for folderPath: String?) -> NSImage? {
+        guard let folderPath = WorkspaceStore.normalizedAssignedFolderPath(folderPath) else {
+            return nil
+        }
+        return TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: folderPath)
+    }
+
+    private func folderLabel(for folderPath: String?) -> String? {
+        guard let folderPath = WorkspaceStore.normalizedAssignedFolderPath(folderPath) else {
+            return nil
+        }
+        return (folderPath as NSString).abbreviatingWithTildeInPath
+    }
+
+    @ViewBuilder
+    private func workspaceIconView(for folderPath: String?) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.white.opacity(theme.isLightTheme ? 0.08 : 0.06))
+
+            if let icon = workspaceIconImage(for: folderPath) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                    .padding(0.5)
+            } else {
+                Image(systemName: folderPath == nil ? "rectangle.3.group" : "folder")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(nsColor: theme.secondaryText))
+            }
+        }
+        .frame(width: 16, height: 16)
     }
 
     private var sidebarBackground: some View {
@@ -275,26 +356,92 @@ struct WorkspaceSidebarView: View {
 
     private func beginRenaming(_ workspace: WorkspaceStore.Workspace) {
         interactionController.selectWorkspace(workspace.id)
-        renameDraft = workspace.title
+        renameDraft = workspace.usesAutomaticTitle ? "" : workspace.title
+        renameFolderDraft = workspace.folderPath
         renamingWorkspaceID = workspace.id
     }
 
     private func commitRenaming() {
         guard let renamingWorkspaceID else { return }
         store.renameWorkspace(renamingWorkspaceID, to: renameDraft)
+        store.setWorkspaceFolder(renamingWorkspaceID, to: renameFolderDraft)
         cancelRenaming()
     }
 
     private func cancelRenaming() {
         renamingWorkspaceID = nil
-        focusedRenameWorkspaceID = nil
         renameDraft = ""
+        renameFolderDraft = nil
+    }
+
+    private func chooseFolderForRename() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Assign"
+        panel.message = "Choose a folder for this strip."
+        if let directoryURL = initialFolderPickerURL() {
+            panel.directoryURL = directoryURL
+        }
+
+        if panel.runModal() == .OK {
+            renameFolderDraft = panel.url?.path(percentEncoded: false)
+        }
+    }
+
+    private func assignFolder(for workspace: WorkspaceStore.Workspace) {
+        interactionController.selectWorkspace(workspace.id)
+
+        if renamingWorkspaceID == workspace.id {
+            chooseFolderForRename()
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = workspace.folderPath == nil ? "Assign" : "Change"
+        panel.message = "Choose a folder for this strip."
+        if let currentPath = WorkspaceStore.normalizedAssignedFolderPath(workspace.folderPath) {
+            panel.directoryURL = URL(fileURLWithPath: currentPath, isDirectory: true)
+        } else if let initialURL = initialFolderPickerURL() {
+            panel.directoryURL = initialURL
+        }
+
+        if panel.runModal() == .OK {
+            store.setWorkspaceFolder(workspace.id, to: panel.url?.path(percentEncoded: false))
+        }
+    }
+
+    private func initialFolderPickerURL() -> URL? {
+        if let renameFolderDraft = WorkspaceStore.normalizedAssignedFolderPath(renameFolderDraft) {
+            return URL(fileURLWithPath: renameFolderDraft, isDirectory: true)
+        }
+
+        if let selectedTileID = store.selectedTileID,
+           let tile = store.tile(selectedTileID),
+           let pwd = tile.pwd,
+           !pwd.isEmpty {
+            return URL(fileURLWithPath: pwd, isDirectory: true)
+        }
+
+        return URL(fileURLWithPath: TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace(), isDirectory: true)
+    }
+
+    private func reorderWorkspace(
+        _ draggedWorkspaceID: UUID,
+        around targetWorkspaceID: UUID,
+        position: WorkspaceStore.WorkspaceDropPosition
+    ) {
+        guard renamingWorkspaceID == nil else { return }
+        store.moveWorkspace(draggedWorkspaceID, relativeTo: targetWorkspaceID, position: position)
     }
 
     private func createNewTile() {
         _ = runtime.createTile(
             nextTo: store.selectedTileID,
-            workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
             transition: .animatedReveal
         )
         focusSelectedTileIfNeeded()
@@ -309,31 +456,5 @@ struct WorkspaceSidebarView: View {
     private func focusSelectedTileIfNeeded() {
         guard let selectedTileID = store.selectedTileID else { return }
         runtime.focusSurface(tileID: selectedTileID)
-    }
-}
-
-struct SidebarVisibilityButton: View {
-    @EnvironmentObject private var chromeController: WindowChromeController
-
-    let theme: GhosttyAppTheme
-
-    var body: some View {
-        Button(action: chromeController.toggleSidebarVisibility) {
-            Image(systemName: chromeController.isSidebarHidden ? "sidebar.left" : "sidebar.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.82))
-                .frame(width: 32, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white.opacity(theme.isLightTheme ? 0.16 : 0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(theme.isLightTheme ? 0.16 : 0.08), lineWidth: 0.8)
-                )
-        }
-        .buttonStyle(.plain)
-        .help(chromeController.isSidebarHidden ? "Show sidebar" : "Hide sidebar")
-        .accessibilityIdentifier(TairiAccessibility.toggleSidebarButton)
     }
 }

@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 enum WorkspaceCanvasLayoutMetrics {
@@ -104,19 +105,30 @@ final class WorkspaceStore: ObservableObject {
         var title: String
         var tiles: [Tile]
         var horizontalOffset: CGFloat
+        var folderPath: String?
         var usesAutomaticTitle: Bool
+
+        var hasAssignedFolder: Bool {
+            WorkspaceStore.normalizedAssignedFolderPath(folderPath) != nil
+        }
+
+        var isPersistent: Bool {
+            !usesAutomaticTitle || hasAssignedFolder
+        }
 
         init(
             id: UUID = UUID(),
             title: String,
             tiles: [Tile] = [],
             horizontalOffset: CGFloat = 0,
+            folderPath: String? = nil,
             usesAutomaticTitle: Bool = true
         ) {
             self.id = id
             self.title = title
             self.tiles = tiles
             self.horizontalOffset = horizontalOffset
+            self.folderPath = folderPath
             self.usesAutomaticTitle = usesAutomaticTitle
         }
     }
@@ -128,20 +140,28 @@ final class WorkspaceStore: ObservableObject {
     @Published var selectedWorkspaceID: UUID
     @Published var selectedTileID: UUID?
 
+    let sidebarPersistence: WorkspaceSidebarPersistence
+    var persistenceObserver: AnyCancellable?
+
     init(
         initialTerminalWorkingDirectory: String = TerminalWorkingDirectory.defaultInitialLaunchDirectory(),
         initialStrips: [TairiLaunchConfiguration.Strip] = TairiLaunchConfiguration.defaultStrips,
-        initialTerminalSessionID: UUID = UUID()
+        initialTerminalSessionID: UUID = UUID(),
+        sidebarPersistence: WorkspaceSidebarPersistence = WorkspaceSidebarPersistence()
     ) {
+        self.sidebarPersistence = sidebarPersistence
         let initialState = Self.makeInitialState(
             initialTerminalWorkingDirectory: initialTerminalWorkingDirectory,
             initialStrips: initialStrips,
-            initialTerminalSessionID: initialTerminalSessionID
+            initialTerminalSessionID: initialTerminalSessionID,
+            persistedStrips: sidebarPersistence.loadStrips()
         )
         workspaces = initialState.workspaces
         selectedWorkspaceID = initialState.selectedWorkspaceID
         selectedTileID = initialState.selectedTileID
         normalize()
+        observeSidebarPersistence()
+        persistSidebarState()
     }
 
     var selectedWorkspace: Workspace {
@@ -219,6 +239,10 @@ final class WorkspaceStore: ObservableObject {
             return workingDirectory
         }
 
+        if let folderPath = assignedFolderPathForNewTile(nextTo: tileID) {
+            return folderPath
+        }
+
         if let tileID,
            let pwd = tile(tileID)?.pwd,
            !pwd.isEmpty {
@@ -232,6 +256,48 @@ final class WorkspaceStore: ObservableObject {
         }
 
         return TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
+    }
+
+    private func assignedFolderPathForNewTile(nextTo tileID: UUID?) -> String? {
+        if let tileID,
+           let workspace = workspaceContaining(tileID),
+           let folderPath = usableAssignedFolderPath(workspace.folderPath) {
+            return folderPath
+        }
+
+        guard let workspace = workspaces.first(where: { $0.id == selectedWorkspaceID }) else {
+            return nil
+        }
+
+        return usableAssignedFolderPath(workspace.folderPath)
+    }
+
+    func preferredWorkingDirectoryForNewTile(nextTo tileID: UUID?, fallback: String) -> String {
+        assignedFolderPathForNewTile(nextTo: tileID) ?? fallback
+    }
+
+    nonisolated static func normalizedAssignedFolderPath(_ folderPath: String?) -> String? {
+        guard let folderPath else { return nil }
+        let trimmed = folderPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(fileURLWithPath: trimmed, isDirectory: true)
+            .standardizedFileURL
+            .path(percentEncoded: false)
+    }
+
+    private func usableAssignedFolderPath(_ folderPath: String?) -> String? {
+        guard let normalizedPath = Self.normalizedAssignedFolderPath(folderPath) else {
+            return nil
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: normalizedPath, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            return nil
+        }
+
+        return normalizedPath
     }
 
     func selectWorkspace(
@@ -372,6 +438,43 @@ final class WorkspaceStore: ObservableObject {
             workspaces[workspaceIndex].title = trimmedTitle
             workspaces[workspaceIndex].usesAutomaticTitle = false
         }
+        normalize()
+    }
+
+    func setWorkspaceFolder(_ workspaceID: UUID, to proposedFolderPath: String?) {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[workspaceIndex].folderPath = Self.normalizedAssignedFolderPath(proposedFolderPath)
+        normalize()
+    }
+
+    enum WorkspaceDropPosition {
+        case before
+        case after
+    }
+
+    func moveWorkspace(_ workspaceID: UUID, relativeTo targetWorkspaceID: UUID, position: WorkspaceDropPosition) {
+        guard workspaceID != targetWorkspaceID,
+              let sourceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }),
+              let targetIndex = workspaces.firstIndex(where: { $0.id == targetWorkspaceID })
+        else {
+            return
+        }
+
+        let workspace = workspaces.remove(at: sourceIndex)
+        var adjustedTargetIndex = targetIndex
+        if sourceIndex < targetIndex {
+            adjustedTargetIndex -= 1
+        }
+
+        let insertionIndex: Int
+        switch position {
+        case .before:
+            insertionIndex = adjustedTargetIndex
+        case .after:
+            insertionIndex = adjustedTargetIndex + 1
+        }
+
+        workspaces.insert(workspace, at: min(max(insertionIndex, 0), workspaces.count))
         normalize()
     }
 
@@ -641,7 +744,7 @@ final class WorkspaceStore: ObservableObject {
         var next: [Workspace] = []
 
         for workspace in workspaces {
-            let shouldKeep = !workspace.tiles.isEmpty || workspace.id == selectedWorkspaceID
+            let shouldKeep = !workspace.tiles.isEmpty || workspace.id == selectedWorkspaceID || workspace.isPersistent
             if shouldKeep {
                 next.append(workspace)
             }
@@ -653,13 +756,13 @@ final class WorkspaceStore: ObservableObject {
             selectedWorkspaceID = fallback.id
         }
 
-        let placeholderCount = next.filter { $0.tiles.isEmpty }.count
+        let placeholderCount = next.filter { $0.tiles.isEmpty && !$0.isPersistent }.count
         if placeholderCount == 0 {
             next.append(Workspace(title: String(format: "%02d", next.count + 1)))
         } else if placeholderCount > 1 {
             var keptPlaceholder = false
             next.removeAll { workspace in
-                guard workspace.tiles.isEmpty else { return false }
+                guard workspace.tiles.isEmpty, !workspace.isPersistent else { return false }
                 if workspace.id == selectedWorkspaceID && !keptPlaceholder {
                     keptPlaceholder = true
                     return false

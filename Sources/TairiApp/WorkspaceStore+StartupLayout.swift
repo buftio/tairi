@@ -4,12 +4,38 @@ extension WorkspaceStore {
     static func makeInitialState(
         initialTerminalWorkingDirectory: String,
         initialStrips: [TairiLaunchConfiguration.Strip],
-        initialTerminalSessionID: UUID
+        initialTerminalSessionID: UUID,
+        persistedStrips: [PersistedWorkspaceStrip]
     ) -> (
         workspaces: [Workspace],
         selectedWorkspaceID: UUID,
         selectedTileID: UUID?
     ) {
+        if !persistedStrips.isEmpty {
+            let initialWorkingDirectory = WorkspaceStore.normalizedAssignedFolderPath(persistedStrips[0].folderPath)
+                ?? initialTerminalWorkingDirectory
+            let firstTile = Tile(
+                pwd: initialWorkingDirectory,
+                surface: .terminal(sessionID: initialTerminalSessionID)
+            )
+
+            let workspaces = persistedStrips.enumerated().map { index, strip in
+                Workspace(
+                    title: strip.customTitle ?? "",
+                    tiles: index == 0 ? [firstTile] : [],
+                    folderPath: strip.folderPath,
+                    usesAutomaticTitle: strip.customTitle == nil
+                )
+            }
+
+            let selectedWorkspaceID = workspaces[0].id
+            return (
+                workspaces: workspaces,
+                selectedWorkspaceID: selectedWorkspaceID,
+                selectedTileID: firstTile.id
+            )
+        }
+
         let strips = initialStrips.isEmpty ? TairiLaunchConfiguration.defaultStrips : initialStrips
         var hasAssignedInitialSession = false
         var firstTileID: UUID?

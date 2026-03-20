@@ -364,7 +364,6 @@ struct ContentView: View {
     private func createNewTile() {
         _ = runtime.createTile(
             nextTo: store.selectedTileID,
-            workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
             transition: .animatedReveal
         )
         focusSelectedTileIfNeeded()

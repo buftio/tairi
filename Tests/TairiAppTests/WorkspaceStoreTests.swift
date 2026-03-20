@@ -3,14 +3,24 @@ import XCTest
 
 @MainActor
 final class WorkspaceStoreTests: XCTestCase {
+    private nonisolated(unsafe) var userDefaultsSuiteNames: [String] = []
+
+    override func tearDown() {
+        for suiteName in userDefaultsSuiteNames {
+            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        }
+        userDefaultsSuiteNames = []
+        super.tearDown()
+    }
+
     func testInitialTileUsesProvidedWorkingDirectory() {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
 
         XCTAssertEqual(store.selectedTile?.pwd, "/tmp/dev-root")
     }
 
     func testNewTileInheritsSelectedTileDirectory() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         store.updatePWD("/tmp/project-a", for: firstTileID)
@@ -20,7 +30,7 @@ final class WorkspaceStoreTests: XCTestCase {
     }
 
     func testNewTileInEmptyWorkspaceFallsBackToHomeDirectory() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let emptyWorkspaceID = try XCTUnwrap(
             store.workspaces.first(where: { $0.id != store.selectedWorkspaceID })?.id
         )
@@ -31,8 +41,21 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(newTile.pwd, TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace())
     }
 
+    func testNewTilePrefersAssignedWorkspaceFolder() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+
+        store.updatePWD("/tmp/project-a", for: firstTileID)
+        store.setWorkspaceFolder(store.selectedWorkspaceID, to: tempDirectory)
+
+        let newTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+
+        XCTAssertEqual(newTile.pwd, tempDirectory)
+    }
+
     func testSplitTileCreatesVerticalSiblingOnSameWorkspaceAndDividesHeight() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
         let originalTile = try XCTUnwrap(store.selectedTile)
 
@@ -51,7 +74,7 @@ final class WorkspaceStoreTests: XCTestCase {
 
     func testInitialTileBindsSessionIdentity() throws {
         let sessionID = UUID()
-        let store = WorkspaceStore(
+        let store = makeStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",
             initialTerminalSessionID: sessionID
         )
@@ -60,7 +83,7 @@ final class WorkspaceStoreTests: XCTestCase {
     }
 
     func testInitialStripsCreateOneWorkspacePerStripWithConfiguredWidths() throws {
-        let store = WorkspaceStore(
+        let store = makeStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",
             initialStrips: [
                 .init(tileWidthFactors: [1, 1, 1]),
@@ -77,7 +100,7 @@ final class WorkspaceStoreTests: XCTestCase {
     }
 
     func testCustomWorkspaceTitleSurvivesNormalizationAndBlankRenameRestoresAutomaticTitle() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstWorkspaceID = try XCTUnwrap(store.workspaces.first?.id)
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
@@ -91,6 +114,33 @@ final class WorkspaceStoreTests: XCTestCase {
 
         XCTAssertEqual(store.workspaces.first?.title, "01")
         XCTAssertTrue(try XCTUnwrap(store.workspaces.first?.usesAutomaticTitle))
+    }
+
+    func testNamedWorkspaceStaysAfterClosingLastTile() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+        let tileID = try XCTUnwrap(store.selectedTileID)
+
+        store.renameWorkspace(workspaceID, to: "Inbox")
+        _ = store.closeTile(tileID)
+
+        let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
+        XCTAssertEqual(workspace.title, "Inbox")
+        XCTAssertTrue(workspace.tiles.isEmpty)
+    }
+
+    func testFolderAssignedWorkspaceStaysAfterClosingLastTile() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+        let tileID = try XCTUnwrap(store.selectedTileID)
+
+        store.setWorkspaceFolder(workspaceID, to: tempDirectory)
+        _ = store.closeTile(tileID)
+
+        let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
+        XCTAssertEqual(workspace.folderPath, tempDirectory)
+        XCTAssertTrue(workspace.tiles.isEmpty)
     }
 
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {
@@ -110,7 +160,7 @@ final class WorkspaceStoreTests: XCTestCase {
     }
 
     func testClosingSelectedTileChoosesNeighborNearestVisibleCenter() throws {
-        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         let middleTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
@@ -127,5 +177,78 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(selectedTileID, trailingNeighborTile.id)
         XCTAssertEqual(store.selectedTileID, trailingNeighborTile.id)
         XCTAssertNotEqual(store.selectedTileID, farTrailingTile.id)
+    }
+
+    func testMoveWorkspaceReordersList() throws {
+        let store = makeStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: [
+                .init(tileWidthFactors: [1]),
+                .init(tileWidthFactors: [1]),
+            ]
+        )
+        let originalIDs = store.workspaces.map(\.id)
+        let sourceID = try XCTUnwrap(originalIDs.dropFirst().first)
+        let targetID = try XCTUnwrap(originalIDs.first)
+
+        store.moveWorkspace(sourceID, relativeTo: targetID, position: .before)
+
+        XCTAssertEqual(store.workspaces.first?.id, sourceID)
+        XCTAssertEqual(store.workspaces.dropFirst().first?.id, targetID)
+    }
+
+    func testPersistentStripsRestoreFromSidebarPersistence() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let persistence = makeSidebarPersistence()
+        let initialStore = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            sidebarPersistence: persistence
+        )
+        let persistentWorkspaceID = try XCTUnwrap(
+            initialStore.workspaces.first(where: { $0.id != initialStore.selectedWorkspaceID })?.id
+        )
+
+        initialStore.renameWorkspace(persistentWorkspaceID, to: "Docs")
+        initialStore.setWorkspaceFolder(persistentWorkspaceID, to: tempDirectory)
+
+        let restoredStore = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            sidebarPersistence: persistence
+        )
+
+        let restoredWorkspace = try XCTUnwrap(restoredStore.workspaces.first(where: { $0.title == "Docs" }))
+        XCTAssertEqual(restoredWorkspace.folderPath, tempDirectory)
+        XCTAssertEqual(restoredStore.workspaces.first?.id, restoredWorkspace.id)
+        XCTAssertEqual(restoredStore.selectedWorkspaceID, restoredWorkspace.id)
+        XCTAssertEqual(restoredWorkspace.tiles.count, 1)
+        XCTAssertEqual(restoredWorkspace.tiles.first?.pwd, tempDirectory)
+    }
+
+    private func makeSidebarPersistence() -> WorkspaceSidebarPersistence {
+        let suiteName = "WorkspaceStoreTests.\(UUID().uuidString)"
+        userDefaultsSuiteNames.append(suiteName)
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        return WorkspaceSidebarPersistence(userDefaults: userDefaults)
+    }
+
+    private func makeStore(
+        initialTerminalWorkingDirectory: String,
+        initialStrips: [TairiLaunchConfiguration.Strip] = TairiLaunchConfiguration.defaultStrips,
+        initialTerminalSessionID: UUID = UUID()
+    ) -> WorkspaceStore {
+        WorkspaceStore(
+            initialTerminalWorkingDirectory: initialTerminalWorkingDirectory,
+            initialStrips: initialStrips,
+            initialTerminalSessionID: initialTerminalSessionID,
+            sidebarPersistence: makeSidebarPersistence()
+        )
+    }
+
+    private func makeTemporaryDirectory() throws -> String {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        return directoryURL.path(percentEncoded: false)
     }
 }

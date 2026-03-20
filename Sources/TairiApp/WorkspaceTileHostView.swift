@@ -12,6 +12,7 @@ final class WorkspaceTileHostView: NSView {
         static let closeButtonHitSize: CGFloat = 22
         static let closeButtonHitInset: CGFloat = headerHorizontalInset - ((closeButtonHitSize - closeButtonSize) / 2)
         static let iconSize: CGFloat = 16
+        static let iconCornerRadius: CGFloat = 3
         static let interItemSpacing: CGFloat = 8
     }
 
@@ -58,6 +59,9 @@ final class WorkspaceTileHostView: NSView {
         titleField.setAccessibilityIdentifier(TairiAccessibility.tileTitle(tileID))
         headerView.addSubview(titleField)
 
+        iconView.wantsLayer = true
+        iconView.layer?.cornerRadius = Metrics.iconCornerRadius
+        iconView.layer?.masksToBounds = true
         iconView.imageScaling = .scaleProportionallyUpOrDown
         headerView.addSubview(iconView)
 

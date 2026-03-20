@@ -50,6 +50,11 @@
 - Keep accessibility identifiers stable and prefer visible-behavior XCUITests.
 - Full guide: [docs/ui-testing.md](docs/ui-testing.md)
 
+## Keyboard Shortcuts
+
+- Keep app shortcuts in a single source of truth: [Sources/TairiApp/TairiHotkeys.swift](Sources/TairiApp/TairiHotkeys.swift).
+- UI hints, menu bindings, and event matching should derive from that file rather than hardcoding key combos in multiple places.
+
 # cmux
 
 cmux is oss app which as well it's loated in ~/p/oss/cmux

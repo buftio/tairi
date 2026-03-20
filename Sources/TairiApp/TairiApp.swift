@@ -84,7 +84,6 @@ struct TairiApp: App {
                 Button("New Tile") {
                     _ = runtime.createTile(
                         nextTo: store.selectedTileID,
-                        workingDirectory: runtime.spawnWorkingDirectory(for: store.selectedTileID),
                         transition: .animatedReveal
                     )
                     if let selectedTileID = store.selectedTileID {
