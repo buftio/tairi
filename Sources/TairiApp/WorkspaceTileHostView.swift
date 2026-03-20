@@ -6,22 +6,26 @@ final class WorkspaceTileHostView: NSView {
         static let cornerRadius: CGFloat = 10
         static let compactCornerRadius: CGFloat = 5
         static let compactCornerRadiusThreshold: CGFloat = 260
-        static let headerHeight: CGFloat = 62
-        static let headerPadding: CGFloat = 14
+        static let headerHeight: CGFloat = 34
+        static let headerHorizontalInset: CGFloat = 12
         static let closeButtonSize: CGFloat = 12
-        static let closeButtonTrailingInset: CGFloat = 14
+        static let closeButtonHitSize: CGFloat = 22
+        static let closeButtonHitInset: CGFloat = headerHorizontalInset - ((closeButtonHitSize - closeButtonSize) / 2)
+        static let iconSize: CGFloat = 16
+        static let interItemSpacing: CGFloat = 8
     }
 
     private let runtime: GhosttyRuntime
     private let contentContainerView = FlippedContainerView()
     private let borderShapeLayer = CAShapeLayer()
     private let titleField = NSTextField(labelWithString: "")
-    private let pathField = NSTextField(labelWithString: "")
-    private let closeButton = NSButton(title: "", target: nil, action: nil)
+    private let iconView = NSImageView()
+    private let closeButton = TrafficLightButton(frame: .zero)
     private let headerView = NSView()
     private let surfaceContainerView = NSView()
 
     private let tileID: UUID
+    private var currentTile: WorkspaceStore.Tile?
 
     override var isFlipped: Bool { true }
 
@@ -49,33 +53,24 @@ final class WorkspaceTileHostView: NSView {
         headerView.wantsLayer = true
         contentContainerView.addSubview(headerView)
 
-        titleField.font = .monospacedSystemFont(ofSize: 12, weight: .semibold)
-        titleField.lineBreakMode = .byTruncatingMiddle
+        titleField.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+        titleField.lineBreakMode = .byTruncatingHead
         titleField.setAccessibilityIdentifier(TairiAccessibility.tileTitle(tileID))
-        contentContainerView.addSubview(titleField)
+        headerView.addSubview(titleField)
 
-        pathField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        pathField.textColor = .secondaryLabelColor
-        pathField.lineBreakMode = .byTruncatingMiddle
-        pathField.setAccessibilityIdentifier(TairiAccessibility.tilePath(tileID))
-        contentContainerView.addSubview(pathField)
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        headerView.addSubview(iconView)
 
         closeButton.title = ""
         closeButton.isBordered = false
         closeButton.bezelStyle = .regularSquare
-        closeButton.wantsLayer = true
-        closeButton.layer?.cornerRadius = Metrics.closeButtonSize / 2
-        closeButton.layer?.backgroundColor = runtime.appTheme.closeButtonFill.cgColor
-        closeButton.layer?.borderWidth = 1
-        closeButton.layer?.borderColor = runtime.appTheme.closeButtonBorder.cgColor
         closeButton.target = self
         closeButton.action = #selector(closeTile)
         closeButton.setButtonType(.momentaryChange)
-        closeButton.contentTintColor = .clear
         closeButton.focusRingType = .none
         closeButton.setAccessibilityIdentifier(TairiAccessibility.tileCloseButton(tileID))
         closeButton.setAccessibilityLabel("Close tile")
-        contentContainerView.addSubview(closeButton)
+        headerView.addSubview(closeButton)
 
         surfaceContainerView.configureAccessibility(
             identifier: TairiAccessibility.tileSurface(tileID),
@@ -116,23 +111,31 @@ final class WorkspaceTileHostView: NSView {
         contentContainerView.layer?.masksToBounds = true
 
         headerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
+        let closeButtonY = floor((Metrics.headerHeight - Metrics.closeButtonHitSize) / 2)
         titleField.frame = NSRect(
-            x: Metrics.headerPadding,
-            y: 12,
-            width: max(bounds.width - 80, 60),
+            x: Metrics.headerHorizontalInset + Metrics.closeButtonSize + Metrics.interItemSpacing + Metrics.iconSize + Metrics.interItemSpacing,
+            y: floor((Metrics.headerHeight - 18) / 2),
+            width: max(
+                bounds.width
+                    - (Metrics.headerHorizontalInset * 2)
+                    - Metrics.closeButtonSize
+                    - Metrics.iconSize
+                    - (Metrics.interItemSpacing * 3),
+                60
+            ),
             height: 18
         )
-        pathField.frame = NSRect(
-            x: Metrics.headerPadding,
-            y: 31,
-            width: max(bounds.width - 96, 60),
-            height: 16
+        iconView.frame = NSRect(
+            x: Metrics.headerHorizontalInset + Metrics.closeButtonSize + Metrics.interItemSpacing,
+            y: floor((Metrics.headerHeight - Metrics.iconSize) / 2),
+            width: Metrics.iconSize,
+            height: Metrics.iconSize
         )
         closeButton.frame = NSRect(
-            x: bounds.width - Metrics.closeButtonTrailingInset - Metrics.closeButtonSize,
-            y: 15,
-            width: Metrics.closeButtonSize,
-            height: Metrics.closeButtonSize
+            x: Metrics.closeButtonHitInset,
+            y: closeButtonY,
+            width: Metrics.closeButtonHitSize,
+            height: Metrics.closeButtonHitSize
         )
         surfaceContainerView.frame = NSRect(
             x: 0,
@@ -152,14 +155,17 @@ final class WorkspaceTileHostView: NSView {
 
     func update(tile: WorkspaceStore.Tile, selected: Bool) {
         let theme = runtime.appTheme
-        titleField.stringValue = tile.title
-        pathField.stringValue = tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
-        setAccessibilityLabel("Workspace tile \(tile.title)")
+        currentTile = tile
+        let displayTitle = displayTitle(for: tile)
+        titleField.stringValue = displayTitle
+        refreshHeaderIcon()
+        setAccessibilityLabel("Workspace tile \(displayTitle)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
-        titleField.textColor = selected ? theme.tileActiveTitleText : theme.primaryText
-        pathField.textColor = selected ? theme.tileActivePathText : theme.secondaryText
-        contentContainerView.layer?.backgroundColor = theme.tileBackground.cgColor
+        titleField.textColor = selected
+            ? theme.primaryText
+            : theme.primaryText.withAlphaComponent(0.84)
+        contentContainerView.layer?.backgroundColor = theme.background.cgColor
         layer?.backgroundColor = NSColor.clear.cgColor
         borderShapeLayer.lineWidth = selected
             ? WorkspaceTileChromeMetrics.activeBorderWidth
@@ -175,10 +181,13 @@ final class WorkspaceTileHostView: NSView {
         layer?.shadowRadius = selected ? 18 : 0
         layer?.shadowOffset = .zero
 
-        headerView.layer?.backgroundColor = theme.tileHeaderBackground.cgColor
-        closeButton.layer?.backgroundColor = theme.closeButtonFill.cgColor
-        closeButton.layer?.borderColor = theme.closeButtonBorder.cgColor
-        closeButton.layer?.opacity = selected ? 1 : 0.9
+        headerView.layer?.backgroundColor = theme.background.cgColor
+        closeButton.configureAppearance(
+            fillColor: theme.closeButtonFill,
+            borderColor: theme.closeButtonBorder,
+            opacity: selected ? 1 : 0.92,
+            visualDiameter: Metrics.closeButtonSize
+        )
     }
 
     func dispose() {
@@ -211,10 +220,74 @@ final class WorkspaceTileHostView: NSView {
             ? Metrics.compactCornerRadius
             : Metrics.cornerRadius
     }
+
+    private func refreshHeaderIcon() {
+        guard let currentTile else { return }
+        guard let resolvedIcon = TerminalHeaderIconResolver.resolveIcon(
+            forWorkingDirectory: currentTile.pwd
+        )?.copy() as? NSImage else {
+            iconView.image = nil
+            return
+        }
+
+        resolvedIcon.size = NSSize(width: Metrics.iconSize, height: Metrics.iconSize)
+        iconView.image = resolvedIcon
+    }
+
+    private func displayTitle(for tile: WorkspaceStore.Tile) -> String {
+        guard let pwd = tile.pwd, !pwd.isEmpty else {
+            return tile.title
+        }
+
+        return NSString(string: pwd).abbreviatingWithTildeInPath
+    }
 }
 
 private final class FlippedContainerView: NSView {
     override var isFlipped: Bool { true }
+}
+
+private final class TrafficLightButton: NSButton {
+    private let indicatorView = NSView()
+    private var visualDiameter: CGFloat = 12
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        indicatorView.wantsLayer = true
+        addSubview(indicatorView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func layout() {
+        super.layout()
+        indicatorView.frame = NSRect(
+            x: floor((bounds.width - visualDiameter) / 2),
+            y: floor((bounds.height - visualDiameter) / 2),
+            width: visualDiameter,
+            height: visualDiameter
+        )
+    }
+
+    func configureAppearance(fillColor: NSColor, borderColor: NSColor, opacity: CGFloat, visualDiameter: CGFloat) {
+        self.visualDiameter = visualDiameter
+        layer?.backgroundColor = NSColor.clear.cgColor
+        layer?.opacity = 1
+        indicatorView.layer?.backgroundColor = fillColor.cgColor
+        indicatorView.layer?.borderColor = borderColor.cgColor
+        indicatorView.layer?.borderWidth = 1
+        indicatorView.layer?.cornerRadius = visualDiameter / 2
+        indicatorView.layer?.opacity = Float(opacity)
+        needsLayout = true
+    }
 }
 
 @MainActor
