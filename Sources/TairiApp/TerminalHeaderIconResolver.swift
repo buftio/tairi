@@ -30,6 +30,16 @@ enum TerminalHeaderIconResolver {
         "favicon.svg"
     ]
 
+    private static let iconSourceFiles = [
+        "index.html",
+        "public/index.html",
+        "app/routes/__root.tsx",
+        "src/routes/__root.tsx",
+        "app/root.tsx",
+        "src/root.tsx",
+        "src/index.html"
+    ]
+
     private static let projectRootMarkers = [
         "package.json",
         ".git",
@@ -49,27 +59,36 @@ enum TerminalHeaderIconResolver {
         "angular.json"
     ]
 
+    private static let linkIconHTMLRegex = try! NSRegularExpression(
+        pattern: #"<link\b(?=[^>]*\brel=["'](?:icon|shortcut icon)["'])(?=[^>]*\bhref=["']([^"'?]+))[^>]*>"#,
+        options: [.caseInsensitive]
+    )
+
+    private static let linkIconObjectRegex = try! NSRegularExpression(
+        pattern: #"(?=[^}]*\brel\s*:\s*["'](?:icon|shortcut icon)["'])(?=[^}]*\bhref\s*:\s*["']([^"'?]+))[^}]*"#,
+        options: [.caseInsensitive]
+    )
+
     static func resolveIcon(forWorkingDirectory pwd: String?) -> NSImage? {
-        if let assetIcon = frontendProjectIcon(forWorkingDirectory: pwd) {
+        if let iconURL = resolvedProjectIconURL(forWorkingDirectory: pwd),
+           let assetIcon = NSImage(contentsOf: iconURL) {
             return assetIcon
         }
         return directoryIcon(for: pwd)
     }
 
-    private static func frontendProjectIcon(forWorkingDirectory pwd: String?) -> NSImage? {
+    static func resolvedProjectIconURL(forWorkingDirectory pwd: String?) -> URL? {
         guard let startURL = workingDirectoryURL(for: pwd) else {
             return nil
         }
 
         for directoryURL in candidateProjectDirectories(startingAt: startURL) {
-            for relativePath in frontendIconCandidates {
-                let iconURL = directoryURL.appendingPathComponent(relativePath, isDirectory: false)
-                guard FileManager.default.fileExists(atPath: iconURL.path(percentEncoded: false)),
-                      let image = NSImage(contentsOf: iconURL)
-                else {
-                    continue
-                }
-                return image
+            if let iconURL = directProjectIconURL(in: directoryURL) {
+                return iconURL
+            }
+
+            if let iconURL = sourceDeclaredProjectIconURL(in: directoryURL) {
+                return iconURL
             }
         }
 
@@ -125,5 +144,85 @@ enum TerminalHeaderIconResolver {
             }
         }
         return false
+    }
+
+    private static func directProjectIconURL(in directoryURL: URL) -> URL? {
+        for relativePath in frontendIconCandidates {
+            let iconURL = directoryURL.appendingPathComponent(relativePath, isDirectory: false)
+            if FileManager.default.fileExists(atPath: iconURL.path(percentEncoded: false)) {
+                return iconURL
+            }
+        }
+        return nil
+    }
+
+    private static func sourceDeclaredProjectIconURL(in directoryURL: URL) -> URL? {
+        for relativePath in iconSourceFiles {
+            let sourceURL = directoryURL.appendingPathComponent(relativePath, isDirectory: false)
+            guard let source = try? String(contentsOf: sourceURL, encoding: .utf8),
+                  let href = extractIconHref(from: source)
+            else {
+                continue
+            }
+
+            for candidateURL in resolveIconHref(projectDirectoryURL: directoryURL, href: href) {
+                guard isPathWithinProject(projectDirectoryURL: directoryURL, candidateURL: candidateURL),
+                      FileManager.default.fileExists(atPath: candidateURL.path(percentEncoded: false))
+                else {
+                    continue
+                }
+                return candidateURL
+            }
+        }
+
+        return nil
+    }
+
+    private static func extractIconHref(from source: String) -> String? {
+        firstCapture(in: source, using: linkIconHTMLRegex) ?? firstCapture(in: source, using: linkIconObjectRegex)
+    }
+
+    private static func firstCapture(in source: String, using regex: NSRegularExpression) -> String? {
+        let range = NSRange(source.startIndex..<source.endIndex, in: source)
+        guard let match = regex.firstMatch(in: source, options: [], range: range),
+              match.numberOfRanges > 1,
+              let captureRange = Range(match.range(at: 1), in: source)
+        else {
+            return nil
+        }
+        return String(source[captureRange])
+    }
+
+    private static func resolveIconHref(projectDirectoryURL: URL, href: String) -> [URL] {
+        let cleanHref = href
+            .split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? href
+        let trimmedHref = cleanHref.trimmingCharacters(in: .whitespacesAndNewlines)
+        let relativePath = trimmedHref.hasPrefix("/") ? String(trimmedHref.dropFirst()) : trimmedHref
+        let publicDirectoryURL = projectDirectoryURL.appendingPathComponent("public", isDirectory: true)
+
+        return [
+            URL(fileURLWithPath: relativePath, relativeTo: publicDirectoryURL).standardizedFileURL,
+            URL(fileURLWithPath: relativePath, relativeTo: projectDirectoryURL).standardizedFileURL
+        ]
+    }
+
+    private static func isPathWithinProject(projectDirectoryURL: URL, candidateURL: URL) -> Bool {
+        let rawProjectPath = projectDirectoryURL.standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path(percentEncoded: false)
+        let projectPath = rawProjectPath.hasSuffix("/") && rawProjectPath.count > 1
+            ? String(rawProjectPath.dropLast())
+            : rawProjectPath
+        let candidatePath = candidateURL.standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path(percentEncoded: false)
+
+        if candidatePath == projectPath {
+            return true
+        }
+
+        return candidatePath.hasPrefix(projectPath + "/")
     }
 }
