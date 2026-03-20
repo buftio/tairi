@@ -4,7 +4,17 @@ import GhosttyDyn
 @MainActor
 extension GhosttySurfaceView {
     override func scrollWheel(with event: NSEvent) {
-        if interactionCoordinator?.handleScrollWheel(event) == true {
+        if interactionCoordinator?.handleHorizontalScroll(event) == true {
+            return
+        }
+
+        if let tileID = attachedTileID,
+           let workspaceOffset = TairiHotkeys.workspaceScrollOffset(
+               modifierFlags: event.modifierFlags,
+               deltaX: event.scrollingDeltaX,
+               deltaY: event.scrollingDeltaY
+           ),
+           interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true {
             return
         }
 

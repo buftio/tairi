@@ -15,6 +15,7 @@ struct EmptyWorkspaceStateView: View {
     @State private var isVisible = false
     @State private var isRenamingWorkspace = false
     @State private var renameDraft = ""
+    @State private var isShowingIconPicker = false
 
     let theme: GhosttyAppTheme
     let branding: WorkspaceEmptyStateBranding
@@ -25,7 +26,12 @@ struct EmptyWorkspaceStateView: View {
     var body: some View {
         VStack(spacing: 34) {
             if let icon = branding.icon {
-                brandingIcon(icon, usesWorkspaceIdentity: branding.usesWorkspaceIdentity)
+                Button(action: chooseIcon) {
+                    brandingIcon(icon, usesWorkspaceIdentity: branding.usesWorkspaceIdentity)
+                }
+                .buttonStyle(.plain)
+                .help("Choose strip icon")
+                .accessibilityIdentifier(TairiAccessibility.emptyWorkspaceChooseIconButton)
             }
 
             brandingContent
@@ -66,6 +72,20 @@ struct EmptyWorkspaceStateView: View {
         .onChange(of: store.selectedWorkspaceID) {
             cancelRenaming()
         }
+        .sheet(isPresented: $isShowingIconPicker) {
+            WorkspaceIconPickerSheet(
+                theme: theme,
+                selectedSymbolName: store.selectedWorkspace.iconSymbolName,
+                selectedFilePath: store.selectedWorkspace.iconFilePath,
+                onSelectSymbol: { selectedSymbolName in
+                    store.setWorkspaceIconSymbol(store.selectedWorkspaceID, to: selectedSymbolName)
+                },
+                onChooseImageFile: chooseIconFile,
+                onClearIcon: {
+                    store.clearWorkspaceIcon(store.selectedWorkspaceID)
+                }
+            )
+        }
         .accessibilityIdentifier(TairiAccessibility.emptyWorkspaceState)
     }
 
@@ -83,12 +103,7 @@ struct EmptyWorkspaceStateView: View {
                     .foregroundStyle(Color(nsColor: theme.secondaryText).opacity(0.8))
                     .lineLimit(1)
             } else {
-                managementButton(
-                    label: "Add folder",
-                    systemImage: "folder.badge.plus",
-                    accessibilityID: TairiAccessibility.emptyWorkspaceAddFolderButton,
-                    action: assignFolder
-                )
+                addFolderLabel
             }
         }
         .frame(height: Metrics.brandingTextHeight, alignment: .top)
@@ -136,21 +151,42 @@ struct EmptyWorkspaceStateView: View {
         )
     }
 
-    private func brandingIcon(_ icon: NSImage, usesWorkspaceIdentity: Bool) -> some View {
-        Image(nsImage: icon)
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
-            .frame(width: Metrics.brandingIconSize, height: Metrics.brandingIconSize)
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: Metrics.brandingCornerRadius,
-                    style: .continuous
+    private var addFolderLabel: some View {
+        Button(action: assignFolder) {
+            Label("Add folder", systemImage: "folder.badge.plus")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(nsColor: theme.secondaryText).opacity(0.9))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(TairiAccessibility.emptyWorkspaceAddFolderButton)
+    }
+
+    @ViewBuilder
+    private func brandingIcon(_ icon: WorkspaceDisplayIcon, usesWorkspaceIdentity: Bool) -> some View {
+        switch icon {
+        case let .image(image):
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: Metrics.brandingIconSize, height: Metrics.brandingIconSize)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: Metrics.brandingCornerRadius,
+                        style: .continuous
+                    )
                 )
-            )
-            .saturation(usesWorkspaceIdentity ? 1 : 0)
-            .opacity(usesWorkspaceIdentity ? (theme.isLightTheme ? 0.90 : 0.96) : (theme.isLightTheme ? 0.10 : 0.14))
-            .padding(.top, -12)
+                .saturation(usesWorkspaceIdentity ? 1 : 0)
+                .opacity(usesWorkspaceIdentity ? (theme.isLightTheme ? 0.90 : 0.96) : (theme.isLightTheme ? 0.10 : 0.14))
+                .padding(.top, -12)
+        case let .symbol(symbolName):
+            Image(systemName: symbolName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: Metrics.brandingIconSize * 0.7, height: Metrics.brandingIconSize * 0.7)
+                .foregroundStyle(Color(nsColor: theme.primaryText).opacity(usesWorkspaceIdentity ? 0.76 : 0.12))
+                .padding(.top, -8)
+        }
     }
 
     private func actionButton(
@@ -209,31 +245,6 @@ struct EmptyWorkspaceStateView: View {
             )
     }
 
-    private func managementButton(
-        label: String,
-        systemImage: String,
-        accessibilityID: String?,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Label(label, systemImage: systemImage)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.76))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: WindowLayoutMetrics.rowCornerRadius, style: .continuous)
-                        .fill(Color.white.opacity(theme.isLightTheme ? 0.10 : 0.06))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: WindowLayoutMetrics.rowCornerRadius, style: .continuous)
-                        .strokeBorder(Color.white.opacity(theme.isLightTheme ? 0.08 : 0.06), lineWidth: 0.8)
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(accessibilityID ?? "")
-    }
-
     private func beginRenaming() {
         guard !isRenamingWorkspace else { return }
         let workspace = store.selectedWorkspace
@@ -249,6 +260,17 @@ struct EmptyWorkspaceStateView: View {
     private func cancelRenaming() {
         isRenamingWorkspace = false
         renameDraft = ""
+    }
+
+    private func chooseIcon() {
+        isShowingIconPicker = true
+    }
+
+    private func chooseIconFile() {
+        let workspace = store.selectedWorkspace
+        if let filePath = WorkspaceStripIconFilePicker.chooseImageFile(for: workspace, store: store) {
+            store.setWorkspaceIconFilePath(workspace.id, to: filePath)
+        }
     }
 
     private func assignFolder() {

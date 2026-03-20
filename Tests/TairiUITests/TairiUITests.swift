@@ -28,15 +28,15 @@ final class TairiUITests: XCTestCase {
         defer { app.terminate() }
 
         XCTAssertTrue(app.otherElements[Identifiers.appRoot].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 01")
-        XCTAssertTrue(workspaceButton(in: app, titled: "01").exists)
-        XCTAssertTrue(workspaceButton(in: app, titled: "02").exists)
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace New Strip 1")
+        XCTAssertTrue(workspaceButton(in: app, titled: "New Strip 1").exists)
+        XCTAssertTrue(workspaceButton(in: app, titled: "New Strip 2").exists)
 
         createNewTile(in: app)
         XCTAssertEqual(tileQuery(in: app).count, 2)
 
-        workspaceButton(in: app, titled: "02").click()
-        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 02")
+        workspaceButton(in: app, titled: "New Strip 2").click()
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace New Strip 2")
 
         createNewTile(in: app)
         XCTAssertTrue(app.segmentedControls[Identifiers.widthPicker].waitForExistence(timeout: 5))
@@ -47,12 +47,12 @@ final class TairiUITests: XCTestCase {
         let app = try launchApp()
         defer { app.terminate() }
 
-        let workspaceButton = workspaceButton(in: app, titled: "02")
+        let workspaceButton = workspaceButton(in: app, titled: "New Strip 2")
         XCTAssertTrue(workspaceButton.waitForExistence(timeout: 10))
 
         workspaceButton.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.5)).click()
 
-        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 02")
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace New Strip 2")
     }
 
     func testSidebarKeepsSelectedWorkspaceVisibleWhenListOverflows() throws {
@@ -65,16 +65,16 @@ final class TairiUITests: XCTestCase {
             selectNextWorkspace(in: app)
             XCTAssertEqual(
                 app.staticTexts[Identifiers.workspaceTitle].label,
-                "Workspace \(String(format: "%02d", workspaceNumber))"
+                "Workspace New Strip \(workspaceNumber)"
             )
             createNewTile(in: app)
         }
 
         selectNextWorkspace(in: app)
 
-        let lastWorkspaceButton = workspaceButton(in: app, titled: "16")
+        let lastWorkspaceButton = workspaceButton(in: app, titled: "New Strip 16")
         XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 16")
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace New Strip 16")
         XCTAssertTrue(lastWorkspaceButton.isHittable)
     }
 
@@ -82,7 +82,7 @@ final class TairiUITests: XCTestCase {
         let app = try launchApp()
         defer { app.terminate() }
 
-        let initialWorkspaceButton = workspaceButton(in: app, titled: "01")
+        let initialWorkspaceButton = workspaceButton(in: app, titled: "New Strip 1")
         XCTAssertTrue(initialWorkspaceButton.waitForExistence(timeout: 10))
 
         initialWorkspaceButton.doubleClick()

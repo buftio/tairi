@@ -24,6 +24,7 @@ enum TairiAccessibility {
     static let emptyWorkspaceToggleSidebarHint = "empty-workspace-toggle-sidebar-hint"
     static let emptyWorkspaceKeyboardShortcutsHint = "empty-workspace-keyboard-shortcuts-hint"
     static let emptyWorkspaceAddFolderButton = "empty-workspace-add-folder-button"
+    static let emptyWorkspaceChooseIconButton = "empty-workspace-choose-icon-button"
 
     static func workspaceButton(_ workspaceID: UUID) -> String {
         "workspace-button-\(workspaceID.uuidString.lowercased())"

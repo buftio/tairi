@@ -21,7 +21,9 @@ extension WorkspaceStore {
 
                 return PersistedWorkspaceStrip(
                     customTitle: customTitle?.isEmpty == false ? customTitle : nil,
-                    folderPath: Self.normalizedAssignedFolderPath(workspace.folderPath)
+                    folderPath: Self.normalizedAssignedFolderPath(workspace.folderPath),
+                    iconSymbolName: Self.normalizedWorkspaceIconSymbolName(workspace.iconSymbolName),
+                    iconFilePath: Self.normalizedWorkspaceIconFilePath(workspace.iconFilePath)
                 )
             }
         )

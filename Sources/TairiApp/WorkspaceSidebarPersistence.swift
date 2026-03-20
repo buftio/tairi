@@ -3,6 +3,8 @@ import Foundation
 struct PersistedWorkspaceStrip: Codable, Equatable {
     var customTitle: String?
     var folderPath: String?
+    var iconSymbolName: String?
+    var iconFilePath: String?
 }
 
 final class WorkspaceSidebarPersistence {

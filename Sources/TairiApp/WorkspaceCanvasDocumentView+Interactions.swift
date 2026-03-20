@@ -45,6 +45,11 @@ extension WorkspaceCanvasDocumentView {
         }
     }
 
+    func handleHorizontalScrollGesture(_ event: NSEvent) -> Bool {
+        guard shouldTreatAsHorizontalScroll(event) else { return false }
+        return handleHorizontalScroll(event)
+    }
+
     func handleMagnify(_ event: NSEvent, preferredTileID: UUID?) -> Bool {
         zoomController.handleMagnify(
             event,

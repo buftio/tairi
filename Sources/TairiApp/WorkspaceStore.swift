@@ -106,14 +106,21 @@ final class WorkspaceStore: ObservableObject {
         var tiles: [Tile]
         var horizontalOffset: CGFloat
         var folderPath: String?
+        var iconSymbolName: String?
+        var iconFilePath: String?
         var usesAutomaticTitle: Bool
 
         var hasAssignedFolder: Bool {
             WorkspaceStore.normalizedAssignedFolderPath(folderPath) != nil
         }
 
+        var hasCustomIcon: Bool {
+            WorkspaceStore.normalizedWorkspaceIconSymbolName(iconSymbolName) != nil
+                || WorkspaceStore.normalizedWorkspaceIconFilePath(iconFilePath) != nil
+        }
+
         var isPersistent: Bool {
-            !usesAutomaticTitle || hasAssignedFolder
+            !usesAutomaticTitle || hasAssignedFolder || hasCustomIcon
         }
 
         init(
@@ -122,6 +129,8 @@ final class WorkspaceStore: ObservableObject {
             tiles: [Tile] = [],
             horizontalOffset: CGFloat = 0,
             folderPath: String? = nil,
+            iconSymbolName: String? = nil,
+            iconFilePath: String? = nil,
             usesAutomaticTitle: Bool = true
         ) {
             self.id = id
@@ -129,6 +138,8 @@ final class WorkspaceStore: ObservableObject {
             self.tiles = tiles
             self.horizontalOffset = horizontalOffset
             self.folderPath = folderPath
+            self.iconSymbolName = iconSymbolName
+            self.iconFilePath = iconFilePath
             self.usesAutomaticTitle = usesAutomaticTitle
         }
     }
@@ -281,6 +292,22 @@ final class WorkspaceStore: ObservableObject {
         let trimmed = folderPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return URL(fileURLWithPath: trimmed, isDirectory: true)
+            .standardizedFileURL
+            .path(percentEncoded: false)
+    }
+
+    nonisolated static func normalizedWorkspaceIconSymbolName(_ symbolName: String?) -> String? {
+        guard let symbolName else { return nil }
+        let trimmed = symbolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    nonisolated static func normalizedWorkspaceIconFilePath(_ filePath: String?) -> String? {
+        guard let filePath else { return nil }
+        let trimmed = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(fileURLWithPath: trimmed, isDirectory: false)
             .standardizedFileURL
             .path(percentEncoded: false)
     }
@@ -444,6 +471,27 @@ final class WorkspaceStore: ObservableObject {
     func setWorkspaceFolder(_ workspaceID: UUID, to proposedFolderPath: String?) {
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
         workspaces[workspaceIndex].folderPath = Self.normalizedAssignedFolderPath(proposedFolderPath)
+        normalize()
+    }
+
+    func setWorkspaceIconSymbol(_ workspaceID: UUID, to proposedSymbolName: String?) {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[workspaceIndex].iconSymbolName = Self.normalizedWorkspaceIconSymbolName(proposedSymbolName)
+        workspaces[workspaceIndex].iconFilePath = nil
+        normalize()
+    }
+
+    func setWorkspaceIconFilePath(_ workspaceID: UUID, to proposedFilePath: String?) {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[workspaceIndex].iconFilePath = Self.normalizedWorkspaceIconFilePath(proposedFilePath)
+        workspaces[workspaceIndex].iconSymbolName = nil
+        normalize()
+    }
+
+    func clearWorkspaceIcon(_ workspaceID: UUID) {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        workspaces[workspaceIndex].iconSymbolName = nil
+        workspaces[workspaceIndex].iconFilePath = nil
         normalize()
     }
 
@@ -705,14 +753,14 @@ final class WorkspaceStore: ObservableObject {
         }
 
         if next.isEmpty {
-            let fallback = Workspace(title: "01")
+            let fallback = Workspace(title: Self.automaticStripTitle(index: 1))
             next = [fallback]
             selectedWorkspaceID = fallback.id
         }
 
         let placeholderCount = next.filter { $0.tiles.isEmpty && !$0.isPersistent }.count
         if placeholderCount == 0 {
-            next.append(Workspace(title: String(format: "%02d", next.count + 1)))
+            next.append(Workspace(title: Self.automaticStripTitle(index: next.count + 1)))
         } else if placeholderCount > 1 {
             var keptPlaceholder = false
             next.removeAll { workspace in
@@ -730,7 +778,7 @@ final class WorkspaceStore: ObservableObject {
         }
 
         for index in next.indices {
-            let automaticTitle = String(format: "%02d", index + 1)
+            let automaticTitle = Self.automaticStripTitle(index: index + 1)
             if next[index].usesAutomaticTitle {
                 next[index].title = Self.automaticWorkspaceTitle(
                     for: next[index],

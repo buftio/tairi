@@ -24,6 +24,8 @@ extension WorkspaceStore {
                     title: strip.customTitle ?? "",
                     tiles: index == 0 ? [firstTile] : [],
                     folderPath: strip.folderPath,
+                    iconSymbolName: strip.iconSymbolName,
+                    iconFilePath: strip.iconFilePath,
                     usesAutomaticTitle: strip.customTitle == nil
                 )
             }
@@ -64,14 +66,14 @@ extension WorkspaceStore {
 
             return Workspace(
                 id: workspaceID,
-                title: String(format: "%02d", index + 1),
+                title: Self.automaticStripTitle(index: index + 1),
                 tiles: tiles
             )
         }
 
-        let selectedWorkspaceID = workspaces.first?.id ?? Workspace(title: "01").id
+        let selectedWorkspaceID = workspaces.first?.id ?? Workspace(title: Self.automaticStripTitle(index: 1)).id
         return (
-            workspaces: workspaces.isEmpty ? [Workspace(title: "01")] : workspaces,
+            workspaces: workspaces.isEmpty ? [Workspace(title: Self.automaticStripTitle(index: 1))] : workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
             selectedTileID: firstTileID
         )

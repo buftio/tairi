@@ -108,11 +108,11 @@ final class WorkspaceStoreTests: XCTestCase {
         _ = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
 
         XCTAssertEqual(store.workspaces.first?.title, "Inbox")
-        XCTAssertEqual(store.workspaces.dropFirst().first?.title, "02")
+        XCTAssertEqual(store.workspaces.dropFirst().first?.title, "New Strip 2")
 
         store.renameWorkspace(firstWorkspaceID, to: "   ")
 
-        XCTAssertEqual(store.workspaces.first?.title, "01")
+        XCTAssertEqual(store.workspaces.first?.title, "New Strip 1")
         XCTAssertTrue(try XCTUnwrap(store.workspaces.first?.usesAutomaticTitle))
     }
 
@@ -141,6 +141,30 @@ final class WorkspaceStoreTests: XCTestCase {
         let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
         XCTAssertEqual(workspace.folderPath, tempDirectory)
         XCTAssertTrue(workspace.tiles.isEmpty)
+    }
+
+    func testCustomIconWorkspaceStaysAfterClosingLastTile() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+        let tileID = try XCTUnwrap(store.selectedTileID)
+
+        store.setWorkspaceIconSymbol(workspaceID, to: "terminal")
+        _ = store.closeTile(tileID)
+
+        let workspace = try XCTUnwrap(store.workspaces.first(where: { $0.id == workspaceID }))
+        XCTAssertEqual(workspace.iconSymbolName, "terminal")
+        XCTAssertTrue(workspace.tiles.isEmpty)
+    }
+
+    func testSettingIconFileClearsExistingSymbol() {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+
+        store.setWorkspaceIconSymbol(workspaceID, to: "terminal")
+        store.setWorkspaceIconFilePath(workspaceID, to: "/tmp/custom-icon.png")
+
+        XCTAssertNil(store.selectedWorkspace.iconSymbolName)
+        XCTAssertEqual(store.selectedWorkspace.iconFilePath, "/tmp/custom-icon.png")
     }
 
     func testAutomaticWorkspaceTitleUsesAssignedFolderName() throws {
@@ -234,9 +258,13 @@ final class WorkspaceStoreTests: XCTestCase {
         let persistentWorkspaceID = try XCTUnwrap(
             initialStore.workspaces.first(where: { $0.id != initialStore.selectedWorkspaceID })?.id
         )
+        let iconFilePath = URL(fileURLWithPath: tempDirectory, isDirectory: true)
+            .appendingPathComponent("icon.png", isDirectory: false)
+            .path(percentEncoded: false)
 
         initialStore.renameWorkspace(persistentWorkspaceID, to: "Docs")
         initialStore.setWorkspaceFolder(persistentWorkspaceID, to: tempDirectory)
+        initialStore.setWorkspaceIconFilePath(persistentWorkspaceID, to: iconFilePath)
 
         let restoredStore = WorkspaceStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",
@@ -245,6 +273,8 @@ final class WorkspaceStoreTests: XCTestCase {
 
         let restoredWorkspace = try XCTUnwrap(restoredStore.workspaces.first(where: { $0.title == "Docs" }))
         XCTAssertEqual(restoredWorkspace.folderPath, tempDirectory)
+        XCTAssertEqual(restoredWorkspace.iconFilePath, iconFilePath)
+        XCTAssertNil(restoredWorkspace.iconSymbolName)
         XCTAssertEqual(restoredStore.workspaces.first?.id, restoredWorkspace.id)
         XCTAssertEqual(restoredStore.selectedWorkspaceID, restoredWorkspace.id)
         XCTAssertEqual(restoredWorkspace.tiles.count, 1)

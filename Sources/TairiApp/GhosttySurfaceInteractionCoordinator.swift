@@ -20,8 +20,8 @@ final class GhosttySurfaceInteractionCoordinator {
         documentView?.handleTileOverviewClick(tileID) == true
     }
 
-    func handleScrollWheel(_ event: NSEvent) -> Bool {
-        documentView?.handleScrollWheel(event) == true
+    func handleHorizontalScroll(_ event: NSEvent) -> Bool {
+        documentView?.handleHorizontalScrollGesture(event) == true
     }
 
     func handleMagnify(_ event: NSEvent, preferredTileID: UUID?) -> Bool {

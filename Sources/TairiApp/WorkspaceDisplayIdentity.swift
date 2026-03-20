@@ -1,9 +1,14 @@
 import AppKit
 import Foundation
 
+enum WorkspaceDisplayIcon {
+    case symbol(String)
+    case image(NSImage)
+}
+
 struct WorkspaceEmptyStateBranding {
     let title: String?
-    let icon: NSImage?
+    let icon: WorkspaceDisplayIcon?
     let usesWorkspaceIdentity: Bool
 }
 
@@ -11,16 +16,38 @@ enum WorkspaceDisplayIdentity {
     static let untitledStripTitle = "Untitled Strip"
 
     @MainActor
-    static func icon(for workspace: WorkspaceStore.Workspace) -> NSImage? {
-        icon(forFolderPath: workspace.folderPath)
+    static func icon(for workspace: WorkspaceStore.Workspace) -> WorkspaceDisplayIcon? {
+        icon(
+            forFolderPath: workspace.folderPath,
+            iconSymbolName: workspace.iconSymbolName,
+            iconFilePath: workspace.iconFilePath
+        )
     }
 
     @MainActor
-    static func icon(forFolderPath folderPath: String?) -> NSImage? {
+    static func icon(
+        forFolderPath folderPath: String?,
+        iconSymbolName: String? = nil,
+        iconFilePath: String? = nil
+    ) -> WorkspaceDisplayIcon? {
+        if let iconFilePath = WorkspaceStore.normalizedWorkspaceIconFilePath(iconFilePath),
+           let icon = NSImage(contentsOfFile: iconFilePath) {
+            return .image(icon)
+        }
+
+        if let iconSymbolName = WorkspaceStore.normalizedWorkspaceIconSymbolName(iconSymbolName),
+           WorkspaceStripIconCatalog.isSymbolAvailable(iconSymbolName) {
+            return .symbol(iconSymbolName)
+        }
+
         guard let folderPath = WorkspaceStore.normalizedAssignedFolderPath(folderPath) else {
             return nil
         }
-        return TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: folderPath)
+
+        guard let icon = TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: folderPath) else {
+            return nil
+        }
+        return .image(icon)
     }
 
     @MainActor
@@ -28,7 +55,7 @@ enum WorkspaceDisplayIdentity {
         for workspace: WorkspaceStore.Workspace,
         defaultIcon: NSImage?
     ) -> WorkspaceEmptyStateBranding {
-        if workspace.hasAssignedFolder,
+        if (workspace.hasAssignedFolder || workspace.hasCustomIcon),
            let icon = icon(for: workspace) {
             return WorkspaceEmptyStateBranding(
                 title: emptyStateTitle(for: workspace),
@@ -39,7 +66,7 @@ enum WorkspaceDisplayIdentity {
 
         return WorkspaceEmptyStateBranding(
             title: nil,
-            icon: defaultIcon,
+            icon: defaultIcon.map(WorkspaceDisplayIcon.image),
             usesWorkspaceIdentity: false
         )
     }

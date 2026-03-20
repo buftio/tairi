@@ -11,6 +11,7 @@ struct WorkspaceSidebarView: View {
     @State private var renameDraft = ""
     @State private var renameFolderDraft: String?
     @State private var workspaceDropIndicator: WorkspaceSidebarDropIndicator?
+    @State private var iconPickerWorkspaceID: UUID?
 
     let theme: GhosttyAppTheme
 
@@ -64,6 +65,36 @@ struct WorkspaceSidebarView: View {
         .onChange(of: chromeController.isSidebarHidden) {
             if chromeController.isSidebarHidden {
                 cancelRenaming()
+            }
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { iconPickerWorkspaceID != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        iconPickerWorkspaceID = nil
+                    }
+                }
+            )
+        ) {
+            if let workspaceID = iconPickerWorkspaceID,
+               let workspace = store.workspaces.first(where: { $0.id == workspaceID }) {
+                WorkspaceIconPickerSheet(
+                    theme: theme,
+                    selectedSymbolName: workspace.iconSymbolName,
+                    selectedFilePath: workspace.iconFilePath,
+                    onSelectSymbol: { selectedSymbolName in
+                        store.setWorkspaceIconSymbol(workspaceID, to: selectedSymbolName)
+                    },
+                    onChooseImageFile: {
+                        chooseIconFile(for: workspace)
+                    },
+                    onClearIcon: {
+                        store.clearWorkspaceIcon(workspaceID)
+                    }
+                )
+            } else {
+                EmptyView()
             }
         }
         .accessibilityIdentifier(TairiAccessibility.workspaceSidebar)
@@ -151,9 +182,19 @@ struct WorkspaceSidebarView: View {
                             chooseFolderForRename()
                         }
 
+                        Button(workspace.hasCustomIcon ? "Change Icon..." : "Choose Icon...") {
+                            presentIconPicker(for: workspace)
+                        }
+
                         if workspace.folderPath != nil {
                             Button("Clear Folder") {
                                 store.setWorkspaceFolder(workspace.id, to: nil)
+                            }
+                        }
+
+                        if workspace.hasCustomIcon {
+                            Button("Clear Icon") {
+                                store.clearWorkspaceIcon(workspace.id)
                             }
                         }
                     }
@@ -166,7 +207,9 @@ struct WorkspaceSidebarView: View {
         workspaceRowShell(
             workspace: workspace,
             isSelected: isSelected,
-            folderPath: workspace.folderPath
+            folderPath: workspace.folderPath,
+            iconSymbolName: workspace.iconSymbolName,
+            iconFilePath: workspace.iconFilePath
         ) {
             VStack(alignment: .leading, spacing: workspace.folderPath == nil ? 0 : 2) {
                 titleText(workspace.title, isSelected: isSelected)
@@ -185,7 +228,9 @@ struct WorkspaceSidebarView: View {
         workspaceRowShell(
             workspace: workspace,
             isSelected: isSelected,
-            folderPath: renameFolderDraft
+            folderPath: renameFolderDraft,
+            iconSymbolName: workspace.iconSymbolName,
+            iconFilePath: workspace.iconFilePath
         ) {
             VStack(alignment: .leading, spacing: 8) {
                 WorkspaceRenameField(
@@ -212,10 +257,17 @@ struct WorkspaceSidebarView: View {
         workspace: WorkspaceStore.Workspace,
         isSelected: Bool,
         folderPath: String?,
+        iconSymbolName: String?,
+        iconFilePath: String?,
         @ViewBuilder content: () -> Content
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            workspaceIconView(for: folderPath)
+            WorkspaceSidebarStripIconView(
+                theme: theme,
+                folderPath: folderPath,
+                iconSymbolName: iconSymbolName,
+                iconFilePath: iconFilePath
+            )
                 .padding(.top, 1)
 
             content()
@@ -245,10 +297,6 @@ struct WorkspaceSidebarView: View {
             .lineLimit(1)
     }
 
-    private func workspaceIconImage(for folderPath: String?) -> NSImage? {
-        WorkspaceDisplayIdentity.icon(forFolderPath: folderPath)
-    }
-
     private func folderLabel(for folderPath: String?) -> String? {
         guard let folderPath = WorkspaceStore.normalizedAssignedFolderPath(folderPath) else {
             return nil
@@ -256,26 +304,16 @@ struct WorkspaceSidebarView: View {
         return (folderPath as NSString).abbreviatingWithTildeInPath
     }
 
-    @ViewBuilder
-    private func workspaceIconView(for folderPath: String?) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color.white.opacity(theme.isLightTheme ? 0.08 : 0.06))
+    private func presentIconPicker(for workspace: WorkspaceStore.Workspace) {
+        interactionController.selectWorkspace(workspace.id)
+        iconPickerWorkspaceID = workspace.id
+    }
 
-            if let icon = workspaceIconImage(for: folderPath) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-                    .padding(0.5)
-            } else {
-                Image(systemName: folderPath == nil ? "macwindow" : "folder")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color(nsColor: theme.secondaryText))
-            }
+    private func chooseIconFile(for workspace: WorkspaceStore.Workspace) {
+        interactionController.selectWorkspace(workspace.id)
+        if let filePath = WorkspaceStripIconFilePicker.chooseImageFile(for: workspace, store: store) {
+            store.setWorkspaceIconFilePath(workspace.id, to: filePath)
         }
-        .frame(width: 16, height: 16)
     }
 
     private var sidebarBackground: some View {
