@@ -44,8 +44,14 @@ final class WorkspaceInteractionController: ObservableObject {
     }
 
     struct TileOpenAnimation: Equatable {
+        enum Kind: Equatable {
+            case columnOpen
+            case verticalSplit(sourceTileID: UUID)
+        }
+
         let id: Int
         let tileID: UUID
+        let kind: Kind
         let animated: Bool
     }
 
@@ -126,6 +132,7 @@ final class WorkspaceInteractionController: ObservableObject {
             tileOpenAnimation = TileOpenAnimation(
                 id: nextTransitionID,
                 tileID: tile.id,
+                kind: .columnOpen,
                 animated: transition == .animatedReveal
             )
             nextTransitionID += 1
@@ -148,6 +155,7 @@ final class WorkspaceInteractionController: ObservableObject {
             tileOpenAnimation = TileOpenAnimation(
                 id: nextTransitionID,
                 tileID: tile.id,
+                kind: .verticalSplit(sourceTileID: tileID),
                 animated: transition == .animatedReveal
             )
             nextTransitionID += 1

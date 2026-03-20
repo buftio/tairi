@@ -66,6 +66,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     var resizeHandles: [UUID: WorkspaceTileResizeHandleView] = [:]
     var closingTileSnapshotView: WorkspaceClosingSnapshotView?
     var closingTileSnapshotAnimation: WorkspaceInteractionController.TileCloseAnimation?
+    var verticalSplitOpenAnimation: VerticalSplitOpenAnimation?
     var lastVerticalScrollEventAt = Date.distantPast
     var lastDiscreteVerticalNavigationAt = Date.distantPast
     var verticalScrollAccumulator: CGFloat = 0
@@ -159,6 +160,7 @@ final class WorkspaceCanvasDocumentView: NSView {
             view.removeFromSuperview()
             tileViews.removeValue(forKey: tileID)
         }
+        pruneVerticalSplitOpenAnimation(using: allTileIDs)
 
         animator.pruneOffsets(workspaces: workspaces)
 
@@ -293,7 +295,7 @@ final class WorkspaceCanvasDocumentView: NSView {
                         )
                     } else {
                         overviewRenderer.hidePreview(for: tile.id)
-                        tileView.frame = focusedFrame
+                        tileView.frame = effectiveFocusedFrame(for: tile.id, targetFrame: focusedFrame)
                     }
                 }
 

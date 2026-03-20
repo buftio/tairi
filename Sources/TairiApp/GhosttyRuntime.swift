@@ -38,6 +38,7 @@ final class GhosttyRuntime: ObservableObject {
     private var didInstallAppObservers = false
     var lastInputTileID: UUID?
     var lastInputAt: Date?
+    private var focusedTileID: UUID?
     private var pendingFocusedTileID: UUID?
 
     init(
@@ -178,6 +179,7 @@ final class GhosttyRuntime: ObservableObject {
 
     func didFocusSurface(sessionID: UUID) {
         guard let tileID = attachedTileID(for: sessionID) else { return }
+        focusedTileID = tileID
         interactionController.selectTile(tileID)
     }
 
@@ -212,7 +214,10 @@ final class GhosttyRuntime: ObservableObject {
     }
 
     func splitSelectedTileHorizontally() {
-        guard let tileID = store.selectedTileID else { return }
+        let tileID = [pendingFocusedTileID, focusedTileID, store.selectedTileID]
+            .compactMap { $0 }
+            .first(where: { store.tile($0) != nil })
+        guard let tileID else { return }
         splitTileHorizontally(tileID: tileID)
     }
 

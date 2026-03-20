@@ -20,6 +20,7 @@ struct EmptyWorkspaceStateView: View {
     let branding: WorkspaceEmptyStateBranding
     let createNewTile: () -> Void
     let toggleSidebar: () -> Void
+    let openKeyboardShortcuts: () -> Void
 
     var body: some View {
         VStack(spacing: 34) {
@@ -41,6 +42,12 @@ struct EmptyWorkspaceStateView: View {
                     hotkey: TairiHotkeys.toggleSidebar,
                     id: TairiAccessibility.emptyWorkspaceToggleSidebarHint,
                     action: toggleSidebar
+                )
+                actionButton(
+                    title: "Keyboard shortcuts",
+                    hotkey: TairiHotkeys.openKeyboardShortcuts,
+                    id: TairiAccessibility.emptyWorkspaceKeyboardShortcutsHint,
+                    action: openKeyboardShortcuts
                 )
             }
         }
@@ -172,6 +179,8 @@ struct EmptyWorkspaceStateView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)

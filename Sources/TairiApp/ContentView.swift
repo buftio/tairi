@@ -10,17 +10,6 @@ enum WindowLayoutMetrics {
 }
 
 private enum WindowTexture {
-    static let paper: NSImage? = {
-        guard let url = Bundle.module.url(
-            forResource: "paper",
-            withExtension: "png",
-            subdirectory: "Textures"
-        ) else {
-            return nil
-        }
-        return NSImage(contentsOf: url)
-    }()
-
     static let appIcon: NSImage? = {
         guard let url = Bundle.module.url(
             forResource: "AppIcon",
@@ -76,12 +65,19 @@ struct ContentView: View {
     @EnvironmentObject private var runtime: GhosttyRuntime
     @EnvironmentObject private var chromeController: WindowChromeController
     @EnvironmentObject private var spotlightController: TileSpotlightController
+    @EnvironmentObject private var shortcutsController: KeyboardShortcutsController
     @State private var resolvedWindow: NSWindow?
     @StateObject private var trafficLightsController = WindowTrafficLightsController()
     @State private var isTrafficLightsHovering = false
 
     private var theme: GhosttyAppTheme { runtime.appTheme }
     private var isSelectedWorkspaceEmpty: Bool { store.selectedWorkspace.tiles.isEmpty }
+    private var totalTileCount: Int { store.workspaces.reduce(0) { $0 + $1.tiles.count } }
+    private var shouldShowZoomOutOverviewButton: Bool {
+        runtime.errorMessage == nil
+            && totalTileCount > 3
+            && interactionController.canvasZoomMode != .overview
+    }
     @MainActor
     private var emptyWorkspaceBranding: WorkspaceEmptyStateBranding {
         WorkspaceDisplayIdentity.emptyStateBranding(
@@ -169,9 +165,34 @@ struct ContentView: View {
                     theme: theme,
                     branding: emptyWorkspaceBranding,
                     createNewTile: createNewTile,
-                    toggleSidebar: chromeController.toggleSidebarVisibility
+                    toggleSidebar: chromeController.toggleSidebarVisibility,
+                    openKeyboardShortcuts: shortcutsController.present
                 )
                     .padding(.horizontal, 24)
+                    .offset(x: chromeController.renderedStripLeadingInset / 2)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if shouldShowZoomOutOverviewButton {
+                Button(action: interactionController.zoomOutCanvas) {
+                    Image(systemName: "minus.magnifyingglass")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.82))
+                        .frame(width: 34, height: 30)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(Color.white.opacity(theme.isLightTheme ? 0.16 : 0.08))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .strokeBorder(Color.white.opacity(theme.isLightTheme ? 0.16 : 0.08), lineWidth: 0.8)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help("Zoom out overview (\(TairiHotkeys.zoomOutOverview.displayLabel))")
+                .padding(.trailing, 18)
+                .padding(.bottom, 18)
+                .accessibilityIdentifier(TairiAccessibility.zoomOutOverviewButton)
             }
         }
         .accessibilityIdentifier(TairiAccessibility.mainPanel)
@@ -180,94 +201,12 @@ struct ContentView: View {
     private var windowBackground: some View {
         ZStack {
             Rectangle()
-                .fill(.clear)
-                .background(
-                    ZStack {
-                        WindowGlassBackgroundView(
-                            material: .hudWindow,
-                            opacity: min(settings.windowGlassOpacity * 0.82, 1)
-                        )
-                        WindowGlassBackgroundView(
-                            material: .underWindowBackground,
-                            opacity: min(settings.windowGlassOpacity * 0.55, 1)
-                        )
-                    }
-                )
+                .fill(.ultraThinMaterial)
 
-            if theme.isLightTheme {
-                LinearGradient(
-                    colors: [
-                        Color(nsColor: theme.windowBackgroundTop),
-                        Color(nsColor: theme.windowBackgroundBottom),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .opacity(0.18 + (Double(settings.windowGlassOpacity) * 0.16))
-
-                Rectangle()
-                    .fill(
-                        Color(nsColor: theme.foreground)
-                            .opacity(0.05 + (Double(settings.windowGlassOpacity) * 0.05))
-                    )
-
-                if let paperTexture = WindowTexture.paper {
-                    Rectangle()
-                        .fill(
-                            ImagePaint(
-                                image: Image(nsImage: paperTexture),
-                                scale: 0.35
-                            )
-                        )
-                        .saturation(0)
-                        .contrast(1.12)
-                        .colorMultiply(Color(nsColor: theme.paperTextureTint))
-                        .blendMode(.multiply)
-                        .opacity(0.14 + (Double(settings.windowGlassOpacity) * 0.14))
-
-                    Rectangle()
-                        .fill(
-                            ImagePaint(
-                                image: Image(nsImage: paperTexture),
-                                scale: 0.55
-                            )
-                        )
-                        .saturation(0)
-                        .contrast(1.08)
-                        .blendMode(.overlay)
-                        .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.08))
-                }
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(nsColor: theme.windowBackgroundTop),
-                        Color(nsColor: theme.windowBackgroundBottom),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .opacity(0.08 + (Double(settings.windowGlassOpacity) * 0.05))
-
-                Rectangle()
-                    .fill(
-                        Color(nsColor: theme.foreground)
-                            .opacity(0.02 + (Double(settings.windowGlassOpacity) * 0.03))
-                    )
-
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.05),
-                                Color.clear,
-                            ],
-                            startPoint: .top,
-                            endPoint: UnitPoint(x: 0.5, y: 0.42)
-                        )
-                    )
-            }
+            Rectangle()
+                .fill(Color(nsColor: theme.background))
+                .opacity(theme.isLightTheme ? 0.16 : 0.22)
         }
-        .clipped()
     }
 
     private func unavailable(_ error: String) -> some View {

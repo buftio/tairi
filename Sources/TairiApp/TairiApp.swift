@@ -10,6 +10,7 @@ struct TairiApp: App {
     @StateObject private var runtime: GhosttyRuntime
     @StateObject private var chromeController: WindowChromeController
     @StateObject private var spotlightController: TileSpotlightController
+    @StateObject private var shortcutsController = KeyboardShortcutsController()
 
     init() {
         TairiCrashReporter.shared.install()
@@ -43,9 +44,21 @@ struct TairiApp: App {
                 .environmentObject(runtime)
                 .environmentObject(chromeController)
                 .environmentObject(spotlightController)
+                .environmentObject(shortcutsController)
+                .sheet(isPresented: $shortcutsController.isPresented) {
+                    KeyboardShortcutsCheatsheetView()
+                        .environmentObject(shortcutsController)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    NSApp.sendAction(NSSelectorFromString("showSettingsWindow:"), to: nil, from: nil)
+                }
+                .tairiKeyboardShortcut(TairiHotkeys.openAppSettings)
+            }
+
             CommandGroup(after: .appSettings) {
                 Button("Ghostty Settings...") {
                     GhosttyConfigAccess.openSettingsFile()
@@ -60,6 +73,13 @@ struct TairiApp: App {
             }
 
             CommandMenu("Keybindings") {
+                Button("Keyboard Shortcuts...") {
+                    shortcutsController.present()
+                }
+                .tairiKeyboardShortcut(TairiHotkeys.openKeyboardShortcuts)
+
+                Divider()
+
                 ForEach(Array(TairiHotkeys.sections.enumerated()), id: \.element.id) { index, section in
                     if index > 0 {
                         Divider()

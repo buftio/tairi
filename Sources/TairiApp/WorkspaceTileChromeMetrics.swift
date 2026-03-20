@@ -9,7 +9,7 @@ enum WorkspaceTileChromeMetrics {
     static let backgroundMaterial: NSVisualEffectView.Material = .underWindowBackground
 
     // Border
-    static let activeBorderWidth: CGFloat = 3.5
+    static let activeBorderWidth: CGFloat = 2.3
     static let inactiveBorderWidth: CGFloat = 1
 
     static func cornerRadius(for size: CGSize) -> CGFloat {

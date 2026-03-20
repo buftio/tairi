@@ -90,6 +90,10 @@ enum TairiHotkeyKey {
 }
 
 enum TairiHotkeys {
+    static let openAppSettings = TairiHotkey(
+        key: .character("."),
+        modifiers: [.command]
+    )
     static let openGhosttySettings = TairiHotkey(
         key: .character(","),
         modifiers: [.command, .option]
@@ -129,6 +133,10 @@ enum TairiHotkeys {
     static let toggleSidebar = TairiHotkey(
         key: .character("b"),
         modifiers: [.command, .option]
+    )
+    static let openKeyboardShortcuts = TairiHotkey(
+        key: .character("/"),
+        modifiers: [.command]
     )
     static let zoomOutOverview = TairiHotkey(
         key: .character("-"),
@@ -178,6 +186,7 @@ enum TairiHotkeys {
             id: "settings",
             title: "Settings",
             entries: [
+                .init(id: "openAppSettings", title: "App Settings", hotkey: openAppSettings),
                 .init(id: "openGhosttySettings", title: "Ghostty Settings", hotkey: openGhosttySettings),
                 .init(
                     id: "reloadGhosttyConfiguration",

@@ -75,7 +75,8 @@ extension GhosttySurfaceView {
         guard let surface else {
             return super.performKeyEquivalent(with: event)
         }
-        if handleSplitShortcut(event, surface: surface) {
+        if window?.firstResponder === self,
+           handleSplitShortcut(event, surface: surface) {
             return true
         }
         return super.performKeyEquivalent(with: event)

@@ -219,17 +219,6 @@ struct WorkspaceSidebarView: View {
                 .padding(.top, 1)
 
             content()
-
-            Spacer(minLength: 6)
-
-            Text("\(workspace.tiles.count)")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(
-                    isSelected
-                        ? Color(nsColor: theme.accent)
-                        : Color(nsColor: theme.secondaryText)
-                )
-                .padding(.top, 2)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -281,7 +270,7 @@ struct WorkspaceSidebarView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                     .padding(0.5)
             } else {
-                Image(systemName: folderPath == nil ? "rectangle.3.group" : "folder")
+                Image(systemName: folderPath == nil ? "macwindow" : "folder")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color(nsColor: theme.secondaryText))
             }
@@ -290,19 +279,14 @@ struct WorkspaceSidebarView: View {
     }
 
     private var sidebarBackground: some View {
-        RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
-            .fill(.clear)
-            .background(
-                WindowGlassBackgroundView(
-                    material: .hudWindow,
-                    opacity: 1.0,
-                    blendingMode: .withinWindow,
-                    appearanceName: .darkAqua
-                )
-            )
-            .clipShape(
-                RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
-            )
+        ZStack {
+            RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+
+            RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
+                .fill(Color(nsColor: theme.background))
+                .opacity(theme.isLightTheme ? 0.61 : 0.72)
+        }
     }
 
     private func scrollSelectedWorkspace(in proxy: ScrollViewProxy, animated: Bool = true) {

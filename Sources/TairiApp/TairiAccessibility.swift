@@ -13,6 +13,7 @@ enum TairiAccessibility {
     static let previousWorkspaceButton = "previous-workspace-button"
     static let nextWorkspaceButton = "next-workspace-button"
     static let toggleSidebarButton = "toggle-sidebar-button"
+    static let zoomOutOverviewButton = "zoom-out-overview-button"
     static let tileSpotlight = "tile-spotlight"
     static let tileSpotlightSearchField = "tile-spotlight-search-field"
     static let tileSpotlightResults = "tile-spotlight-results"
@@ -21,6 +22,7 @@ enum TairiAccessibility {
     static let emptyWorkspaceTitle = "empty-workspace-title"
     static let emptyWorkspaceCreateTileHint = "empty-workspace-create-tile-hint"
     static let emptyWorkspaceToggleSidebarHint = "empty-workspace-toggle-sidebar-hint"
+    static let emptyWorkspaceKeyboardShortcutsHint = "empty-workspace-keyboard-shortcuts-hint"
     static let emptyWorkspaceAddFolderButton = "empty-workspace-add-folder-button"
 
     static func workspaceButton(_ workspaceID: UUID) -> String {

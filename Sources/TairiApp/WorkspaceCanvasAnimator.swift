@@ -2,6 +2,11 @@ import Foundation
 
 @MainActor
 final class WorkspaceCanvasAnimator {
+    enum OpeningTileAnimationStyle: Equatable {
+        case widthExpand
+        case verticalSplit
+    }
+
     private enum Metrics {
         static let horizontalRevealAnimationDuration: TimeInterval = 0.2
         static let stripLeadingInsetAnimationDuration: TimeInterval = 0.28
@@ -19,6 +24,7 @@ final class WorkspaceCanvasAnimator {
 
     private struct OpeningTileAnimation {
         let tileID: UUID
+        let style: OpeningTileAnimationStyle
         let startedAt: Date
     }
 
@@ -139,7 +145,11 @@ final class WorkspaceCanvasAnimator {
         return renderedClosingGapWidth
     }
 
-    func queueOpeningTile(tileID: UUID, animated: Bool) {
+    func queueOpeningTile(
+        tileID: UUID,
+        animated: Bool,
+        style: OpeningTileAnimationStyle
+    ) {
         guard animationPolicy.shouldAnimate(animated) else {
             stopOpeningTileAnimation()
             onChange?()
@@ -147,7 +157,11 @@ final class WorkspaceCanvasAnimator {
         }
 
         renderedOpeningTileProgress = 0
-        openingTileAnimation = OpeningTileAnimation(tileID: tileID, startedAt: Date())
+        openingTileAnimation = OpeningTileAnimation(
+            tileID: tileID,
+            style: style,
+            startedAt: Date()
+        )
 
         openingTileAnimationTimer?.invalidate()
         let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
@@ -161,10 +175,22 @@ final class WorkspaceCanvasAnimator {
     }
 
     func effectiveTileWidth(_ width: CGFloat, for tileID: UUID) -> CGFloat {
-        guard let openingTileAnimation, openingTileAnimation.tileID == tileID else {
+        guard let progress = openingTileProgress(for: tileID, style: .widthExpand) else {
             return width
         }
-        return width * renderedOpeningTileProgress
+        return width * progress
+    }
+
+    func openingTileProgress(
+        for tileID: UUID,
+        style: OpeningTileAnimationStyle
+    ) -> CGFloat? {
+        guard let openingTileAnimation,
+              openingTileAnimation.tileID == tileID,
+              openingTileAnimation.style == style else {
+            return nil
+        }
+        return renderedOpeningTileProgress
     }
 
     func syncRenderedHorizontalOffsets(for workspaces: [WorkspaceStore.Workspace]) {

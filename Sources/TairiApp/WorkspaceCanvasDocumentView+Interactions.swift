@@ -87,10 +87,21 @@ extension WorkspaceCanvasDocumentView {
     }
 
     func animateTileOpen(_ animation: WorkspaceInteractionController.TileOpenAnimation) {
-        animator.queueOpeningTile(
-            tileID: animation.tileID,
-            animated: animation.animated
-        )
+        switch animation.kind {
+        case .columnOpen:
+            verticalSplitOpenAnimation = nil
+            animator.queueOpeningTile(
+                tileID: animation.tileID,
+                animated: animation.animated,
+                style: .widthExpand
+            )
+        case .verticalSplit(let sourceTileID):
+            queueVerticalSplitOpenAnimation(
+                tileID: animation.tileID,
+                sourceTileID: sourceTileID,
+                animated: animation.animated
+            )
+        }
     }
 
     func layoutClosingTileSnapshotIfNeeded(
