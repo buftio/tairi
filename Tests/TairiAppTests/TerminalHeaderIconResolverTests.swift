@@ -31,6 +31,28 @@ final class TerminalHeaderIconResolverTests: XCTestCase {
         )
     }
 
+    func testResolvedProjectIconURLFindsSwiftAppIconFromNestedSourceDirectory() throws {
+        let projectURL = try makeTemporaryDirectory(prefix: "tairi-icon-swift-")
+        try "// swift-tools-version: 6.0".write(
+            to: projectURL.appendingPathComponent("Package.swift", isDirectory: false),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let sourceDirectoryURL = projectURL.appendingPathComponent("Sources/MyApp", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectoryURL, withIntermediateDirectories: true)
+
+        let iconURL = projectURL.appendingPathComponent("Assets/AppIcon.png", isDirectory: false)
+        try writeTestPNG(to: iconURL)
+
+        XCTAssertEqual(
+            TerminalHeaderIconResolver.resolvedProjectIconURL(
+                forWorkingDirectory: sourceDirectoryURL.path(percentEncoded: false)
+            )?.standardizedFileURL,
+            iconURL.standardizedFileURL
+        )
+    }
+
     func testResolvedProjectIconURLResolvesHTMLIconMetadata() throws {
         let projectURL = try makeTemporaryDirectory(prefix: "tairi-icon-html-")
         let iconURL = projectURL.appendingPathComponent("public/brand/logo.png", isDirectory: false)
@@ -56,6 +78,29 @@ final class TerminalHeaderIconResolverTests: XCTestCase {
         )
     }
 
+    func testResolvedProjectIconURLFindsPythonStaticIcon() throws {
+        let projectURL = try makeTemporaryDirectory(prefix: "tairi-icon-python-")
+        try """
+        [project]
+        name = "example"
+        version = "0.1.0"
+        """.write(
+            to: projectURL.appendingPathComponent("pyproject.toml", isDirectory: false),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let iconURL = projectURL.appendingPathComponent("static/icon.png", isDirectory: false)
+        try writeTestPNG(to: iconURL)
+
+        XCTAssertEqual(
+            TerminalHeaderIconResolver.resolvedProjectIconURL(
+                forWorkingDirectory: projectURL.path(percentEncoded: false)
+            )?.standardizedFileURL,
+            iconURL.standardizedFileURL
+        )
+    }
+
     func testResolvedProjectIconURLResolvesObjectMetadataWhenHrefPrecedesRel() throws {
         let projectURL = try makeTemporaryDirectory(prefix: "tairi-icon-object-")
         let iconURL = projectURL.appendingPathComponent("public/brand/object.png", isDirectory: false)
@@ -70,6 +115,30 @@ final class TerminalHeaderIconResolverTests: XCTestCase {
             atomically: true,
             encoding: .utf8
         )
+
+        XCTAssertEqual(
+            TerminalHeaderIconResolver.resolvedProjectIconURL(
+                forWorkingDirectory: projectURL.path(percentEncoded: false)
+            )?.standardizedFileURL,
+            iconURL.standardizedFileURL
+        )
+    }
+
+    func testResolvedProjectIconURLFindsRustTauriIcon() throws {
+        let projectURL = try makeTemporaryDirectory(prefix: "tairi-icon-rust-")
+        try """
+        [package]
+        name = "example"
+        version = "0.1.0"
+        edition = "2021"
+        """.write(
+            to: projectURL.appendingPathComponent("Cargo.toml", isDirectory: false),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let iconURL = projectURL.appendingPathComponent("src-tauri/icons/icon.png", isDirectory: false)
+        try writeTestPNG(to: iconURL)
 
         XCTAssertEqual(
             TerminalHeaderIconResolver.resolvedProjectIconURL(
