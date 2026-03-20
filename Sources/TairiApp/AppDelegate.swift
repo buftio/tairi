@@ -3,7 +3,6 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
         activateApp()
     }
 
@@ -16,8 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func activateApp() {
-        NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-        NSApp.activate(ignoringOtherApps: true)
+        AppActivation.bringAppToFront()
 
         DispatchQueue.main.async {
             if let keyWindow = NSApp.keyWindow {

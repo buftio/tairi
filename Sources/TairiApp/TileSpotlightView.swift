@@ -78,13 +78,13 @@ struct TileSpotlightView: View {
             )
             isSearchFieldFocused = true
         }
-        .onChange(of: spotlightController.query) { _ in
+        .onChange(of: spotlightController.query) {
             spotlightController.selectedResultID = results.first?.id
             TairiLog.write(
                 "spotlight query changed query=\(spotlightController.query.debugDescription) results=\(results.count) selected=\(spotlightController.selectedResultID?.uuidString ?? "none")"
             )
         }
-        .onChange(of: results) { _ in
+        .onChange(of: results) {
             spotlightController.syncSelection(with: results)
             TairiLog.write(
                 "spotlight results updated query=\(spotlightController.query.debugDescription) results=\(results.count) selected=\(spotlightController.selectedResultID?.uuidString ?? "none")"
@@ -226,7 +226,7 @@ struct TileSpotlightView: View {
                 .padding(.horizontal, TileSpotlightMetrics.listHorizontalPad)
             }
             .frame(height: resultListHeight)
-            .onChange(of: spotlightController.selectedResultID) { selectedResultID in
+            .onChange(of: spotlightController.selectedResultID) { _, selectedResultID in
                 guard let selectedResultID else { return }
                 withAnimation(.easeInOut(duration: 0.12)) {
                     proxy.scrollTo(selectedResultID, anchor: .center)

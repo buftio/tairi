@@ -93,18 +93,16 @@ struct ContentView: View {
         .background(windowBackground)
         .ignoresSafeArea()
         .onAppear {
-            NSApp.setActivationPolicy(.regular)
-            NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-            NSApp.activate(ignoringOtherApps: true)
+            AppActivation.bringAppToFront()
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
-        .onChange(of: chromeController.isSidebarHidden) { _ in
+        .onChange(of: chromeController.isSidebarHidden) {
             if !chromeController.isSidebarHidden {
                 isTrafficLightsHovering = false
             }
             syncWindowChrome()
         }
-        .onChange(of: isTrafficLightsHovering) { _ in
+        .onChange(of: isTrafficLightsHovering) {
             syncWindowChrome()
         }
         .background(
@@ -189,7 +187,7 @@ struct ContentView: View {
             .onAppear {
                 scrollSelectedWorkspace(in: proxy, animated: false)
             }
-            .onChange(of: store.selectedWorkspaceID) { _ in
+            .onChange(of: store.selectedWorkspaceID) {
                 scrollSelectedWorkspace(in: proxy)
             }
             .accessibilityIdentifier(TairiAccessibility.workspaceList)
