@@ -150,6 +150,8 @@ Run them with:
 ./scripts/test-ui.sh
 ```
 
+Auxiliary diagnostics and CI helper scripts live under `scripts/misc/`.
+
 Common first-run issues:
 
 - the pinned Ghostty download may fail if it cannot be fetched

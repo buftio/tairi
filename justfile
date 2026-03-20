@@ -43,4 +43,4 @@ rebuild-app:
   just bundle
 
 diagnose-claude mode="plain":
-  if [[ "{{mode}}" == "with-cmux-hooks" ]]; then ./scripts/diagnose-claude.sh --with-cmux-hooks; else ./scripts/diagnose-claude.sh --without-hooks; fi
+  if [[ "{{mode}}" == "with-cmux-hooks" ]]; then ./scripts/misc/diagnose-claude.sh --with-cmux-hooks; else ./scripts/misc/diagnose-claude.sh --without-hooks; fi

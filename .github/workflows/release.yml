@@ -36,7 +36,7 @@ jobs:
           bash -n scripts/generate-homebrew-cask.sh
           bash -n scripts/package-release.sh
           bash -n scripts/release-config.sh
-          bash -n scripts/retry.sh
+          bash -n scripts/misc/retry.sh
 
       - name: Run tests
         shell: bash
@@ -155,7 +155,7 @@ jobs:
           TAIRI_NOTARY_ISSUER: ${{ env.TAIRI_NOTARY_ISSUER }}
         run: |
           set -euo pipefail
-          ./scripts/retry.sh 3 30 ./scripts/package-release.sh
+          ./scripts/misc/retry.sh 3 30 ./scripts/package-release.sh
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

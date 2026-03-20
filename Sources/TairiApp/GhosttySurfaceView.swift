@@ -41,7 +41,7 @@ final class GhosttySurfaceView: NSView {
         }
 
         let command = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("scripts/diagnose-shell-session.zsh")
+            .appendingPathComponent("scripts/misc/diagnose-shell-session.zsh")
             .path(percentEncoded: false)
         return FileManager.default.isExecutableFile(atPath: command) ? command : nil
     }()
