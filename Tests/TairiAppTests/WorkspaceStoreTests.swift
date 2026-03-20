@@ -76,6 +76,23 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspaces[1].tiles[0].width, WorkspaceStore.WidthPreset.standard.width * 0.5, accuracy: 0.001)
     }
 
+    func testCustomWorkspaceTitleSurvivesNormalizationAndBlankRenameRestoresAutomaticTitle() throws {
+        let store = WorkspaceStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstWorkspaceID = try XCTUnwrap(store.workspaces.first?.id)
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+
+        store.renameWorkspace(firstWorkspaceID, to: "Inbox")
+        _ = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+
+        XCTAssertEqual(store.workspaces.first?.title, "Inbox")
+        XCTAssertEqual(store.workspaces.dropFirst().first?.title, "02")
+
+        store.renameWorkspace(firstWorkspaceID, to: "   ")
+
+        XCTAssertEqual(store.workspaces.first?.title, "01")
+        XCTAssertTrue(try XCTUnwrap(store.workspaces.first?.usesAutomaticTitle))
+    }
+
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

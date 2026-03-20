@@ -11,12 +11,11 @@ private enum Identifiers {
     static let widthPicker = "tile-width-picker"
     static let newTileButton = "new-tile-button"
     static let nextWorkspaceButton = "next-workspace-button"
+    static let toggleSidebarButton = "toggle-sidebar-button"
     static let tileSpotlight = "tile-spotlight"
     static let tileSpotlightSearchField = "tile-spotlight-search-field"
-
-    static func workspaceButton(_ title: String) -> String {
-        "workspace-button-\(title)"
-    }
+    static let workspaceButtonPrefix = "workspace-button-"
+    static let workspaceRenameFieldPrefix = "workspace-rename-field-"
 }
 
 @MainActor
@@ -33,13 +32,13 @@ final class TairiUITests: XCTestCase {
 
         XCTAssertTrue(app.otherElements[Identifiers.appRoot].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 01")
-        XCTAssertTrue(app.buttons[Identifiers.workspaceButton("01")].exists)
-        XCTAssertTrue(app.buttons[Identifiers.workspaceButton("02")].exists)
+        XCTAssertTrue(workspaceButton(in: app, titled: "01").exists)
+        XCTAssertTrue(workspaceButton(in: app, titled: "02").exists)
 
         app.buttons[Identifiers.newTileButton].click()
         XCTAssertEqual(tileQuery(in: app).count, 2)
 
-        app.buttons[Identifiers.workspaceButton("02")].click()
+        workspaceButton(in: app, titled: "02").click()
         XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 02")
 
         app.buttons[Identifiers.newTileButton].click()
@@ -51,7 +50,7 @@ final class TairiUITests: XCTestCase {
         let app = try launchApp()
         defer { app.terminate() }
 
-        let workspaceButton = app.buttons[Identifiers.workspaceButton("02")]
+        let workspaceButton = workspaceButton(in: app, titled: "02")
         XCTAssertTrue(workspaceButton.waitForExistence(timeout: 10))
 
         workspaceButton.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.5)).click()
@@ -76,10 +75,30 @@ final class TairiUITests: XCTestCase {
 
         app.buttons[Identifiers.nextWorkspaceButton].click()
 
-        let lastWorkspaceButton = app.buttons[Identifiers.workspaceButton("16")]
+        let lastWorkspaceButton = workspaceButton(in: app, titled: "16")
         XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace 16")
         XCTAssertTrue(lastWorkspaceButton.isHittable)
+    }
+
+    func testWorkspaceCanBeRenamedFromSidebar() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let initialWorkspaceButton = workspaceButton(in: app, titled: "01")
+        XCTAssertTrue(initialWorkspaceButton.waitForExistence(timeout: 10))
+
+        initialWorkspaceButton.doubleClick()
+
+        let renameField = workspaceRenameField(in: app)
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        renameField.click()
+        app.typeKey("a", modifierFlags: [.command])
+        app.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        renameField.typeText("Inbox\n")
+
+        XCTAssertTrue(workspaceButton(in: app, titled: "Inbox").waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts[Identifiers.workspaceTitle].label, "Workspace Inbox")
     }
 
     func testInitialTileStartsImmediatelyAfterSidebar() throws {
@@ -205,6 +224,22 @@ final class TairiUITests: XCTestCase {
 
     private func tileQuery(in app: XCUIApplication) -> XCUIElementQuery {
         app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "workspace-tile-"))
+    }
+
+    private func workspaceButton(in app: XCUIApplication, titled title: String) -> XCUIElement {
+        app.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                Identifiers.workspaceButtonPrefix,
+                title
+            )
+        ).firstMatch
+    }
+
+    private func workspaceRenameField(in app: XCUIApplication) -> XCUIElement {
+        app.textFields.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", Identifiers.workspaceRenameFieldPrefix)
+        ).firstMatch
     }
 
     private func tileResizeHandleQuery(in app: XCUIApplication) -> XCUIElementQuery {

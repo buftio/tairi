@@ -509,11 +509,7 @@ final class GhosttySurfaceView: NSView {
     }
 
     private func isHorizontalSplitShortcut(_ event: NSEvent) -> Bool {
-        let requiredModifiers: NSEvent.ModifierFlags = [.command, .shift]
-        let activeModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard activeModifiers.contains(requiredModifiers) else { return false }
-        guard !activeModifiers.contains(.option), !activeModifiers.contains(.control) else { return false }
-        return event.charactersIgnoringModifiers?.lowercased() == "d"
+        TairiHotkeys.splitHorizontally.matches(event)
     }
 
     private func recordInputIfAttached() {

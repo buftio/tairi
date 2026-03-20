@@ -104,12 +104,20 @@ final class WorkspaceStore: ObservableObject {
         var title: String
         var tiles: [Tile]
         var horizontalOffset: CGFloat
+        var usesAutomaticTitle: Bool
 
-        init(id: UUID = UUID(), title: String, tiles: [Tile] = [], horizontalOffset: CGFloat = 0) {
+        init(
+            id: UUID = UUID(),
+            title: String,
+            tiles: [Tile] = [],
+            horizontalOffset: CGFloat = 0,
+            usesAutomaticTitle: Bool = true
+        ) {
             self.id = id
             self.title = title
             self.tiles = tiles
             self.horizontalOffset = horizontalOffset
+            self.usesAutomaticTitle = usesAutomaticTitle
         }
     }
 
@@ -352,6 +360,19 @@ final class WorkspaceStore: ObservableObject {
 
     func updatePWD(_ pwd: String, for tileID: UUID) {
         mutateTile(tileID) { $0.pwd = pwd }
+    }
+
+    func renameWorkspace(_ workspaceID: UUID, to proposedTitle: String) {
+        let trimmedTitle = proposedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
+        if trimmedTitle.isEmpty {
+            workspaces[workspaceIndex].usesAutomaticTitle = true
+        } else {
+            workspaces[workspaceIndex].title = trimmedTitle
+            workspaces[workspaceIndex].usesAutomaticTitle = false
+        }
+        normalize()
     }
 
     @discardableResult
@@ -652,7 +673,13 @@ final class WorkspaceStore: ObservableObject {
         }
 
         for index in next.indices {
-            next[index].title = String(format: "%02d", index + 1)
+            let automaticTitle = String(format: "%02d", index + 1)
+            if next[index].usesAutomaticTitle {
+                next[index].title = automaticTitle
+            } else if next[index].title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                next[index].title = automaticTitle
+                next[index].usesAutomaticTitle = true
+            }
         }
 
         if !next.contains(where: { $0.id == selectedWorkspaceID }) {

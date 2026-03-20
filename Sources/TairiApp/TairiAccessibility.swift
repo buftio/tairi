@@ -12,13 +12,21 @@ enum TairiAccessibility {
     static let newTileButton = "new-tile-button"
     static let previousWorkspaceButton = "previous-workspace-button"
     static let nextWorkspaceButton = "next-workspace-button"
+    static let toggleSidebarButton = "toggle-sidebar-button"
     static let tileSpotlight = "tile-spotlight"
     static let tileSpotlightSearchField = "tile-spotlight-search-field"
     static let tileSpotlightResults = "tile-spotlight-results"
     static let runtimeError = "runtime-error"
+    static let emptyWorkspaceState = "empty-workspace-state"
+    static let emptyWorkspaceCreateTileHint = "empty-workspace-create-tile-hint"
+    static let emptyWorkspaceToggleSidebarHint = "empty-workspace-toggle-sidebar-hint"
 
-    static func workspaceButton(_ title: String) -> String {
-        "workspace-button-\(title)"
+    static func workspaceButton(_ workspaceID: UUID) -> String {
+        "workspace-button-\(workspaceID.uuidString.lowercased())"
+    }
+
+    static func workspaceRenameField(_ workspaceID: UUID) -> String {
+        "workspace-rename-field-\(workspaceID.uuidString.lowercased())"
     }
 
     static func tile(_ tileID: UUID) -> String {

@@ -50,20 +50,34 @@ struct TairiApp: App {
                 Button("Ghostty Settings...") {
                     openGhosttySettings()
                 }
-                .keyboardShortcut(",", modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.openGhosttySettings)
 
                 Button("Reload Ghostty Configuration") {
                     runtime.reloadConfiguration()
                 }
-                .keyboardShortcut(",", modifiers: [.command, .shift])
+                .tairiKeyboardShortcut(TairiHotkeys.reloadGhosttyConfiguration)
                 .disabled(runtime.errorMessage != nil)
+            }
+
+            CommandMenu("Keybindings") {
+                ForEach(Array(TairiHotkeys.sections.enumerated()), id: \.element.id) { index, section in
+                    if index > 0 {
+                        Divider()
+                    }
+
+                    Menu(section.title) {
+                        ForEach(section.entries) { entry in
+                            shortcutReferenceButton(title: entry.title, hotkey: entry.hotkey)
+                        }
+                    }
+                }
             }
 
             CommandMenu("Workspace") {
                 Button("Search Tiles...") {
                     spotlightController.toggle(selecting: store.selectedTileID)
                 }
-                .keyboardShortcut("k", modifiers: [.command])
+                .tairiKeyboardShortcut(TairiHotkeys.searchTiles)
 
                 Divider()
 
@@ -77,12 +91,12 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut("n", modifiers: [.command])
+                .tairiKeyboardShortcut(TairiHotkeys.newTile)
 
                 Button("Split Horizontally") {
                     runtime.splitSelectedTileHorizontally()
                 }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
+                .tairiKeyboardShortcut(TairiHotkeys.splitHorizontally)
 
                 Button("Previous Tile") {
                     interactionController.selectAdjacentTile(offset: -1, transition: .animatedReveal)
@@ -90,7 +104,7 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.previousTile)
 
                 Button("Next Tile") {
                     interactionController.selectAdjacentTile(offset: 1, transition: .animatedReveal)
@@ -98,7 +112,7 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.nextTile)
 
                 Button("Previous Workspace") {
                     interactionController.selectAdjacentWorkspace(offset: -1)
@@ -106,7 +120,7 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.previousWorkspace)
 
                 Button("Next Workspace") {
                     interactionController.selectAdjacentWorkspace(offset: 1)
@@ -114,21 +128,21 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.nextWorkspace)
 
                 Divider()
 
                 Button(chromeController.isSidebarHidden ? "Show Sidebar" : "Hide Sidebar") {
                     chromeController.toggleSidebarVisibility()
                 }
-                .keyboardShortcut("b", modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.toggleSidebar)
 
                 Divider()
 
                 Button("Zoom Out Overview") {
                     interactionController.zoomOutCanvas()
                 }
-                .keyboardShortcut("-", modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.zoomOutOverview)
 
                 Button("Zoom In Selection") {
                     interactionController.zoomInOnSelection(transition: .animatedReveal)
@@ -136,7 +150,7 @@ struct TairiApp: App {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
                 }
-                .keyboardShortcut("=", modifiers: [.command, .option])
+                .tairiKeyboardShortcut(TairiHotkeys.zoomInSelection)
             }
         }
         Settings {
@@ -160,5 +174,11 @@ struct TairiApp: App {
         } catch {
             TairiLog.write("open ghostty settings failed error=\(error.localizedDescription)")
         }
+    }
+
+    @ViewBuilder
+    private func shortcutReferenceButton(title: String, hotkey: TairiHotkey) -> some View {
+        Button("\(title) (\(hotkey.displayLabel))") {}
+            .disabled(true)
     }
 }
