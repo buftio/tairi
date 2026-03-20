@@ -62,10 +62,6 @@ extension WorkspaceCanvasDocumentView {
         return true
     }
 
-    var currentStripLeadingInset: CGFloat {
-        targetStripLeadingInset
-    }
-
     func animateTileClose(_ animation: WorkspaceInteractionController.TileCloseAnimation) {
         animator.queueClosingGap(
             workspaceID: animation.workspaceID,

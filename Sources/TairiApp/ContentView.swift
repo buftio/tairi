@@ -147,7 +147,8 @@ struct ContentView: View {
                     store: store,
                     interactionController: interactionController,
                     runtime: runtime,
-                    sidebarHidden: chromeController.isSidebarHidden
+                    sidebarHidden: chromeController.isSidebarHidden,
+                    renderedStripLeadingInset: chromeController.renderedStripLeadingInset
                 )
             }
         }

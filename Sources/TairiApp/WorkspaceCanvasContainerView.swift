@@ -16,6 +16,7 @@ final class WorkspaceCanvasContainerView: NSView {
     private var currentSelectedTileID: UUID?
     private var currentCanvasZoomMode: WorkspaceInteractionController.CanvasZoomMode = .focused
     private var currentSidebarHidden = false
+    private var currentRenderedStripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     private var shouldSuppressFallbackReveal = false
     private var hasStabilizedInitialViewport = false
     private var lastSidebarHidden: Bool?
@@ -79,19 +80,22 @@ final class WorkspaceCanvasContainerView: NSView {
         canvasZoomMode: WorkspaceInteractionController.CanvasZoomMode,
         tileCloseAnimation: WorkspaceInteractionController.TileCloseAnimation?,
         tileOpenAnimation: WorkspaceInteractionController.TileOpenAnimation?,
-        sidebarHidden: Bool
+        sidebarHidden: Bool,
+        renderedStripLeadingInset: CGFloat
     ) {
         currentSelectedWorkspaceID = selectedWorkspaceID
         currentSelectedTileID = selectedTileID
         currentCanvasZoomMode = canvasZoomMode
         currentSidebarHidden = sidebarHidden
+        currentRenderedStripLeadingInset = renderedStripLeadingInset
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
             selectedTileID: selectedTileID,
             allTileIDs: allTileIDs,
             canvasZoomMode: canvasZoomMode,
-            sidebarHidden: sidebarHidden
+            sidebarHidden: sidebarHidden,
+            renderedStripLeadingInset: renderedStripLeadingInset
         )
         setAccessibilityValue(canvasZoomMode == .overview ? "overview" : "focused")
         documentView.viewportSize = scrollView.contentView.bounds.size
@@ -179,7 +183,8 @@ final class WorkspaceCanvasContainerView: NSView {
             selectedTileID: store.selectedTileID,
             allTileIDs: allTileIDs,
             canvasZoomMode: currentCanvasZoomMode,
-            sidebarHidden: currentSidebarHidden
+            sidebarHidden: currentSidebarHidden,
+            renderedStripLeadingInset: currentRenderedStripLeadingInset
         )
         documentView.viewportSize = scrollView.contentView.bounds.size
         documentView.layoutSubtreeIfNeeded()

@@ -7,6 +7,7 @@ struct WorkspaceCanvasView: NSViewRepresentable {
     @ObservedObject var interactionController: WorkspaceInteractionController
     @ObservedObject var runtime: GhosttyRuntime
     let sidebarHidden: Bool
+    let renderedStripLeadingInset: CGFloat
 
     func makeNSView(context: Context) -> WorkspaceCanvasContainerView {
         WorkspaceCanvasContainerView(
@@ -29,7 +30,8 @@ struct WorkspaceCanvasView: NSViewRepresentable {
             canvasZoomMode: interactionController.canvasZoomMode,
             tileCloseAnimation: interactionController.tileCloseAnimation,
             tileOpenAnimation: interactionController.tileOpenAnimation,
-            sidebarHidden: sidebarHidden
+            sidebarHidden: sidebarHidden,
+            renderedStripLeadingInset: renderedStripLeadingInset
         )
     }
 }
@@ -69,6 +71,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     var verticalScrollAccumulator: CGFloat = 0
     var didNavigateDuringCurrentScrollGesture = false
     var isSidebarHidden = false
+    var currentStripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     var workspaceScrollAnimationTimer: Timer?
     var workspaceScrollAnimationStartOrigin: NSPoint = .zero
     var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
@@ -127,17 +130,15 @@ final class WorkspaceCanvasDocumentView: NSView {
         selectedTileID: UUID?,
         allTileIDs: Set<UUID>,
         canvasZoomMode: WorkspaceInteractionController.CanvasZoomMode,
-        sidebarHidden: Bool
+        sidebarHidden: Bool,
+        renderedStripLeadingInset: CGFloat
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.selectedTileID = selectedTileID
         zoomMode = canvasZoomMode
         isSidebarHidden = sidebarHidden
-        animator.syncRenderedStripLeadingInset(
-            sidebarHidden: sidebarHidden,
-            animated: !TairiEnvironment.isUITesting
-        )
+        currentStripLeadingInset = renderedStripLeadingInset
 
         let handleIDs = Set(resizeHandleTileIDs(in: workspaces))
         let shouldKeepTileViewsInDocument = canvasZoomMode != .overview
@@ -206,9 +207,9 @@ final class WorkspaceCanvasDocumentView: NSView {
             mode: zoomMode,
             viewportSize: viewportSize,
             workspaces: workspaces,
-            stripLeadingInset: targetStripLeadingInset
+            stripLeadingInset: currentStripLeadingInset
         )
-        let stripLeadingInset = animator.effectiveStripLeadingInset(sidebarHidden: isSidebarHidden)
+        let stripLeadingInset = currentStripLeadingInset
         let anchorX = stripLeadingInset + WorkspaceCanvasLayoutMetrics.horizontalPadding
         let isOverviewPresented = zoomController.isOverviewPresented
         let overviewTileHeight = tileHeight * scale

@@ -2,10 +2,6 @@ import AppKit
 import SwiftUI
 
 struct WorkspaceSidebarView: View {
-    private enum Metrics {
-        static let toggleAnimationDuration: TimeInterval = 0.28
-    }
-
     @EnvironmentObject private var store: WorkspaceStore
     @EnvironmentObject private var interactionController: WorkspaceInteractionController
     @EnvironmentObject private var runtime: GhosttyRuntime
@@ -16,6 +12,16 @@ struct WorkspaceSidebarView: View {
     @State private var workspaceDropIndicator: WorkspaceSidebarDropIndicator?
 
     let theme: GhosttyAppTheme
+
+    private var sidebarVisibilityProgress: CGFloat {
+        let visibleInset = WorkspaceCanvasLayoutMetrics.visibleStripLeadingInset
+        guard visibleInset > 0 else { return 1 }
+        return min(max(chromeController.renderedStripLeadingInset / visibleInset, 0), 1)
+    }
+
+    private var sidebarOffset: CGFloat {
+        chromeController.renderedStripLeadingInset - WorkspaceCanvasLayoutMetrics.visibleStripLeadingInset
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -51,10 +57,9 @@ struct WorkspaceSidebarView: View {
         .padding(.leading, WindowLayoutMetrics.sidebarLeadingInset)
         .padding(.top, WindowLayoutMetrics.sidebarTopInset)
         .padding(.bottom, WindowLayoutMetrics.sidebarBottomInset)
-        .opacity(chromeController.isSidebarHidden ? 0 : 1)
-        .offset(x: chromeController.isSidebarHidden ? -WorkspaceCanvasLayoutMetrics.visibleStripLeadingInset : 0)
+        .opacity(sidebarVisibilityProgress)
+        .offset(x: sidebarOffset)
         .allowsHitTesting(!chromeController.isSidebarHidden)
-        .animation(.easeOut(duration: Metrics.toggleAnimationDuration), value: chromeController.isSidebarHidden)
         .onChange(of: chromeController.isSidebarHidden) {
             if chromeController.isSidebarHidden {
                 cancelRenaming()
