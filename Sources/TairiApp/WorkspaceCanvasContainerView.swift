@@ -54,6 +54,12 @@ final class WorkspaceCanvasContainerView: NSView {
         scrollView.autohidesScrollers = true
         scrollView.horizontalScrollElasticity = .none
         scrollView.verticalScrollElasticity = .none
+        if #available(macOS 11.0, *) {
+            scrollView.automaticallyAdjustsContentInsets = false
+        }
+        let zeroInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        scrollView.contentInsets = zeroInsets
+        scrollView.scrollerInsets = zeroInsets
         scrollView.canvasDocumentView = documentView
         scrollView.documentView = documentView
 
