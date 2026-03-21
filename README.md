@@ -1,10 +1,12 @@
 # tairi
 
-Minimal workspace app inspired by Niri's scrolling philosophy:
+A scrollable, spatial terminal workspace.
 
-- vertical dynamic workspaces
-- horizontal strip
-- new terminals append as columns instead of resizing existing ones
+Inspired by scrollable tiling window managers like niri
+
+- sessions don't shrink
+- everything stays visible
+- built for multi-project / multi-process workflows
 
 ## UI
 
@@ -24,6 +26,16 @@ Navigate with trackpad swipes or `⌥⌘` + arrow keys:
 Pinch out to enter zoom-out overview.
 
 For a quick tour of the rest of the UI, see [docs/ui-walkthrough.md](docs/ui-walkthrough.md).
+
+## Who is this for?
+
+Developers running multiple services, agents, or logs who want a spatial, always-visible workflow.
+
+## Why not tmux?
+
+tmux forces you to divide a fixed screen into smaller panes.
+
+tairi removes that constraint entirely. Your workspace expands horizontally instead.
 
 ## Prerequisites
 
@@ -48,7 +60,7 @@ just dev
 ```
 
 `just dev` automatically downloads the pinned Ghostty runtime declared in
-`[Vendor/ghostty-runtime.env](Vendor/ghostty-runtime.env)` into the local cache
+[Vendor/ghostty-runtime.env](Vendor/ghostty-runtime.env) into the local cache
 under `.local/vendor/Ghostty/...`.
 
 Expected result:
