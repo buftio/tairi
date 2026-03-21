@@ -1,6 +1,11 @@
 import AppKit
 import SwiftUI
 
+private enum LaunchWindowMetrics {
+    static let defaultWidth: CGFloat = 1320
+    static let defaultHeight: CGFloat = 900
+}
+
 @main
 struct TairiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -51,6 +56,10 @@ struct TairiApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
+        .defaultSize(
+            width: LaunchWindowMetrics.defaultWidth,
+            height: LaunchWindowMetrics.defaultHeight
+        )
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button("Settings...") {

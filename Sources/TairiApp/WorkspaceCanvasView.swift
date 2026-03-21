@@ -232,7 +232,6 @@ final class WorkspaceCanvasDocumentView: NSView {
         let overviewVerticalPadding = baseVerticalPadding * scale
         let overviewTileSpacing = baseTileSpacing * scale
         let overviewTopInsetAdjustment = max(baseVerticalPadding - overviewVerticalPadding, 0)
-
         overviewRenderer.sync(
             tileViews: tileViews,
             allTileIDs: Set(tileViews.keys),

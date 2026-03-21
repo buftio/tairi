@@ -119,40 +119,41 @@ struct TileSpotlightView: View {
     }
 
     private var glassBackground: some View {
-        ZStack {
-            // Base material blur
-            RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)
-                .fill(.clear)
-                .background(
-                    WindowGlassBackgroundView(
-                        material: .hudWindow,
-                        opacity: 1.0,
-                        blendingMode: .withinWindow
-                    )
-                )
-                .clipShape(
-                    RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)
-                )
+        let backgroundShape = RoundedRectangle(
+            cornerRadius: TileSpotlightMetrics.cornerRadius,
+            style: .continuous
+        )
+        let tintColor = Color(nsColor: theme.background)
+        let tintOpacity = Double(spotlightBackgroundTintOpacity)
 
-            // Top-weighted inner highlight (lens effect)
-            RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(theme.isLightTheme ? 0.10 : 0.05),
-                            Color.clear,
-                        ],
-                        startPoint: .top,
-                        endPoint: UnitPoint(x: 0.5, y: 0.4)
-                    )
-                )
+        return ZStack {
+            Group {
+                if #available(macOS 26.0, *) {
+                    backgroundShape
+                        .fill(.clear)
+                        .glassEffect(
+                            .regular
+                                .tint(tintColor.opacity(tintOpacity))
+                                .interactive(false),
+                            in: backgroundShape
+                        )
+                } else {
+                    ZStack {
+                        backgroundShape
+                            .fill(.ultraThinMaterial)
 
-            // Specular border stroke
-            RoundedRectangle(cornerRadius: TileSpotlightMetrics.cornerRadius, style: .continuous)
+                        backgroundShape
+                            .fill(tintColor)
+                            .opacity(tintOpacity)
+                    }
+                }
+            }
+
+            backgroundShape
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(theme.isLightTheme ? 0.52 : 0.20),
+                            Color.white.opacity(theme.isLightTheme ? 0.50 : 0.18),
                             Color.white.opacity(theme.isLightTheme ? 0.10 : 0.05),
                         ],
                         startPoint: .top,
@@ -161,6 +162,10 @@ struct TileSpotlightView: View {
                     lineWidth: 0.5
                 )
         }
+    }
+
+    private var spotlightBackgroundTintOpacity: CGFloat {
+        theme.isLightTheme ? 0.41 : 0.22
     }
 
     private var panelDivider: some View {
@@ -293,13 +298,7 @@ private struct TileSpotlightRow: View {
     var body: some View {
         Button(action: onChoose) {
             HStack(spacing: 12) {
-                // Terminal icon
-                Image(systemName: "terminal")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(
-                        isSelected ? accentColor : secondaryColor.opacity(0.75)
-                    )
-                    .frame(width: 22)
+                TileSpotlightResultIconView(theme: theme, result: result, isSelected: isSelected)
 
                 // Title + path
                 VStack(alignment: .leading, spacing: 2) {

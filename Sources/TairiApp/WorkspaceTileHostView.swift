@@ -19,6 +19,7 @@ final class WorkspaceTileHostView: NSView {
     private let runtime: GhosttyRuntime
     private let contentContainerView = FlippedContainerView()
     private let borderShapeLayer = CAShapeLayer()
+    private let borderHighlightLayer = CAShapeLayer()
     private let titleField = NSTextField(labelWithString: "")
     private let iconView = NSImageView()
     private let closeButton = TrafficLightButton(frame: .zero)
@@ -45,6 +46,10 @@ final class WorkspaceTileHostView: NSView {
         borderShapeLayer.lineJoin = .round
         borderShapeLayer.zPosition = 1
         layer?.addSublayer(borderShapeLayer)
+        borderHighlightLayer.fillColor = NSColor.clear.cgColor
+        borderHighlightLayer.lineJoin = .round
+        borderHighlightLayer.zPosition = 2
+        layer?.addSublayer(borderHighlightLayer)
         configureAccessibility(
             identifier: TairiAccessibility.tile(tileID),
             label: "Workspace tile",
@@ -110,6 +115,16 @@ final class WorkspaceTileHostView: NSView {
             roundedRect: borderBounds,
             cornerWidth: borderCornerRadius,
             cornerHeight: borderCornerRadius,
+            transform: nil
+        )
+        let highlightInset: CGFloat = 1.25
+        let highlightBounds = bounds.insetBy(dx: highlightInset, dy: highlightInset)
+        let highlightCornerRadius = max(cornerRadius - highlightInset, 0)
+        borderHighlightLayer.frame = bounds
+        borderHighlightLayer.path = CGPath(
+            roundedRect: highlightBounds,
+            cornerWidth: highlightCornerRadius,
+            cornerHeight: highlightCornerRadius,
             transform: nil
         )
 
@@ -198,6 +213,11 @@ final class WorkspaceTileHostView: NSView {
             (selected
             ? theme.tileActiveBorder
             : theme.tileInactiveBorder).cgColor
+        borderHighlightLayer.lineWidth = selected ? 0.9 : 0
+        borderHighlightLayer.strokeColor =
+            (selected
+            ? theme.tileActiveBorderHighlight
+            : .clear).cgColor
         needsLayout = true
         layer?.shadowColor = theme.tileShadow.cgColor
         layer?.shadowOpacity = selected ? 0.6 : 0

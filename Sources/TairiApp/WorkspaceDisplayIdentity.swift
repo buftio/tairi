@@ -53,6 +53,24 @@ enum WorkspaceDisplayIdentity {
     }
 
     @MainActor
+    static func spotlightIcon(
+        forTileWorkingDirectory tileWorkingDirectory: String?,
+        workspaceFolderPath: String?,
+        workspaceIconSymbolName: String? = nil,
+        workspaceIconFilePath: String? = nil
+    ) -> WorkspaceDisplayIcon? {
+        if let tileIcon = TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: tileWorkingDirectory) {
+            return .image(tileIcon)
+        }
+
+        return icon(
+            forFolderPath: workspaceFolderPath,
+            iconSymbolName: workspaceIconSymbolName,
+            iconFilePath: workspaceIconFilePath
+        )
+    }
+
+    @MainActor
     static func emptyStateBranding(
         for workspace: WorkspaceStore.Workspace,
         defaultIcon: NSImage?

@@ -107,6 +107,37 @@ final class WorkspaceDisplayIdentityTests: XCTestCase {
         }
     }
 
+    func testSpotlightIconPrefersTileIconOverWorkspaceSymbol() throws {
+        let directory = try makeTemporaryDirectory(named: "Project")
+        let tileIconURL = URL(fileURLWithPath: directory, isDirectory: true)
+            .appendingPathComponent("public/favicon.png", isDirectory: false)
+        try writeTestPNG(to: tileIconURL)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+
+        let icon = WorkspaceDisplayIdentity.spotlightIcon(
+            forTileWorkingDirectory: directory,
+            workspaceFolderPath: nil,
+            workspaceIconSymbolName: "terminal"
+        )
+
+        guard case .image? = icon else {
+            return XCTFail("Expected tile image icon")
+        }
+    }
+
+    func testSpotlightIconFallsBackToWorkspaceIdentityWhenTileIconMissing() {
+        let icon = WorkspaceDisplayIdentity.spotlightIcon(
+            forTileWorkingDirectory: "/path/that/does/not/exist",
+            workspaceFolderPath: nil,
+            workspaceIconSymbolName: "terminal"
+        )
+
+        guard case .symbol(let symbolName)? = icon else {
+            return XCTFail("Expected workspace symbol icon")
+        }
+        XCTAssertEqual(symbolName, "terminal")
+    }
+
     private func makeTemporaryDirectory(named name: String) throws -> String {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

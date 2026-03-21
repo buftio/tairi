@@ -178,7 +178,13 @@ struct GhosttyAppTheme: Equatable {
     }
 
     var tileActiveBorder: NSColor {
-        accent.withAlphaComponent(0.96)
+        accent.mixed(with: background, fraction: isLightTheme ? 0.28 : 0.38)
+            .withAlphaComponent(isLightTheme ? 0.92 : 0.96)
+    }
+
+    var tileActiveBorderHighlight: NSColor {
+        foreground.mixed(with: accent, fraction: isLightTheme ? 0.10 : 0.18)
+            .withAlphaComponent(isLightTheme ? 0.20 : 0.14)
     }
 
     var tileInactiveBorder: NSColor {

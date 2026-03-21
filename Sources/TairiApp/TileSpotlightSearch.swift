@@ -7,6 +7,10 @@ struct TileSpotlightResult: Identifiable, Equatable {
     let tileTitle: String
     let folderName: String
     let path: String?
+    let tileWorkingDirectory: String?
+    let workspaceFolderPath: String?
+    let workspaceIconSymbolName: String?
+    let workspaceIconFilePath: String?
     let score: Int
     let isCurrentWorkspace: Bool
     let isSelectedTile: Bool
@@ -55,6 +59,10 @@ enum TileSpotlightSearch {
                         tileTitle: tile.title,
                         folderName: folderName,
                         path: path,
+                        tileWorkingDirectory: tile.pwd,
+                        workspaceFolderPath: workspace.folderPath,
+                        workspaceIconSymbolName: workspace.iconSymbolName,
+                        workspaceIconFilePath: workspace.iconFilePath,
                         score: totalScore,
                         isCurrentWorkspace: isCurrentWorkspace,
                         isSelectedTile: isSelectedTile,
