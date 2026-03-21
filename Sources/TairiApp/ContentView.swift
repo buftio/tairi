@@ -71,6 +71,7 @@ struct ContentView: View {
     @State private var resolvedWindow: NSWindow?
     @StateObject private var trafficLightsController = WindowTrafficLightsController()
     @State private var isTrafficLightsHovering = false
+    @State private var isWindowFullscreen = false
 
     private var theme: GhosttyAppTheme { runtime.appTheme }
     private var isSelectedWorkspaceEmpty: Bool { store.selectedWorkspace.tiles.isEmpty }
@@ -129,10 +130,19 @@ struct ContentView: View {
         .onChange(of: settings.animationPolicy) {
             syncWindowChrome()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
+            guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            isWindowFullscreen = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { notification in
+            guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            isWindowFullscreen = false
+        }
         .background(
             WindowAccessor { window in
                 let isNewWindow = resolvedWindow !== window
                 resolvedWindow = window
+                syncWindowFullscreenState(for: window)
                 trafficLightsController.attach(to: window)
 
                 guard isNewWindow else { return }
@@ -211,7 +221,16 @@ struct ContentView: View {
         let glassShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
         return Group {
-            if #available(macOS 26.0, *) {
+            if isWindowFullscreen {
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+
+                    Rectangle()
+                        .fill(tintColor)
+                        .opacity(tintOpacity)
+                }
+            } else if #available(macOS 26.0, *) {
                 Rectangle()
                     .fill(.clear)
                     .glassEffect(
@@ -296,5 +315,9 @@ struct ContentView: View {
             animationPolicy: settings.animationPolicy,
             in: window
         )
+    }
+
+    private func syncWindowFullscreenState(for window: NSWindow) {
+        isWindowFullscreen = window.styleMask.contains(.fullScreen)
     }
 }
