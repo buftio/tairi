@@ -48,6 +48,7 @@
 ## UI Testing
 
 - Keep accessibility identifiers stable and prefer visible-behavior XCUITests.
+- Use `just test-ui` for the checked-in UI suite. The runner should be locally signed, and macOS AX queries are often role-shifty, so prefer identifier-driven, behavior-level assertions over exact geometry or role-specific lookups.
 - Full guide: [docs/ui-testing.md](docs/ui-testing.md)
 
 ## Keyboard Shortcuts
