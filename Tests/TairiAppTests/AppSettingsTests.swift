@@ -55,11 +55,11 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(reloadedSettings.terminalExitBehavior, .closeImmediately)
     }
 
-    func testDefaultWindowGlassOpacityIsDisabled() {
+    func testDefaultWindowGlassOpacityIsFiftyPercent() {
         let userDefaults = makeUserDefaults()
         let settings = AppSettings(userDefaults: userDefaults)
 
-        XCTAssertEqual(settings.windowGlassOpacityPercent, 0)
+        XCTAssertEqual(settings.windowGlassOpacityPercent, 50)
     }
 
     func testWindowGlassOpacityPersists() {
@@ -72,18 +72,18 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(reloadedSettings.windowGlassOpacityPercent, 82)
     }
 
-    func testWindowBackgroundOpacityUsesCurrentLightThemeValueAtZeroPercent() {
+    func testWindowBackgroundOpacityUsesCurrentLightThemeValueAtFiftyPercent() {
         let userDefaults = makeUserDefaults()
         let settings = AppSettings(userDefaults: userDefaults)
 
-        XCTAssertEqual(settings.windowBackgroundOpacity(isLightTheme: true), 0.16, accuracy: 0.0001)
+        XCTAssertEqual(settings.windowBackgroundOpacity(isLightTheme: true), 0.58, accuracy: 0.0001)
     }
 
-    func testWindowBackgroundOpacityUsesCurrentDarkThemeValueAtZeroPercent() {
+    func testWindowBackgroundOpacityUsesCurrentDarkThemeValueAtFiftyPercent() {
         let userDefaults = makeUserDefaults()
         let settings = AppSettings(userDefaults: userDefaults)
 
-        XCTAssertEqual(settings.windowBackgroundOpacity(isLightTheme: false), 0.22, accuracy: 0.0001)
+        XCTAssertEqual(settings.windowBackgroundOpacity(isLightTheme: false), 0.61, accuracy: 0.0001)
     }
 
     func testWindowBackgroundOpacityReachesFullOpacityAtHundredPercent() {

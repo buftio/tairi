@@ -42,7 +42,7 @@ final class AppSettings: ObservableObject {
     static let animationsEnabledKey = "animationsEnabled"
     static let animationSpeedMultiplierKey = "animationSpeedMultiplier"
     static let defaultTerminalExitBehavior: TerminalExitBehavior = .closeImmediately
-    static let defaultWindowGlassOpacityPercent: Double = 0
+    static let defaultWindowGlassOpacityPercent: Double = 50
     static let defaultSidebarHidden = false
     static let defaultAnimationsEnabled = true
     static let defaultAnimationSpeedMultiplier: Double = 1
