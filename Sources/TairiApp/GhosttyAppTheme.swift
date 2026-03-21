@@ -83,6 +83,10 @@ struct GhosttyAppTheme: Equatable {
 
     var isLightTheme: Bool { background.isLightTheme }
 
+    var appearanceName: NSAppearance.Name {
+        isLightTheme ? .aqua : .darkAqua
+    }
+
     var windowBackgroundTop: NSColor {
         background.mixed(with: foreground, fraction: isLightTheme ? 0.03 : 0.10)
     }

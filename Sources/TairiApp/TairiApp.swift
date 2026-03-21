@@ -176,6 +176,7 @@ struct TairiApp: App {
             SettingsView()
                 .environmentObject(settings)
                 .environmentObject(runtime)
+                .preferredColorScheme(runtime.appTheme.isLightTheme ? .light : .dark)
         }
     }
 

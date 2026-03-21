@@ -163,30 +163,32 @@ struct EmptyWorkspaceStateView: View {
 
     @ViewBuilder
     private func brandingIcon(_ icon: WorkspaceDisplayIcon, usesWorkspaceIdentity: Bool) -> some View {
-        switch icon {
-        case .image(let image):
-            Image(nsImage: image)
-                .resizable()
-                .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
-                .frame(width: Metrics.brandingIconSize, height: Metrics.brandingIconSize)
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: Metrics.brandingCornerRadius,
-                        style: .continuous
+        ZStack {
+            switch icon {
+            case .image(let image):
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: Metrics.brandingIconSize, height: Metrics.brandingIconSize)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: Metrics.brandingCornerRadius,
+                            style: .continuous
+                        )
                     )
-                )
-                .saturation(usesWorkspaceIdentity ? 1 : 0)
-                .opacity(usesWorkspaceIdentity ? (theme.isLightTheme ? 0.90 : 0.96) : (theme.isLightTheme ? 0.10 : 0.14))
-                .padding(.top, -12)
-        case .symbol(let symbolName):
-            Image(systemName: symbolName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: Metrics.brandingIconSize * 0.7, height: Metrics.brandingIconSize * 0.7)
-                .foregroundStyle(Color(nsColor: theme.primaryText).opacity(usesWorkspaceIdentity ? 0.76 : 0.12))
-                .padding(.top, -8)
+                    .saturation(usesWorkspaceIdentity ? 1 : 0)
+                    .opacity(usesWorkspaceIdentity ? (theme.isLightTheme ? 0.90 : 0.96) : (theme.isLightTheme ? 0.10 : 0.14))
+            case .symbol(let symbolName):
+                Image(systemName: symbolName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: Metrics.brandingIconSize * 0.7, height: Metrics.brandingIconSize * 0.7)
+                    .foregroundStyle(Color(nsColor: theme.primaryText).opacity(usesWorkspaceIdentity ? 0.76 : 0.12))
+            }
         }
+        .frame(width: Metrics.brandingIconSize, height: Metrics.brandingIconSize)
+        .padding(.top, -12)
     }
 
     private func actionButton(

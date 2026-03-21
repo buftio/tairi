@@ -72,6 +72,11 @@ final class AppSettings: ObservableObject {
         CGFloat(windowGlassOpacityPercent / 100)
     }
 
+    func windowBackgroundOpacity(isLightTheme: Bool) -> CGFloat {
+        let baseline: CGFloat = isLightTheme ? 0.16 : 0.22
+        return baseline + ((1 - baseline) * windowGlassOpacity)
+    }
+
     @Published var sidebarHidden: Bool {
         didSet {
             guard sidebarHidden != oldValue else { return }

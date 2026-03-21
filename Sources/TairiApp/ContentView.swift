@@ -107,16 +107,21 @@ struct ContentView: View {
         }
         .accessibilityIdentifier(TairiAccessibility.appRoot)
         .background(windowBackground)
+        .preferredColorScheme(theme.isLightTheme ? .light : .dark)
         .ignoresSafeArea()
         .onAppear {
             AppActivation.bringAppToFront()
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
+            syncWindowAppearance()
         }
         .onChange(of: chromeController.isSidebarHidden) {
             if !chromeController.isSidebarHidden {
                 isTrafficLightsHovering = false
             }
             syncWindowChrome()
+        }
+        .onChange(of: theme) {
+            syncWindowAppearance()
         }
         .onChange(of: isTrafficLightsHovering) {
             syncWindowChrome()
@@ -207,7 +212,7 @@ struct ContentView: View {
 
             Rectangle()
                 .fill(Color(nsColor: theme.background))
-                .opacity(theme.isLightTheme ? 0.16 : 0.22)
+                .opacity(settings.windowBackgroundOpacity(isLightTheme: theme.isLightTheme))
         }
     }
 
@@ -260,7 +265,13 @@ struct ContentView: View {
         syncWindowChrome(for: window)
     }
 
+    private func syncWindowAppearance() {
+        guard let window = resolvedWindow ?? NSApp.windows.first else { return }
+        window.appearance = NSAppearance(named: theme.appearanceName)
+    }
+
     private func syncWindowChrome(for window: NSWindow) {
+        window.appearance = NSAppearance(named: theme.appearanceName)
         trafficLightsController.sync(
             sidebarHidden: chromeController.isSidebarHidden,
             isHovering: isTrafficLightsHovering,
