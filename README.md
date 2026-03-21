@@ -119,6 +119,8 @@ Tairi vendors and redistributes Ghostty as its terminal runtime, including
 Sparkle as bundled inside the copied Ghostty app runtime layout.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
+Built app bundles also include the notice set under
+`Contents/Resources/ThirdPartyNotices/`.
 
 ## Docs
 
