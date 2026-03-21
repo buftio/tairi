@@ -6,12 +6,14 @@ options:
 settings:
   base:
     SWIFT_VERSION: 6.0
-    CODE_SIGNING_ALLOWED: NO
-    CODE_SIGNING_REQUIRED: NO
 targets:
   UITestHost:
     type: application
     platform: macOS
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_IDENTITY: "-"
     sources:
       - path: UITestHost
     info:
@@ -32,6 +34,10 @@ targets:
   TairiUITests:
     type: bundle.ui-testing
     platform: macOS
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_IDENTITY: "-"
     sources:
       - path: Tests/TairiUITests
     info:

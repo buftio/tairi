@@ -6,6 +6,9 @@
 - Prefer asserting visible behavior with XCUITest.
 - Do not use XCUITest for Ghostty internals.
 - For custom canvas or tile changes, keep AX labels meaningful enough for Accessibility Inspector.
+- Run the checked-in UI suite with `just test-ui`.
+- `just test-ui` builds `dist/tairi.app` first, then runs `xcodebuild` against the shared `TairiUI` scheme.
+- If XCTest reports `Timed out while enabling automation mode`, re-run after granting UI automation/accessibility permission to the runner environment in macOS System Settings.
 
 ## Live automation
 
@@ -23,14 +26,5 @@
 ## Practical command
 
 ```sh
-open -na dist/tairi.app
-osascript <<'APPLESCRIPT'
-tell application "tairi" to activate
-delay 1
-tell application "System Events"
-  keystroke "echo tairi-e2e > /tmp/tairi-e2e.txt"
-  key code 36
-end tell
-APPLESCRIPT
-cat /tmp/tairi-e2e.txt
+just test-ui
 ```
