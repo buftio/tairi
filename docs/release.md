@@ -57,7 +57,8 @@ The intended public distribution channels are:
 - Homebrew via a tap cask that points at the GitHub Release DMG
 
 The repo includes a GitHub Actions release workflow that publishes the release
-artifacts on tag pushes and can optionally update a Homebrew tap.
+artifacts on `v*` tag pushes when the tagged commit is on `main`, and can
+optionally update a Homebrew tap.
 
 Required release secrets:
 

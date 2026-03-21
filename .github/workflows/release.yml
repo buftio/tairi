@@ -4,18 +4,24 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   preflight:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26"
 
       - name: Validate tag matches release config
         shell: bash
@@ -25,6 +31,17 @@ jobs:
 
           if [[ "${GITHUB_REF_NAME}" != "${TAIRI_RELEASE_TAG}" ]]; then
             echo "Tag ${GITHUB_REF_NAME} does not match configured release tag ${TAIRI_RELEASE_TAG}" >&2
+            exit 1
+          fi
+
+      - name: Validate tag commit is on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
+            echo "Tagged commit ${GITHUB_SHA} is not reachable from origin/main" >&2
             exit 1
           fi
 
@@ -52,11 +69,18 @@ jobs:
 
   release:
     needs: preflight
-    runs-on: macos-14
+    runs-on: macos-15
+    env:
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26"
 
       - name: Configure Apple release credentials
         shell: bash
@@ -174,10 +198,10 @@ jobs:
             dist/release/homebrew/tairi.rb
 
       - name: Update Homebrew tap
-        if: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
+        if: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN }}
           HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
         run: |
           set -euo pipefail
