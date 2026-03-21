@@ -319,14 +319,38 @@ struct WorkspaceSidebarView: View {
     }
 
     private var sidebarBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
+        let backgroundShape = RoundedRectangle(
+            cornerRadius: WindowLayoutMetrics.sidebarCornerRadius,
+            style: .continuous
+        )
+        let tintColor = Color(nsColor: theme.background)
+        let tintOpacity = Double(sidebarBackgroundTintOpacity)
 
-            RoundedRectangle(cornerRadius: WindowLayoutMetrics.sidebarCornerRadius, style: .continuous)
-                .fill(Color(nsColor: theme.background))
-                .opacity(theme.isLightTheme ? 0.61 : 0.72)
+        return Group {
+            if #available(macOS 26.0, *) {
+                backgroundShape
+                    .fill(.clear)
+                    .glassEffect(
+                        .regular
+                            .tint(tintColor.opacity(tintOpacity))
+                            .interactive(false),
+                        in: backgroundShape
+                    )
+            } else {
+                ZStack {
+                    backgroundShape
+                        .fill(.ultraThinMaterial)
+
+                    backgroundShape
+                        .fill(tintColor)
+                        .opacity(tintOpacity)
+                }
+            }
         }
+    }
+
+    private var sidebarBackgroundTintOpacity: CGFloat {
+        theme.isLightTheme ? 0.41 : 0.22
     }
 
     private func scrollSelectedWorkspace(in proxy: ScrollViewProxy, animated: Bool = true) {

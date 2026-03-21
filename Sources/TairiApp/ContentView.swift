@@ -206,13 +206,30 @@ struct ContentView: View {
     }
 
     private var windowBackground: some View {
-        ZStack {
-            Rectangle()
-                .fill(.ultraThinMaterial)
+        let tintColor = Color(nsColor: theme.background)
+        let tintOpacity = Double(settings.windowBackgroundOpacity(isLightTheme: theme.isLightTheme))
+        let glassShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
-            Rectangle()
-                .fill(Color(nsColor: theme.background))
-                .opacity(settings.windowBackgroundOpacity(isLightTheme: theme.isLightTheme))
+        return Group {
+            if #available(macOS 26.0, *) {
+                Rectangle()
+                    .fill(.clear)
+                    .glassEffect(
+                        .clear
+                            .tint(tintColor.opacity(tintOpacity))
+                            .interactive(false),
+                        in: glassShape
+                    )
+            } else {
+                ZStack {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+
+                    Rectangle()
+                        .fill(tintColor)
+                        .opacity(tintOpacity)
+                }
+            }
         }
     }
 
