@@ -5,7 +5,7 @@ import XCTest
 final class TairiHotkeysTests: XCTestCase {
     func testDisplayLabelsUseSharedMacFormatting() {
         XCTAssertEqual(TairiHotkeys.newTile.displayLabel, "⌘N")
-        XCTAssertEqual(TairiHotkeys.toggleSidebar.displayLabel, "⌥⌘B")
+        XCTAssertEqual(TairiHotkeys.toggleSidebar.displayLabel, "⌘B")
         XCTAssertEqual(TairiHotkeys.previousWorkspace.displayLabel, "⌥⌘↑")
         XCTAssertEqual(TairiHotkeys.splitHorizontally.displayLabel, "⇧⌘D")
     }

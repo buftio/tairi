@@ -136,7 +136,7 @@ enum TairiHotkeys {
     )
     static let toggleSidebar = TairiHotkey(
         key: .character("b"),
-        modifiers: [.command, .option]
+        modifiers: [.command]
     )
     static let openKeyboardShortcuts = TairiHotkey(
         key: .character("/"),
