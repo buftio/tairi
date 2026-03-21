@@ -6,6 +6,25 @@ Minimal workspace app inspired by Niri's scrolling philosophy:
 - horizontal strip
 - new terminals append as columns instead of resizing existing ones
 
+## UI
+
+`strip` is the main horizontal workspace row of tiles:
+
+![Strip view](docs/screenshots/strip1.gif)
+
+Navigate with trackpad swipes or `⌥⌘` + arrow keys:
+
+- `⌥⌘←` and `⌥⌘→` move between tiles
+- `⌥⌘↑` and `⌥⌘↓` move between strips
+
+`zoom-out` pulls the current window into an overview so you can scan strips and tiles at once:
+
+![Zoomed-out overview](docs/screenshots/zoom-out.png)
+
+Pinch out to enter zoom-out overview.
+
+For a quick tour of the rest of the UI, see [docs/ui-walkthrough.md](docs/ui-walkthrough.md).
+
 ## Prerequisites
 
 For running Tairi from source:
@@ -29,7 +48,7 @@ just dev
 ```
 
 `just dev` automatically downloads the pinned Ghostty runtime declared in
-[`Vendor/ghostty-runtime.env`](Vendor/ghostty-runtime.env) into the local cache
+`[Vendor/ghostty-runtime.env](Vendor/ghostty-runtime.env)` into the local cache
 under `.local/vendor/Ghostty/...`.
 
 Expected result:
@@ -72,22 +91,10 @@ For day-to-day development, the main loop is:
 just dev
 ```
 
-Format Swift sources with:
+Gate:
 
 ```sh
-just format
-```
-
-Lint Swift sources with:
-
-```sh
-just lint
-```
-
-Run unit tests with:
-
-```sh
-swift test
+just format && just lint && swift test
 ```
 
 UI tests currently require extra local setup:
@@ -129,3 +136,4 @@ Built app bundles also include the notice set under
 - [Crash diagnostics](docs/crash-diagnostics.md)
 - [Release packaging and distribution](docs/release.md)
 - [UI testing](docs/ui-testing.md)
+- [UI walkthrough](docs/ui-walkthrough.md)
