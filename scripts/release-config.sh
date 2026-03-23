@@ -2,7 +2,7 @@
 
 export TAIRI_APP_NAME="tairi"
 export TAIRI_BUNDLE_ID="org.tairi.app"
-export TAIRI_VERSION="0.9.2"
+export TAIRI_VERSION="0.9.3"
 export TAIRI_BUILD_NUMBER="1"
 export TAIRI_MIN_MACOS="14.0"
 export TAIRI_HOMEPAGE_URL="https://github.com/buftio/tairi"
