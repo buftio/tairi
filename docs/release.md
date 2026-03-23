@@ -43,7 +43,6 @@ That produces:
 - `dist/release/*.dmg`
 - `dist/release/*-checksums.txt`
 - `dist/release/homebrew/tairi.rb`
-- `dist/release/homebrew/README.md`
 
 If `TAIRI_CODESIGN_IDENTITY` and Apple notary credentials are configured, the
 release script signs and notarizes the artifacts. Otherwise it still produces
@@ -80,10 +79,10 @@ brew install --cask tairi
 The tap repository is expected to contain:
 
 - `Casks/tairi.rb`
-- `README.md`
 
-Both files are generated into `dist/release/homebrew/` by
-`./scripts/package-release.sh`.
+The cask file is generated into `dist/release/homebrew/` by
+`./scripts/package-release.sh`. The tap repository can keep its own README and
+metadata independently so one tap can host multiple apps.
 
 The repo includes a GitHub Actions release workflow that publishes the release
 artifacts on `v*` tag pushes when the tagged commit is on `main`, and can

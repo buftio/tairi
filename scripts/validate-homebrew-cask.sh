@@ -11,7 +11,7 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 
 CASK_PATH="${1:-$ROOT/dist/release/homebrew/${TAIRI_APP_NAME}.rb}"
-README_PATH="${2:-$ROOT/dist/release/homebrew/README.md}"
+README_PATH="${2:-}"
 VALIDATION_TAP_NAME="${TAIRI_HOMEBREW_VALIDATION_TAP_NAME:-local/tairi-audit}"
 TMP_ROOT="$ROOT/.local/tmp"
 
@@ -32,7 +32,7 @@ trap cleanup EXIT
 mkdir -p "$TMP_TAP_DIR/Casks"
 cp "$CASK_PATH" "$TMP_TAP_DIR/Casks/${TAIRI_APP_NAME}.rb"
 
-if [[ -f "$README_PATH" ]]; then
+if [[ -n "$README_PATH" && -f "$README_PATH" ]]; then
   cp "$README_PATH" "$TMP_TAP_DIR/README.md"
 fi
 

@@ -222,17 +222,16 @@ jobs:
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP_REPO}.git" "$TAP_DIR"
           mkdir -p "$TAP_DIR/Casks"
           cp "dist/release/homebrew/${TAIRI_APP_NAME}.rb" "$TAP_DIR/Casks/${TAIRI_APP_NAME}.rb"
-          cp "dist/release/homebrew/README.md" "$TAP_DIR/README.md"
 
           cd "$TAP_DIR"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- "Casks/${TAIRI_APP_NAME}.rb" "README.md"; then
+          if git diff --quiet -- "Casks/${TAIRI_APP_NAME}.rb"; then
             echo "Homebrew cask already up to date."
             exit 0
           fi
 
-          git add "Casks/${TAIRI_APP_NAME}.rb" "README.md"
+          git add "Casks/${TAIRI_APP_NAME}.rb"
           git commit -m "cask(${TAIRI_APP_NAME}): update to ${GITHUB_REF_NAME}"
           git push
