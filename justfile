@@ -39,6 +39,9 @@ bundle:
 release-artifacts:
   ./scripts/package-release.sh
 
+validate-homebrew:
+  ./scripts/validate-homebrew-cask.sh
+
 install target="":
   if [[ -n "{{target}}" ]]; then ./scripts/install-app.sh "{{target}}"; else ./scripts/install-app.sh; fi
 

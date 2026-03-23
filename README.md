@@ -8,6 +8,15 @@ Inspired by scrollable tiling window managers like niri
 - everything stays visible
 - built for multi-project / multi-process workflows
 
+## Install
+
+Install the published app from Homebrew:
+
+```sh
+brew tap buftio/tap
+brew install --cask tairi
+```
+
 ## UI
 
 `strip` is the main horizontal workspace row of tiles:

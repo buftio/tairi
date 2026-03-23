@@ -19,6 +19,12 @@ fi
 DOWNLOAD_URL="$1"
 SHA256="$2"
 OUTPUT_PATH="${3:-/dev/stdout}"
+CASK_URL="$DOWNLOAD_URL"
+RELEASE_TAG_TEMPLATE='v#{version}'
+VERSION_TEMPLATE='#{version}'
+
+CASK_URL="${CASK_URL//${TAIRI_RELEASE_TAG}/${RELEASE_TAG_TEMPLATE}}"
+CASK_URL="${CASK_URL//${TAIRI_VERSION}/${VERSION_TEMPLATE}}"
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
@@ -27,7 +33,7 @@ cask "${TAIRI_APP_NAME}" do
   version "${TAIRI_VERSION}"
   sha256 "${SHA256}"
 
-  url "${DOWNLOAD_URL}"
+  url "${CASK_URL}"
   name "${TAIRI_APP_NAME}"
   desc "Minimal workspace app inspired by Niri's scrolling philosophy"
   homepage "${TAIRI_HOMEPAGE_URL}"

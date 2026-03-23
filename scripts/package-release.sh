@@ -14,6 +14,7 @@ DMG_PATH="$RELEASE_DIR/${RELEASE_BASENAME}.dmg"
 CHECKSUMS_PATH="$RELEASE_DIR/${RELEASE_BASENAME}-checksums.txt"
 HOMEBREW_DIR="$RELEASE_DIR/homebrew"
 CASK_PATH="$HOMEBREW_DIR/${TAIRI_APP_NAME}.rb"
+TAP_README_PATH="$HOMEBREW_DIR/README.md"
 GITHUB_REPOSITORY_SLUG="${GITHUB_REPOSITORY:-buftio/tairi}"
 GITHUB_RELEASE_URL="https://github.com/${GITHUB_REPOSITORY_SLUG}/releases/download/${TAIRI_RELEASE_TAG}/${RELEASE_BASENAME}.dmg"
 NOTARY_TIMEOUT="${TAIRI_NOTARY_TIMEOUT:-20m}"
@@ -138,6 +139,7 @@ trash_path_if_present "$ZIP_PATH"
 trash_path_if_present "$DMG_PATH"
 trash_path_if_present "$CHECKSUMS_PATH"
 trash_path_if_present "$CASK_PATH"
+trash_path_if_present "$TAP_README_PATH"
 
 "$ROOT/scripts/build-app.sh"
 
@@ -167,9 +169,11 @@ fi
 
 shasum -a 256 "$ZIP_PATH" "$DMG_PATH" > "$CHECKSUMS_PATH"
 "$ROOT/scripts/generate-homebrew-cask.sh" "$GITHUB_RELEASE_URL" "$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')" "$CASK_PATH"
+"$ROOT/scripts/generate-homebrew-tap-readme.sh" "${HOMEBREW_TAP_REPOSITORY:-$TAIRI_HOMEBREW_TAP_REPOSITORY_DEFAULT}" "$TAP_README_PATH"
 
 echo "Created:"
 echo "  $ZIP_PATH"
 echo "  $DMG_PATH"
 echo "  $CHECKSUMS_PATH"
 echo "  $CASK_PATH"
+echo "  $TAP_README_PATH"

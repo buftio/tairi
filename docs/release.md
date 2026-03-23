@@ -43,10 +43,24 @@ That produces:
 - `dist/release/*.dmg`
 - `dist/release/*-checksums.txt`
 - `dist/release/homebrew/tairi.rb`
+- `dist/release/homebrew/README.md`
 
 If `TAIRI_CODESIGN_IDENTITY` and Apple notary credentials are configured, the
 release script signs and notarizes the artifacts. Otherwise it still produces
 local release-shaped artifacts, but Gatekeeper distribution will not be ready.
+
+## Release Modes
+
+The release automation supports two modes:
+
+- preferred: Developer ID signed and notarized artifacts when
+  `TAIRI_CODESIGN_IDENTITY` and notary credentials are configured
+- fallback: unsigned, non-notarized artifacts when those credentials are not
+  configured
+
+The fallback mode is useful for internal testing, CI dry runs, and validating
+the Homebrew plumbing. For public distribution, prefer the signed and notarized
+path so the downloaded app bundle is ready for normal Gatekeeper launch.
 
 ## Distribution
 
@@ -55,6 +69,21 @@ The intended public distribution channels are:
 - GitHub Releases with a notarized `.dmg`
 - GitHub Releases with a notarized `.app.zip`
 - Homebrew via a tap cask that points at the GitHub Release DMG
+
+Install from Homebrew:
+
+```sh
+brew tap buftio/tap
+brew install --cask tairi
+```
+
+The tap repository is expected to contain:
+
+- `Casks/tairi.rb`
+- `README.md`
+
+Both files are generated into `dist/release/homebrew/` by
+`./scripts/package-release.sh`.
 
 The repo includes a GitHub Actions release workflow that publishes the release
 artifacts on `v*` tag pushes when the tagged commit is on `main`, and can
@@ -77,3 +106,14 @@ Optional GitHub Actions variable:
 
 - `HOMEBREW_TAP_REPOSITORY`
   - defaults to `buftio/homebrew-tap`
+
+## Validation
+
+Validate the generated Homebrew tap locally:
+
+```sh
+just validate-homebrew
+```
+
+That command creates a temporary local tap, runs `brew style --cask`, and then
+runs `brew audit --cask --strict` against the generated cask.

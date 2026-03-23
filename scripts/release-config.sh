@@ -9,6 +9,17 @@ export TAIRI_HOMEPAGE_URL="https://github.com/buftio/tairi"
 export TAIRI_RELEASE_TAG="v${TAIRI_VERSION}"
 export TAIRI_HOMEBREW_TAP_REPOSITORY_DEFAULT="buftio/homebrew-tap"
 
+homebrew_tap_name_for_repository() {
+  local owner="${1%%/*}"
+  local repository="${1#*/}"
+
+  if [[ "$repository" == homebrew-* ]]; then
+    repository="${repository#homebrew-}"
+  fi
+
+  echo "${owner}/${repository}"
+}
+
 homebrew_macos_floor_for_version() {
   local major="${1%%.*}"
 
@@ -24,3 +35,4 @@ homebrew_macos_floor_for_version() {
 }
 
 export TAIRI_HOMEBREW_MIN_MACOS="$(homebrew_macos_floor_for_version "$TAIRI_MIN_MACOS")"
+export TAIRI_HOMEBREW_TAP_NAME_DEFAULT="$(homebrew_tap_name_for_repository "$TAIRI_HOMEBREW_TAP_REPOSITORY_DEFAULT")"
