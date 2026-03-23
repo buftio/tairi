@@ -51,21 +51,23 @@ extension GhosttyRuntime {
 
     static let wakeup: ghostty_runtime_wakeup_cb = { userdata in
         guard let userdata else { return }
-        let opaque = UInt(bitPattern: userdata)
+        let retainedContext = Unmanaged<GhosttyAppContext>
+            .fromOpaque(userdata)
+            .retain()
+        let contextPointer = retainedContext.toOpaque()
         DispatchQueue.main.async {
-            guard let rawPointer = UnsafeMutableRawPointer(bitPattern: opaque) else { return }
-            let context = Unmanaged<GhosttyAppContext>.fromOpaque(rawPointer).takeUnretainedValue()
+            let context = Unmanaged<GhosttyAppContext>.fromOpaque(contextPointer).takeRetainedValue()
             context.wakeupCount += 1
             if context.wakeupCount <= 5 || context.wakeupCount == 10 || context.wakeupCount.isMultiple(of: 100) {
                 TairiLog.write(
-                    "ghostty wakeup session=\(context.sessionID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(rawPointer)) app=\(GhosttyRuntime.describeHandle(context.app))"
+                    "ghostty wakeup session=\(context.sessionID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(contextPointer)) app=\(GhosttyRuntime.describeHandle(context.app))"
                 )
             }
             if let app = context.app {
                 tairi_ghostty_app_tick(app)
             } else if context.wakeupCount <= 5 {
                 TairiLog.write(
-                    "ghostty wakeup dropped session=\(context.sessionID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(rawPointer)) app=nil"
+                    "ghostty wakeup dropped session=\(context.sessionID.uuidString) count=\(context.wakeupCount) context=\(TairiLog.pointer(contextPointer)) app=nil"
                 )
             }
         }
