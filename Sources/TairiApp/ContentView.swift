@@ -138,6 +138,10 @@ struct ContentView: View {
             guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
             isWindowFullscreen = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+            guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            restoreSelectedTileFocusIfNeeded(in: window)
+        }
         .background(
             WindowAccessor { window in
                 let isNewWindow = resolvedWindow !== window
@@ -149,6 +153,7 @@ struct ContentView: View {
                 configure(window: window)
                 window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)
+                restoreSelectedTileFocusIfNeeded(in: window)
             }
         )
     }
@@ -278,6 +283,24 @@ struct ContentView: View {
     private func focusSelectedTileIfNeeded() {
         guard let selectedTileID = store.selectedTileID else { return }
         runtime.focusSurface(tileID: selectedTileID)
+    }
+
+    private func restoreSelectedTileFocusIfNeeded(in window: NSWindow) {
+        guard runtime.errorMessage == nil else { return }
+        guard !spotlightController.isPresented else { return }
+        guard window.attachedSheet == nil else { return }
+        guard !windowHasActiveTextInput(window) else { return }
+
+        DispatchQueue.main.async {
+            guard resolvedWindow === window else { return }
+            guard window.isKeyWindow else { return }
+            focusSelectedTileIfNeeded()
+        }
+    }
+
+    private func windowHasActiveTextInput(_ window: NSWindow) -> Bool {
+        guard let textView = window.firstResponder as? NSTextView else { return false }
+        return textView.isFieldEditor || textView.isEditable
     }
 
     private func configure(window: NSWindow) {
