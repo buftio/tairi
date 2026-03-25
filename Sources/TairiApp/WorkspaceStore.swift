@@ -839,7 +839,8 @@ final class WorkspaceStore: ObservableObject {
         workspaces.enumerated()
             .map { index, workspace in
                 let selectionMarker = workspace.id == selectedWorkspaceID ? "*" : ""
-                return "\(index + 1)\(selectionMarker):\(workspace.id.uuidString)(tiles=\(workspace.tiles.count),offset=\(String(format: "%.1f", workspace.horizontalOffset)))"
+                return
+                    "\(index + 1)\(selectionMarker):\(workspace.id.uuidString)(tiles=\(workspace.tiles.count),offset=\(String(format: "%.1f", workspace.horizontalOffset)))"
             }
             .joined(separator: ",")
     }

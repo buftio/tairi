@@ -37,24 +37,26 @@ enum TairiDiagnosticsBundle {
         }
 
         let crashReportsDirectory = logsDirectory.appendingPathComponent("crash-reports", isDirectory: true)
-        entries.append(contentsOf:
-            contentsOfDirectory(
-                at: crashReportsDirectory,
-                includingFilesNamedLike: { $0.hasSuffix(".md") },
-                destinationDirectory: "crash-reports",
-                fileManager: fileManager
-            )
+        entries.append(
+            contentsOf:
+                contentsOfDirectory(
+                    at: crashReportsDirectory,
+                    includingFilesNamedLike: { $0.hasSuffix(".md") },
+                    destinationDirectory: "crash-reports",
+                    fileManager: fileManager
+                )
         )
 
-        entries.append(contentsOf:
-            contentsOfDirectory(
-                at: diagnosticReportsDirectory,
-                includingFilesNamedLike: { fileName in
-                    fileName.hasPrefix("tairi-") && fileName.hasSuffix(".ips")
-                },
-                destinationDirectory: "diagnostic-reports",
-                fileManager: fileManager
-            )
+        entries.append(
+            contentsOf:
+                contentsOfDirectory(
+                    at: diagnosticReportsDirectory,
+                    includingFilesNamedLike: { fileName in
+                        fileName.hasPrefix("tairi-") && fileName.hasSuffix(".ips")
+                    },
+                    destinationDirectory: "diagnostic-reports",
+                    fileManager: fileManager
+                )
         )
 
         return entries
@@ -136,7 +138,8 @@ enum TairiDiagnosticsBundle {
             return []
         }
 
-        return urls
+        return
+            urls
             .filter { url in
                 guard predicate(url.lastPathComponent) else { return false }
                 let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
@@ -171,7 +174,8 @@ enum TairiDiagnosticsBundle {
 
         guard process.terminationStatus == 0 else {
             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let details = String(data: errorData, encoding: .utf8)?
+            let details =
+                String(data: errorData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw TairiDiagnosticsBundleError.archiveFailed(details)
         }
@@ -198,7 +202,8 @@ enum TairiDiagnosticsBundle {
                 - \(diagnosticReportsDirectory.path(percentEncoded: false))
                 """
         } else {
-            fileLines = entries
+            fileLines =
+                entries
                 .map { "- \($0.relativePath)" }
                 .joined(separator: "\n")
         }
