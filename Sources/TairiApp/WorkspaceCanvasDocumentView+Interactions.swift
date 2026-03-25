@@ -247,9 +247,14 @@ extension WorkspaceCanvasDocumentView {
             runtime.focusSurface(tileID: selectedTileID)
         } else {
             TairiLog.write(
-                "workspace canvas navigateWorkspace noSelectedTile workspace=\(store.selectedWorkspaceID.uuidString) makingScrollViewFirstResponder"
+                "workspace canvas navigateWorkspace noSelectedTile workspace=\(store.selectedWorkspaceID.uuidString) requestingEmptySelectionHandoff"
             )
-            window?.makeFirstResponder(enclosingScrollView)
+            (enclosingScrollView?.superview as? WorkspaceCanvasContainerView)?
+                .requestEmptySelectionResponderHandoffIfNeeded(
+                    selectedWorkspaceID: store.selectedWorkspaceID,
+                    selectedTileID: store.selectedTileID,
+                    reason: "navigateWorkspace"
+                )
         }
         return true
     }

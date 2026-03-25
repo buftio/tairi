@@ -23,6 +23,10 @@ final class WorkspaceCanvasContainerView: NSView {
     private var lastSidebarHidden: Bool?
     private var pendingRevealRequest: (tileID: UUID, animated: Bool)?
     private var pendingSidebarClearRevealAnimated: Bool?
+    private var pendingEmptySelectionResponderWorkspaceID: UUID?
+    private var pendingEmptySelectionResponderReason: String?
+
+    override var acceptsFirstResponder: Bool { true }
 
     init(
         settings: AppSettings,
@@ -96,10 +100,6 @@ final class WorkspaceCanvasContainerView: NSView {
         currentCanvasZoomMode = canvasZoomMode
         currentSidebarHidden = sidebarHidden
         currentRenderedStripLeadingInset = renderedStripLeadingInset
-        handoffFocusIfNeededForEmptySelection(
-            selectedWorkspaceID: selectedWorkspaceID,
-            selectedTileID: selectedTileID
-        )
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
@@ -108,6 +108,11 @@ final class WorkspaceCanvasContainerView: NSView {
             canvasZoomMode: canvasZoomMode,
             sidebarHidden: sidebarHidden,
             renderedStripLeadingInset: renderedStripLeadingInset
+        )
+        requestEmptySelectionResponderHandoffIfNeeded(
+            selectedWorkspaceID: selectedWorkspaceID,
+            selectedTileID: selectedTileID,
+            reason: "update"
         )
         if lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID || lastCanvasZoomMode != canvasZoomMode {
             TairiLog.write(
@@ -260,13 +265,50 @@ final class WorkspaceCanvasContainerView: NSView {
         }
     }
 
-    private func handoffFocusIfNeededForEmptySelection(
+    func requestEmptySelectionResponderHandoffIfNeeded(
         selectedWorkspaceID: UUID,
-        selectedTileID: UUID?
+        selectedTileID: UUID?,
+        reason: String
     ) {
-        guard selectedTileID == nil else { return }
+        guard selectedTileID == nil else {
+            pendingEmptySelectionResponderWorkspaceID = nil
+            pendingEmptySelectionResponderReason = nil
+            return
+        }
         guard lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID else { return }
-        guard let window else { return }
+
+        pendingEmptySelectionResponderWorkspaceID = selectedWorkspaceID
+        pendingEmptySelectionResponderReason = reason
+        TairiLog.write(
+            "workspace canvas emptySelection handoff requested workspace=\(selectedWorkspaceID.uuidString) reason=\(reason)"
+        )
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard self.currentSelectedWorkspaceID == selectedWorkspaceID else { return }
+            guard self.currentSelectedTileID == nil else { return }
+            guard self.pendingEmptySelectionResponderWorkspaceID == selectedWorkspaceID else { return }
+
+            let requestedReason = self.pendingEmptySelectionResponderReason ?? reason
+            self.pendingEmptySelectionResponderWorkspaceID = nil
+            self.pendingEmptySelectionResponderReason = nil
+            self.performEmptySelectionResponderHandoff(
+                selectedWorkspaceID: selectedWorkspaceID,
+                reason: requestedReason
+            )
+        }
+    }
+
+    private func performEmptySelectionResponderHandoff(
+        selectedWorkspaceID: UUID,
+        reason: String
+    ) {
+        guard let window else {
+            TairiLog.write(
+                "workspace canvas emptySelection handoff skipped workspace=\(selectedWorkspaceID.uuidString) reason=\(reason) window=nil"
+            )
+            return
+        }
 
         let firstResponderDescription: String
         if let firstResponder = window.firstResponder as? NSView {
@@ -276,12 +318,26 @@ final class WorkspaceCanvasContainerView: NSView {
         }
 
         TairiLog.write(
-            "workspace canvas emptySelection handoff workspace=\(selectedWorkspaceID.uuidString) firstResponder=\(firstResponderDescription)"
+            "workspace canvas emptySelection handoff workspace=\(selectedWorkspaceID.uuidString) reason=\(reason) firstResponder=\(firstResponderDescription)"
         )
 
-        if window.makeFirstResponder(scrollView) {
+        if window.firstResponder === self {
             TairiLog.write(
-                "workspace canvas emptySelection handoff complete workspace=\(selectedWorkspaceID.uuidString) responder=scrollView"
+                "workspace canvas emptySelection handoff complete workspace=\(selectedWorkspaceID.uuidString) responder=container reused=true"
+            )
+            return
+        }
+
+        if window.makeFirstResponder(self) {
+            TairiLog.write(
+                "workspace canvas emptySelection handoff complete workspace=\(selectedWorkspaceID.uuidString) responder=container reused=false"
+            )
+            return
+        }
+
+        if let contentView = window.contentView, window.firstResponder !== contentView, window.makeFirstResponder(contentView) {
+            TairiLog.write(
+                "workspace canvas emptySelection handoff complete workspace=\(selectedWorkspaceID.uuidString) responder=contentView reused=false"
             )
             return
         }
