@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var didRegisterLifecycleObservers = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        TairiHostDiagnostics.logStartupPreflight()
         TairiLog.write("app delegate willFinishLaunching windows=\(NSApp.windows.count)")
     }
 

@@ -11,15 +11,23 @@ enum WindowLayoutMetrics {
 
 private enum WindowTexture {
     static let appIcon: NSImage? = {
-        guard
-            let url = Bundle.module.url(
-                forResource: "AppIcon",
-                withExtension: "png"
-            )
-        else {
+        if let appIcon = Bundle.main.image(forResource: "AppIcon") {
+            TairiLog.write("window texture appIcon source=Bundle.main.image")
+            return appIcon
+        }
+
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("AppIcon.icns") else {
+            TairiLog.write("window texture appIcon source=missing resourceURL")
             return nil
         }
-        return NSImage(contentsOf: url)
+
+        guard let appIcon = NSImage(contentsOf: url) else {
+            TairiLog.write("window texture appIcon source=AppIcon.icns status=load_failed path=\(url.path(percentEncoded: false))")
+            return nil
+        }
+
+        TairiLog.write("window texture appIcon source=AppIcon.icns path=\(url.path(percentEncoded: false))")
+        return appIcon
     }()
 }
 
