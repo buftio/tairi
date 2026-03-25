@@ -148,8 +148,8 @@ final class WorkspaceStore: ObservableObject {
     static let maximumTileWidth: CGFloat = 1400
 
     @Published private(set) var workspaces: [Workspace]
-    @Published var selectedWorkspaceID: UUID
-    @Published var selectedTileID: UUID?
+    private(set) var selectedWorkspaceID: UUID
+    private(set) var selectedTileID: UUID?
 
     let sidebarPersistence: WorkspaceSidebarPersistence
     var persistenceObserver: AnyCancellable?
