@@ -346,6 +346,9 @@ final class WorkspaceStore: ObservableObject {
         )
         guard selectedWorkspaceID != workspaceID || selectedTileID != nextTileID else { return }
 
+        TairiLog.write(
+            "workspace store selectWorkspace workspace=\(workspaceID.uuidString) tile=\(nextTileID?.uuidString ?? "none") previousWorkspace=\(selectedWorkspaceID.uuidString) previousTile=\(selectedTileID?.uuidString ?? "none")"
+        )
         selectedWorkspaceID = workspaceID
         selectedTileID = nextTileID
         if let nextTileID {
@@ -385,6 +388,9 @@ final class WorkspaceStore: ObservableObject {
         guard let index = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else { return }
         let nextIndex = min(max(index + offset, 0), workspaces.count - 1)
         let workspaceID = workspaces[nextIndex].id
+        TairiLog.write(
+            "workspace store selectAdjacentWorkspace offset=\(offset) fromIndex=\(index) toIndex=\(nextIndex) workspace=\(workspaceID.uuidString) previousTile=\(selectedTileID?.uuidString ?? "none")"
+        )
         selectedWorkspaceID = workspaceID
         selectedTileID = preferredTileID(
             in: workspaceID,
@@ -549,6 +555,9 @@ final class WorkspaceStore: ObservableObject {
 
         let workspaceID = workspaces[workspaceIndex].id
         let wasSelectedTile = selectedTileID == tileID
+        TairiLog.write(
+            "workspace store closeTile begin tile=\(tileID.uuidString) workspace=\(workspaceID.uuidString) wasSelected=\(wasSelectedTile) tileCountBefore=\(workspaces[workspaceIndex].tiles.count) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") preferredVisibleMidX=\(preferredVisibleMidX.map { String(format: "%.1f", $0) } ?? "nil")"
+        )
         let neighboringTileIDs = neighboringTileIDs(
             aroundTileAt: tileIndex,
             in: workspaces[workspaceIndex]
@@ -575,6 +584,9 @@ final class WorkspaceStore: ObservableObject {
                 ) ?? workspaces[workspaceIndex].tiles.first?.id
         }
         normalize()
+        TairiLog.write(
+            "workspace store closeTile end tile=\(tileID.uuidString) workspace=\(workspaceID.uuidString) tileCountAfter=\(workspaces.first(where: { $0.id == workspaceID })?.tiles.count ?? 0) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") workspaces=\(workspaceDebugSummary())"
+        )
         return selectedTileID
     }
 
@@ -753,6 +765,9 @@ final class WorkspaceStore: ObservableObject {
     }
 
     private func normalize() {
+        let previousSelectedWorkspaceID = selectedWorkspaceID
+        let previousSelectedTileID = selectedTileID
+        let previousWorkspaceIDs = workspaces.map(\.id)
         var next: [Workspace] = []
 
         for workspace in workspaces {
@@ -809,6 +824,24 @@ final class WorkspaceStore: ObservableObject {
         }
 
         workspaces = next
+        let nextWorkspaceIDs = next.map(\.id)
+        if previousSelectedWorkspaceID != selectedWorkspaceID
+            || previousSelectedTileID != selectedTileID
+            || previousWorkspaceIDs != nextWorkspaceIDs
+        {
+            TairiLog.write(
+                "workspace store normalize selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") workspaceCount=\(next.count) workspaces=\(workspaceDebugSummary())"
+            )
+        }
+    }
+
+    private func workspaceDebugSummary() -> String {
+        workspaces.enumerated()
+            .map { index, workspace in
+                let selectionMarker = workspace.id == selectedWorkspaceID ? "*" : ""
+                return "\(index + 1)\(selectionMarker):\(workspace.id.uuidString)(tiles=\(workspace.tiles.count),offset=\(String(format: "%.1f", workspace.horizontalOffset)))"
+            }
+            .joined(separator: ",")
     }
 
     private static func automaticWorkspaceTitle(

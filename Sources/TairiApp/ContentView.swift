@@ -130,6 +130,21 @@ struct ContentView: View {
         .onChange(of: settings.animationPolicy) {
             syncWindowChrome()
         }
+        .onChange(of: store.selectedWorkspaceID) {
+            TairiLog.write(
+                "content view selectedWorkspace changed workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none") empty=\(isSelectedWorkspaceEmpty)"
+            )
+        }
+        .onChange(of: store.selectedTileID) {
+            TairiLog.write(
+                "content view selectedTile changed workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none") empty=\(isSelectedWorkspaceEmpty)"
+            )
+        }
+        .onChange(of: isSelectedWorkspaceEmpty) {
+            TairiLog.write(
+                "content view emptyWorkspace changed workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none") empty=\(isSelectedWorkspaceEmpty)"
+            )
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { notification in
             guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
             isWindowFullscreen = true
@@ -140,7 +155,20 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            TairiLog.write(
+                "content view window didBecomeKey window=\(window.windowNumber) workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none")"
+            )
             restoreSelectedTileFocusIfNeeded(in: window)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
+            guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            TairiLog.write("content view window didResignKey window=\(window.windowNumber)")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
+            guard let window = notification.object as? NSWindow, window === resolvedWindow else { return }
+            TairiLog.write(
+                "content view window willClose window=\(window.windowNumber) workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none") empty=\(isSelectedWorkspaceEmpty)"
+            )
         }
         .background(
             WindowAccessor { window in
@@ -150,6 +178,9 @@ struct ContentView: View {
                 trafficLightsController.attach(to: window)
 
                 guard isNewWindow else { return }
+                TairiLog.write(
+                    "content view resolvedWindow window=\(window.windowNumber) workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none")"
+                )
                 configure(window: window)
                 window.orderFrontRegardless()
                 window.makeKeyAndOrderFront(nil)

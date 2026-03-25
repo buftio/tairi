@@ -77,10 +77,16 @@ final class WorkspaceInteractionController: ObservableObject {
         preferredVisibleMidX: CGFloat? = nil,
         stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     ) {
+        TairiLog.write(
+            "workspace interaction selectWorkspace workspace=\(workspaceID.uuidString) preferredVisibleMidX=\(preferredVisibleMidX.map { String(format: "%.1f", $0) } ?? "nil") stripLeadingInset=\(String(format: "%.1f", stripLeadingInset)) fromWorkspace=\(store.selectedWorkspaceID.uuidString) fromTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
         store.selectWorkspace(
             workspaceID,
             preferredVisibleMidX: preferredVisibleMidX,
             stripLeadingInset: stripLeadingInset
+        )
+        TairiLog.write(
+            "workspace interaction selectWorkspace resolved workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none")"
         )
     }
 
@@ -89,16 +95,26 @@ final class WorkspaceInteractionController: ObservableObject {
         preferredVisibleMidX: CGFloat? = nil,
         stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     ) {
+        TairiLog.write(
+            "workspace interaction selectAdjacentWorkspace offset=\(offset) preferredVisibleMidX=\(preferredVisibleMidX.map { String(format: "%.1f", $0) } ?? "nil") stripLeadingInset=\(String(format: "%.1f", stripLeadingInset)) fromWorkspace=\(store.selectedWorkspaceID.uuidString) fromTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
         store.selectAdjacentWorkspace(
             offset: offset,
             preferredVisibleMidX: preferredVisibleMidX,
             stripLeadingInset: stripLeadingInset
         )
+        TairiLog.write(
+            "workspace interaction selectAdjacentWorkspace resolved workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
     }
 
     func selectTile(_ tileID: UUID, transition: TileTransition = .immediate) {
         let previousTileID = store.selectedTileID
+        let previousWorkspaceID = store.selectedWorkspaceID
         store.selectTile(tileID)
+        TairiLog.write(
+            "workspace interaction selectTile tile=\(tileID.uuidString) transition=\(String(describing: transition)) fromWorkspace=\(previousWorkspaceID.uuidString) fromTile=\(previousTileID?.uuidString ?? "none") resolvedWorkspace=\(store.selectedWorkspaceID.uuidString) resolvedTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
 
         guard previousTileID != tileID || transition == .animatedReveal else {
             return
@@ -108,7 +124,11 @@ final class WorkspaceInteractionController: ObservableObject {
 
     func selectAdjacentTile(offset: Int, transition: TileTransition = .immediate) {
         let previousTileID = store.selectedTileID
+        let previousWorkspaceID = store.selectedWorkspaceID
         store.selectAdjacentTile(offset: offset)
+        TairiLog.write(
+            "workspace interaction selectAdjacentTile offset=\(offset) transition=\(String(describing: transition)) fromWorkspace=\(previousWorkspaceID.uuidString) fromTile=\(previousTileID?.uuidString ?? "none") resolvedWorkspace=\(store.selectedWorkspaceID.uuidString) resolvedTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
 
         guard let selectedTileID = store.selectedTileID, previousTileID != selectedTileID else {
             return
@@ -185,10 +205,16 @@ final class WorkspaceInteractionController: ObservableObject {
     }
 
     func revealSelection(of tileID: UUID, transition: TileTransition = .immediate) {
+        TairiLog.write(
+            "workspace interaction revealSelection tile=\(tileID.uuidString) transition=\(String(describing: transition)) selectedWorkspace=\(store.selectedWorkspaceID.uuidString)"
+        )
         publishTransition(for: tileID, transition: transition)
     }
 
     func revealWorkspace(_ workspaceID: UUID, animated: Bool = true) {
+        TairiLog.write(
+            "workspace interaction revealWorkspace workspace=\(workspaceID.uuidString) animated=\(animated) selectedWorkspace=\(store.selectedWorkspaceID.uuidString) selectedTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
         workspaceRevealRequest = WorkspaceRevealRequest(
             id: nextTransitionID,
             workspaceID: workspaceID,
@@ -246,6 +272,9 @@ final class WorkspaceInteractionController: ObservableObject {
         canvasTransition = CanvasTransition(
             id: nextTransitionID,
             kind: kind
+        )
+        TairiLog.write(
+            "workspace interaction publishTransition id=\(nextTransitionID) tile=\(tileID.uuidString) transition=\(String(describing: transition)) zoomMode=\(String(describing: canvasZoomMode))"
         )
         nextTransitionID += 1
     }

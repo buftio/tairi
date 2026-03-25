@@ -2,8 +2,8 @@
 
 ## Main files
 
-- Repo-local app log: `.local/logs/tairi.log`
-- Repo-local crash reports from the previous unexpected launch: `.local/logs/crash-reports/*.md`
+- App log: `.local/logs/tairi.log` in a repo checkout, or `~/Library/Logs/tairi/tairi.log` in the packaged app
+- Crash reports from the previous unexpected launch: `.local/logs/crash-reports/*.md` in a repo checkout, or `~/Library/Logs/tairi/crash-reports/*.md` in the packaged app
 - macOS native crash dumps: `$HOME/Library/Logs/DiagnosticReports/tairi-*.ips`
 
 ## What they mean
@@ -28,3 +28,5 @@
 
 - Use local dev for faster repro loops and debugger attach.
 - Use the packaged app when the bug may depend on bundle layout, embedded runtime, or codesigning.
+
+In the packaged app, `Help > Export Diagnostics Bundle...` creates a zip with the current log plus the available crash reports and native crash dumps.

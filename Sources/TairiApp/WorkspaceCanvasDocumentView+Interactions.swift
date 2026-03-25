@@ -195,6 +195,9 @@ extension WorkspaceCanvasDocumentView {
             let threshold: CGFloat = 36
             if !didNavigateDuringCurrentScrollGesture, abs(verticalScrollAccumulator) >= threshold {
                 let offset = verticalScrollAccumulator > 0 ? -1 : 1
+                TairiLog.write(
+                    "workspace canvas verticalScroll thresholdReached offset=\(offset) accumulator=\(String(format: "%.2f", verticalScrollAccumulator)) selectedWorkspace=\(selectedWorkspaceID?.uuidString ?? "none")"
+                )
                 let didNavigate = navigateWorkspace(offset: offset)
                 didNavigateDuringCurrentScrollGesture = didNavigate
                 verticalScrollAccumulator = 0
@@ -214,14 +217,23 @@ extension WorkspaceCanvasDocumentView {
 
     private func navigateWorkspace(offset: Int, preferredVisibleMidX: CGFloat? = nil) -> Bool {
         guard let selectedWorkspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
+            TairiLog.write("workspace canvas navigateWorkspace skipped offset=\(offset) reason=missing-selected-workspace")
             return false
         }
 
         let nextIndex = min(max(selectedWorkspaceIndex + offset, 0), workspaces.count - 1)
-        guard nextIndex != selectedWorkspaceIndex else { return false }
+        guard nextIndex != selectedWorkspaceIndex else {
+            TairiLog.write(
+                "workspace canvas navigateWorkspace skipped offset=\(offset) reason=boundary workspace=\(selectedWorkspaceID?.uuidString ?? "none")"
+            )
+            return false
+        }
 
         let targetWorkspace = workspaces[nextIndex]
         let targetVisibleMidX = preferredVisibleMidX ?? visibleMidX(for: targetWorkspace)
+        TairiLog.write(
+            "workspace canvas navigateWorkspace offset=\(offset) fromWorkspace=\(selectedWorkspaceID?.uuidString ?? "none") toWorkspace=\(targetWorkspace.id.uuidString) preferredVisibleMidX=\(String(format: "%.1f", targetVisibleMidX)) selectedTile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
         interactionController.selectAdjacentWorkspace(
             offset: offset,
             preferredVisibleMidX: targetVisibleMidX,
@@ -229,8 +241,14 @@ extension WorkspaceCanvasDocumentView {
         )
 
         if let selectedTileID = store.selectedTileID {
+            TairiLog.write(
+                "workspace canvas navigateWorkspace focus tile=\(selectedTileID.uuidString) workspace=\(store.selectedWorkspaceID.uuidString)"
+            )
             runtime.focusSurface(tileID: selectedTileID)
         } else {
+            TairiLog.write(
+                "workspace canvas navigateWorkspace noSelectedTile workspace=\(store.selectedWorkspaceID.uuidString) makingScrollViewFirstResponder"
+            )
             window?.makeFirstResponder(enclosingScrollView)
         }
         return true
@@ -248,6 +266,9 @@ extension WorkspaceCanvasDocumentView {
     func animateWorkspaceScroll(to targetOrigin: NSPoint, in clipView: NSClipView, animated: Bool) {
         anchoredZoomTransition = nil
         let currentOrigin = clipView.bounds.origin
+        TairiLog.write(
+            "workspace canvas animateScroll from=(\(String(format: "%.1f", currentOrigin.x)),\(String(format: "%.1f", currentOrigin.y))) to=(\(String(format: "%.1f", targetOrigin.x)),\(String(format: "%.1f", targetOrigin.y))) animated=\(animated)"
+        )
         guard settings.animationPolicy.shouldAnimate(animated) else {
             stopWorkspaceScrollAnimation()
             clipView.setBoundsOrigin(targetOrigin)
@@ -304,6 +325,11 @@ extension WorkspaceCanvasDocumentView {
     }
 
     func stopWorkspaceScrollAnimation() {
+        if workspaceScrollAnimationTimer != nil {
+            TairiLog.write(
+                "workspace canvas stopScrollAnimation target=(\(String(format: "%.1f", workspaceScrollAnimationTargetOrigin.x)),\(String(format: "%.1f", workspaceScrollAnimationTargetOrigin.y)))"
+            )
+        }
         workspaceScrollAnimationTimer?.invalidate()
         workspaceScrollAnimationTimer = nil
     }

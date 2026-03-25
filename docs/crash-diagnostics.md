@@ -59,3 +59,5 @@ When sharing a repro, include:
 - the matching `.ips`, if present
 - the relevant `tairi.log` tail
 - whether it happened in `just dev` or the packaged app
+
+In the packaged app, `Help > Export Diagnostics Bundle...` creates a zip with the available crash reports, `tairi-*.ips` dumps, and `tairi.log`.

@@ -105,6 +105,11 @@ final class WorkspaceCanvasContainerView: NSView {
             sidebarHidden: sidebarHidden,
             renderedStripLeadingInset: renderedStripLeadingInset
         )
+        if lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID || lastCanvasZoomMode != canvasZoomMode {
+            TairiLog.write(
+                "workspace canvas update workspace=\(selectedWorkspaceID.uuidString) tile=\(selectedTileID?.uuidString ?? "none") zoomMode=\(String(describing: canvasZoomMode)) lastWorkspace=\(lastSelectedWorkspaceID?.uuidString ?? "none") lastTile=\(lastSelectedTileID?.uuidString ?? "none") workspaceCount=\(workspaces.count)"
+            )
+        }
         setAccessibilityValue(canvasZoomMode == .overview ? "overview" : "focused")
         documentView.viewportSize = scrollView.contentView.bounds.size
 
@@ -182,6 +187,9 @@ final class WorkspaceCanvasContainerView: NSView {
         else {
             return
         }
+        TairiLog.write(
+            "workspace canvas stabilizeInitialViewport workspace=\(currentSelectedWorkspaceID.uuidString) tile=\(currentSelectedTileID?.uuidString ?? "none") viewport=\(Int(scrollView.contentView.bounds.width))x\(Int(scrollView.contentView.bounds.height))"
+        )
 
         if let currentSelectedTileID {
             scheduleReveal(tileID: currentSelectedTileID, animated: false)
@@ -209,6 +217,9 @@ final class WorkspaceCanvasContainerView: NSView {
     }
 
     private func scheduleReveal(tileID: UUID, animated: Bool) {
+        TairiLog.write(
+            "workspace canvas scheduleReveal tile=\(tileID.uuidString) animated=\(animated) windowReady=\(window != nil)"
+        )
         pendingRevealRequest = (tileID: tileID, animated: animated)
         DispatchQueue.main.async { [weak self] in
             guard let self,
@@ -218,11 +229,17 @@ final class WorkspaceCanvasContainerView: NSView {
                 return
             }
             self.pendingRevealRequest = nil
+            TairiLog.write(
+                "workspace canvas performReveal tile=\(request.tileID.uuidString) animated=\(request.animated) workspace=\(self.currentSelectedWorkspaceID?.uuidString ?? "none")"
+            )
             self.documentView.revealTile(request.tileID, animated: request.animated)
         }
     }
 
     private func scheduleSidebarClearReveal(animated: Bool) {
+        TairiLog.write(
+            "workspace canvas scheduleSidebarClearReveal animated=\(animated) selectedTile=\(currentSelectedTileID?.uuidString ?? "none")"
+        )
         pendingSidebarClearRevealAnimated = settings.animationPolicy.shouldAnimate(animated)
         DispatchQueue.main.async { [weak self] in
             guard let self,
@@ -232,6 +249,9 @@ final class WorkspaceCanvasContainerView: NSView {
                 return
             }
             self.pendingSidebarClearRevealAnimated = nil
+            TairiLog.write(
+                "workspace canvas performSidebarClearReveal animated=\(animated) selectedTile=\(self.currentSelectedTileID?.uuidString ?? "none")"
+            )
             self.documentView.ensureSelectedTileClearsSidebar(animated: animated)
         }
     }

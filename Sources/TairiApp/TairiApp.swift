@@ -180,6 +180,12 @@ struct TairiApp: App {
                 }
                 .tairiKeyboardShortcut(TairiHotkeys.zoomInSelection)
             }
+
+            CommandGroup(after: .help) {
+                Button("Export Diagnostics Bundle...") {
+                    TairiDiagnosticsAccess.exportBundleInteractively()
+                }
+            }
         }
         Settings {
             SettingsView()
