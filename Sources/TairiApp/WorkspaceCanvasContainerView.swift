@@ -96,6 +96,10 @@ final class WorkspaceCanvasContainerView: NSView {
         currentCanvasZoomMode = canvasZoomMode
         currentSidebarHidden = sidebarHidden
         currentRenderedStripLeadingInset = renderedStripLeadingInset
+        handoffFocusIfNeededForEmptySelection(
+            selectedWorkspaceID: selectedWorkspaceID,
+            selectedTileID: selectedTileID
+        )
         documentView.update(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
@@ -254,5 +258,37 @@ final class WorkspaceCanvasContainerView: NSView {
             )
             self.documentView.ensureSelectedTileClearsSidebar(animated: animated)
         }
+    }
+
+    private func handoffFocusIfNeededForEmptySelection(
+        selectedWorkspaceID: UUID,
+        selectedTileID: UUID?
+    ) {
+        guard selectedTileID == nil else { return }
+        guard lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID else { return }
+        guard let window else { return }
+
+        let firstResponderDescription: String
+        if let firstResponder = window.firstResponder as? NSView {
+            firstResponderDescription = TairiLog.objectID(firstResponder)
+        } else {
+            firstResponderDescription = String(describing: window.firstResponder)
+        }
+
+        TairiLog.write(
+            "workspace canvas emptySelection handoff workspace=\(selectedWorkspaceID.uuidString) firstResponder=\(firstResponderDescription)"
+        )
+
+        if window.makeFirstResponder(scrollView) {
+            TairiLog.write(
+                "workspace canvas emptySelection handoff complete workspace=\(selectedWorkspaceID.uuidString) responder=scrollView"
+            )
+            return
+        }
+
+        let fallbackAccepted = window.makeFirstResponder(nil)
+        TairiLog.write(
+            "workspace canvas emptySelection handoff fallback workspace=\(selectedWorkspaceID.uuidString) accepted=\(fallbackAccepted)"
+        )
     }
 }

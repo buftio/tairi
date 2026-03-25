@@ -102,6 +102,7 @@ final class GhosttySurfaceView: NSView {
 
     func dispose() {
         logLifecycle("dispose begin surface=\(describeHandle(surface))")
+        handoffFirstResponderIfNeededBeforeDispose()
         removeFromSuperview()
         if let surface {
             tairi_ghostty_surface_free(surface)
@@ -157,6 +158,16 @@ final class GhosttySurfaceView: NSView {
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         syncScaleAndSize()
+    }
+
+    private func handoffFirstResponderIfNeededBeforeDispose() {
+        guard let window, window.firstResponder === self else { return }
+
+        logLifecycle("dispose handoff firstResponder window=\(describe(window: window))")
+        if window.makeFirstResponder(window.contentView) {
+            return
+        }
+        _ = window.makeFirstResponder(nil)
     }
 
     override func updateTrackingAreas() {

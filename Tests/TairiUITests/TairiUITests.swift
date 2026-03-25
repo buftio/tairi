@@ -8,8 +8,10 @@ private enum Identifiers {
     static let workspaceButtonPrefix = "workspace-button-"
     static let workspaceRenameFieldPrefix = "workspace-rename-field-"
     static let workspaceTilePattern = "^workspace-tile-[0-9a-f-]{36}$"
+    static let workspaceTileCloseButtonPattern = "^workspace-tile-close-button-[0-9a-f-]{36}$"
     static let workspaceTileResizeHandlePattern = "^workspace-tile-resize-handle-[0-9a-f-]{36}$"
     static let zoomOutOverviewButton = "zoom-out-overview-button"
+    static let emptyWorkspaceState = "empty-workspace-state"
 }
 
 @MainActor
@@ -72,6 +74,34 @@ final class TairiUITests: XCTestCase {
         renameField.typeText("Inbox\n")
 
         XCTAssertEqual(selectedWorkspaceTitle(in: app), "Workspace Inbox")
+    }
+
+    func testSelectingEmptyWorkspaceShowsEmptyWorkspaceState() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let emptyWorkspaceButton = workspaceButton(in: app, at: 1)
+        XCTAssertTrue(emptyWorkspaceButton.waitForExistence(timeout: 10))
+
+        emptyWorkspaceButton.click()
+
+        XCTAssertTrue(emptyWorkspaceState(in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(selectedWorkspaceTitle(in: app), "Workspace New Strip 2")
+        XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).exists)
+    }
+
+    func testClosingLastTileShowsEmptyWorkspaceState() throws {
+        let app = try launchApp()
+        defer { app.terminate() }
+
+        let closeButton = tileCloseButtonQuery(in: app).element(boundBy: 0)
+        XCTAssertTrue(closeButton.waitForExistence(timeout: 10))
+
+        closeButton.click()
+
+        XCTAssertTrue(emptyWorkspaceState(in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(waitForVisibleTileCount(in: app, toEqual: 0))
+        XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).exists)
     }
 
     func testSingleTileStripShowsResizeHandleAndCanGrowWidth() throws {
@@ -173,6 +203,16 @@ final class TairiUITests: XCTestCase {
         ).firstMatch
     }
 
+    private func emptyWorkspaceState(in app: XCUIApplication) -> XCUIElement {
+        element(in: app, identifiedBy: Identifiers.emptyWorkspaceState)
+    }
+
+    private func tileCloseButtonQuery(in app: XCUIApplication) -> XCUIElementQuery {
+        app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier MATCHES %@", Identifiers.workspaceTileCloseButtonPattern)
+        )
+    }
+
     private func tileResizeHandleQuery(in app: XCUIApplication) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier MATCHES %@", Identifiers.workspaceTileResizeHandlePattern)
@@ -210,6 +250,18 @@ final class TairiUITests: XCTestCase {
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
             self.visibleTileElements(in: app).count >= threshold
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForVisibleTileCount(
+        in app: XCUIApplication,
+        toEqual expectedCount: Int,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            self.visibleTileElements(in: app).count == expectedCount
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
