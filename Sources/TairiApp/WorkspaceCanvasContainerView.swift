@@ -25,6 +25,7 @@ final class WorkspaceCanvasContainerView: NSView {
     private var pendingSidebarClearRevealAnimated: Bool?
     private var pendingEmptySelectionResponderWorkspaceID: UUID?
     private var pendingEmptySelectionResponderReason: String?
+    private var pendingEmptySelectionHeartbeatWorkspaceID: UUID?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -279,8 +280,19 @@ final class WorkspaceCanvasContainerView: NSView {
 
         pendingEmptySelectionResponderWorkspaceID = selectedWorkspaceID
         pendingEmptySelectionResponderReason = reason
+        pendingEmptySelectionHeartbeatWorkspaceID = selectedWorkspaceID
         TairiLog.write(
             "workspace canvas emptySelection handoff requested workspace=\(selectedWorkspaceID.uuidString) reason=\(reason)"
+        )
+        scheduleEmptySelectionHeartbeat(
+            selectedWorkspaceID: selectedWorkspaceID,
+            reason: reason,
+            delay: 0.25
+        )
+        scheduleEmptySelectionHeartbeat(
+            selectedWorkspaceID: selectedWorkspaceID,
+            reason: reason,
+            delay: 1.0
         )
 
         DispatchQueue.main.async { [weak self] in
@@ -346,5 +358,30 @@ final class WorkspaceCanvasContainerView: NSView {
         TairiLog.write(
             "workspace canvas emptySelection handoff fallback workspace=\(selectedWorkspaceID.uuidString) accepted=\(fallbackAccepted)"
         )
+    }
+
+    private func scheduleEmptySelectionHeartbeat(
+        selectedWorkspaceID: UUID,
+        reason: String,
+        delay: TimeInterval
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            guard self.pendingEmptySelectionHeartbeatWorkspaceID == selectedWorkspaceID else { return }
+            guard self.currentSelectedWorkspaceID == selectedWorkspaceID else { return }
+            guard self.currentSelectedTileID == nil else { return }
+
+            let windowNumber = self.window?.windowNumber ?? -1
+            let firstResponderDescription: String
+            if let firstResponder = self.window?.firstResponder as? NSView {
+                firstResponderDescription = TairiLog.objectID(firstResponder)
+            } else {
+                firstResponderDescription = String(describing: self.window?.firstResponder)
+            }
+
+            TairiLog.write(
+                "workspace canvas emptySelection heartbeat workspace=\(selectedWorkspaceID.uuidString) reason=\(reason) delay=\(String(format: "%.2f", delay)) window=\(windowNumber) firstResponder=\(firstResponderDescription)"
+            )
+        }
     }
 }

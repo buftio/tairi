@@ -74,24 +74,27 @@ struct ContentView: View {
     @State private var isWindowFullscreen = false
 
     private var theme: GhosttyAppTheme { runtime.appTheme }
-    private var isSelectedWorkspaceEmpty: Bool { store.selectedWorkspace.tiles.isEmpty }
     private var totalTileCount: Int { store.workspaces.reduce(0) { $0 + $1.tiles.count } }
     private var shouldShowZoomOutOverviewButton: Bool {
         runtime.errorMessage == nil
             && totalTileCount > 3
             && interactionController.canvasZoomMode != .overview
     }
-    @MainActor
-    private var emptyWorkspaceBranding: WorkspaceEmptyStateBranding {
-        WorkspaceDisplayIdentity.emptyStateBranding(
-            for: store.selectedWorkspace,
-            defaultIcon: WindowTexture.appIcon
-        )
-    }
 
     var body: some View {
+        let selectedWorkspace = store.selectedWorkspace
+        let isSelectedWorkspaceEmpty = selectedWorkspace.tiles.isEmpty
+        let emptyWorkspaceBranding = WorkspaceDisplayIdentity.emptyStateBranding(
+            for: selectedWorkspace,
+            defaultIcon: WindowTexture.appIcon
+        )
+
         ZStack(alignment: .topLeading) {
-            mainPanel
+            mainPanel(
+                selectedWorkspace: selectedWorkspace,
+                isSelectedWorkspaceEmpty: isSelectedWorkspaceEmpty,
+                emptyWorkspaceBranding: emptyWorkspaceBranding
+            )
             WorkspaceSidebarView(theme: theme)
             WindowTrafficLightsHoverRegion(isActive: chromeController.isSidebarHidden) { isHovering in
                 guard isTrafficLightsHovering != isHovering else { return }
@@ -189,7 +192,11 @@ struct ContentView: View {
         )
     }
 
-    private var mainPanel: some View {
+    private func mainPanel(
+        selectedWorkspace: WorkspaceStore.Workspace,
+        isSelectedWorkspaceEmpty: Bool,
+        emptyWorkspaceBranding: WorkspaceEmptyStateBranding
+    ) -> some View {
         Group {
             if let error = runtime.errorMessage {
                 unavailable(error)
@@ -205,7 +212,7 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .topLeading) {
-            Text("Workspace \(store.selectedWorkspace.title)")
+            Text("Workspace \(selectedWorkspace.title)")
                 .font(.system(size: 1))
                 .foregroundStyle(.clear)
                 .accessibilityIdentifier(TairiAccessibility.workspaceTitle)
@@ -217,6 +224,8 @@ struct ContentView: View {
                 EmptyWorkspaceStateView(
                     theme: theme,
                     branding: emptyWorkspaceBranding,
+                    workspaceSnapshot: selectedWorkspace,
+                    selectedTileID: store.selectedTileID,
                     createNewTile: createNewTile,
                     toggleSidebar: chromeController.toggleSidebarVisibility,
                     openKeyboardShortcuts: shortcutsController.present

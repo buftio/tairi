@@ -17,6 +17,7 @@ enum TairiPaths {
     static let mainLogURL = logsDirectory.appendingPathComponent("tairi.log")
     static let crashReportsDirectory = logsDirectory.appendingPathComponent("crash-reports", isDirectory: true)
     static let sessionMarkerURL = logsDirectory.appendingPathComponent("tairi.session.json")
+    static let exitMarkerURL = logsDirectory.appendingPathComponent("tairi.exit")
     static let signalMarkerURL = logsDirectory.appendingPathComponent("tairi.signal")
     static let exceptionMarkerURL = logsDirectory.appendingPathComponent("tairi.exception.txt")
     static let ghosttyManifestURL: URL? = repositoryRoot?

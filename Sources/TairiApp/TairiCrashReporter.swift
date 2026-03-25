@@ -27,6 +27,8 @@ final class TairiCrashReporter {
         SIGTRAP,
     ]
 
+    nonisolated(unsafe) private static var sessionMarkerPath: UnsafeMutablePointer<CChar>?
+    nonisolated(unsafe) private static var exitMarkerPath: UnsafeMutablePointer<CChar>?
     nonisolated(unsafe) private static var signalMarkerPath: UnsafeMutablePointer<CChar>?
     private var didInstall = false
     private var pendingReportURL: URL?
@@ -41,12 +43,14 @@ final class TairiCrashReporter {
         archiveUnexpectedTerminationIfNeeded()
         writeSessionMarker()
         installExceptionHandler()
+        installExitHandler()
         installSignalHandlers()
         TairiLog.write("crash reporter installed logs=\(TairiPaths.logsDirectory.path(percentEncoded: false))")
     }
 
     func markCleanShutdown() {
         deleteItem(at: TairiPaths.sessionMarkerURL)
+        deleteItem(at: TairiPaths.exitMarkerURL)
         deleteItem(at: TairiPaths.signalMarkerURL)
         deleteItem(at: TairiPaths.exceptionMarkerURL)
         TairiLog.write("application terminated cleanly")
@@ -63,8 +67,14 @@ final class TairiCrashReporter {
         }
 
         let signalNumber = readSignalNumber()
+        let exitMarker = try? String(contentsOf: TairiPaths.exitMarkerURL, encoding: .utf8)
         let exceptionDetails = try? String(contentsOf: TairiPaths.exceptionMarkerURL, encoding: .utf8)
-        let reportContents = renderReport(session: session, signalNumber: signalNumber, exceptionDetails: exceptionDetails)
+        let reportContents = renderReport(
+            session: session,
+            signalNumber: signalNumber,
+            exitMarker: exitMarker,
+            exceptionDetails: exceptionDetails
+        )
         let reportURL = TairiPaths.crashReportsDirectory
             .appendingPathComponent("\(reportTimestamp())-unexpected-termination.md")
 
@@ -76,6 +86,7 @@ final class TairiCrashReporter {
         }
 
         deleteItem(at: TairiPaths.sessionMarkerURL)
+        deleteItem(at: TairiPaths.exitMarkerURL)
         deleteItem(at: TairiPaths.signalMarkerURL)
         deleteItem(at: TairiPaths.exceptionMarkerURL)
 
@@ -110,6 +121,16 @@ final class TairiCrashReporter {
         NSSetUncaughtExceptionHandler(Self.handleException)
     }
 
+    private func installExitHandler() {
+        if Self.sessionMarkerPath == nil {
+            Self.sessionMarkerPath = strdup(TairiPaths.sessionMarkerURL.path(percentEncoded: false))
+        }
+        if Self.exitMarkerPath == nil {
+            Self.exitMarkerPath = strdup(TairiPaths.exitMarkerURL.path(percentEncoded: false))
+        }
+        Darwin.atexit(Self.handleExit)
+    }
+
     private func installSignalHandlers() {
         if Self.signalMarkerPath == nil {
             Self.signalMarkerPath = strdup(TairiPaths.signalMarkerURL.path(percentEncoded: false))
@@ -131,9 +152,18 @@ final class TairiCrashReporter {
         return data.withUnsafeBytes { $0.load(as: Int32.self) }
     }
 
-    private func renderReport(session: SessionState, signalNumber: Int32?, exceptionDetails: String?) -> String {
+    private func renderReport(
+        session: SessionState,
+        signalNumber: Int32?,
+        exitMarker: String?,
+        exceptionDetails: String?
+    ) -> String {
         let detectedAt = isoTimestamp(Date())
-        let reason = terminationReason(signalNumber: signalNumber, exceptionDetails: exceptionDetails)
+        let reason = terminationReason(
+            signalNumber: signalNumber,
+            exitMarker: exitMarker,
+            exceptionDetails: exceptionDetails
+        )
         let recentLogLines = TairiLog.recentLines(limit: 400)
         let sessionLogLines =
             recentLogLines
@@ -175,6 +205,10 @@ final class TairiCrashReporter {
 
             \(exceptionDetails?.isEmpty == false ? exceptionDetails! : "_No uncaught Objective-C exception was recorded before termination._")
 
+            ## Exit Marker
+
+            \(exitMarker?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? exitMarker! : "_No `atexit` marker was recorded before termination._")
+
             ## Recent Log Tail
 
             ```text
@@ -183,12 +217,15 @@ final class TairiCrashReporter {
             """
     }
 
-    private func terminationReason(signalNumber: Int32?, exceptionDetails: String?) -> String {
+    private func terminationReason(signalNumber: Int32?, exitMarker: String?, exceptionDetails: String?) -> String {
         if let signalNumber {
             return "signal \(signalName(signalNumber)) (\(signalNumber))"
         }
         if exceptionDetails?.isEmpty == false {
             return "uncaught Objective-C exception"
+        }
+        if exitMarker?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            return "process exited via atexit without a clean shutdown marker"
         }
         return "unexpected termination without a clean shutdown marker"
     }
@@ -271,5 +308,19 @@ final class TairiCrashReporter {
 
         Darwin.signal(signal, SIG_DFL)
         Darwin.raise(signal)
+    }
+
+    private static let handleExit: @convention(c) () -> Void = {
+        guard let sessionMarkerPath, let exitMarkerPath else { return }
+        guard access(sessionMarkerPath, F_OK) == 0 else { return }
+
+        let fd = open(exitMarkerPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)
+        guard fd >= 0 else { return }
+
+        let marker = "atexit\n"
+        _ = marker.utf8CString.withUnsafeBufferPointer { buffer in
+            Darwin.write(fd, buffer.baseAddress, max(buffer.count - 1, 0))
+        }
+        _ = Darwin.close(fd)
     }
 }

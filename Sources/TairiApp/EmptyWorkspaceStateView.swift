@@ -19,6 +19,8 @@ struct EmptyWorkspaceStateView: View {
 
     let theme: GhosttyAppTheme
     let branding: WorkspaceEmptyStateBranding
+    let workspaceSnapshot: WorkspaceStore.Workspace
+    let selectedTileID: UUID?
     let createNewTile: () -> Void
     let toggleSidebar: () -> Void
     let openKeyboardShortcuts: () -> Void
@@ -60,12 +62,18 @@ struct EmptyWorkspaceStateView: View {
         .frame(maxWidth: 347)
         .opacity(isVisible ? 1 : 0)
         .onAppear {
+            TairiLog.write(
+                "empty workspace view appear workspace=\(workspaceSnapshot.id.uuidString) title=\"\(workspaceSnapshot.title)\" selectedTile=\(selectedTileID?.uuidString ?? "none") folder=\(WorkspaceStore.normalizedAssignedFolderPath(workspaceSnapshot.folderPath) ?? "none")"
+            )
             isVisible = false
             withAnimation(settings.animationPolicy.swiftUIAnimation(.easeOut, duration: Metrics.fadeInDuration)) {
                 isVisible = true
             }
         }
         .onDisappear {
+            TairiLog.write(
+                "empty workspace view disappear workspace=\(workspaceSnapshot.id.uuidString) title=\"\(workspaceSnapshot.title)\""
+            )
             isVisible = false
             cancelRenaming()
         }
@@ -75,14 +83,14 @@ struct EmptyWorkspaceStateView: View {
         .sheet(isPresented: $isShowingIconPicker) {
             WorkspaceIconPickerSheet(
                 theme: theme,
-                selectedSymbolName: store.selectedWorkspace.iconSymbolName,
-                selectedFilePath: store.selectedWorkspace.iconFilePath,
+                selectedSymbolName: workspaceSnapshot.iconSymbolName,
+                selectedFilePath: workspaceSnapshot.iconFilePath,
                 onSelectSymbol: { selectedSymbolName in
-                    store.setWorkspaceIconSymbol(store.selectedWorkspaceID, to: selectedSymbolName)
+                    store.setWorkspaceIconSymbol(workspaceSnapshot.id, to: selectedSymbolName)
                 },
                 onChooseImageFile: chooseIconFile,
                 onClearIcon: {
-                    store.clearWorkspaceIcon(store.selectedWorkspaceID)
+                    store.clearWorkspaceIcon(workspaceSnapshot.id)
                 }
             )
         }
@@ -97,7 +105,7 @@ struct EmptyWorkspaceStateView: View {
                 titleDisplay
             }
 
-            if let folderPath = WorkspaceStore.normalizedAssignedFolderPath(store.selectedWorkspace.folderPath) {
+            if let folderPath = WorkspaceStore.normalizedAssignedFolderPath(workspaceSnapshot.folderPath) {
                 Text((folderPath as NSString).abbreviatingWithTildeInPath)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color(nsColor: theme.secondaryText).opacity(0.8))
@@ -112,7 +120,7 @@ struct EmptyWorkspaceStateView: View {
     }
 
     private var titleDisplay: some View {
-        Text(WorkspaceDisplayIdentity.emptyStateTitle(for: store.selectedWorkspace))
+        Text(WorkspaceDisplayIdentity.emptyStateTitle(for: workspaceSnapshot))
             .font(.system(size: 24, weight: .semibold, design: .serif))
             .foregroundStyle(Color(nsColor: theme.primaryText).opacity(0.74))
             .shadow(
@@ -123,7 +131,7 @@ struct EmptyWorkspaceStateView: View {
             )
             .overlay {
                 EmptyWorkspaceTitleInteractionView(
-                    accessibilityLabel: WorkspaceDisplayIdentity.emptyStateTitle(for: store.selectedWorkspace),
+                    accessibilityLabel: WorkspaceDisplayIdentity.emptyStateTitle(for: workspaceSnapshot),
                     onRenameRequest: beginRenaming
                 )
             }
@@ -138,7 +146,7 @@ struct EmptyWorkspaceStateView: View {
             theme: theme,
             font: titleFont(),
             alignment: .center,
-            accessibilityIdentifier: TairiAccessibility.workspaceRenameField(store.selectedWorkspaceID),
+            accessibilityIdentifier: TairiAccessibility.workspaceRenameField(workspaceSnapshot.id),
             onSubmit: commitRenaming,
             onCancel: cancelRenaming
         )
@@ -249,13 +257,12 @@ struct EmptyWorkspaceStateView: View {
 
     private func beginRenaming() {
         guard !isRenamingWorkspace else { return }
-        let workspace = store.selectedWorkspace
-        renameDraft = workspace.usesAutomaticTitle ? "" : workspace.title
+        renameDraft = workspaceSnapshot.usesAutomaticTitle ? "" : workspaceSnapshot.title
         isRenamingWorkspace = true
     }
 
     private func commitRenaming() {
-        store.renameWorkspace(store.selectedWorkspaceID, to: renameDraft)
+        store.renameWorkspace(workspaceSnapshot.id, to: renameDraft)
         cancelRenaming()
     }
 
@@ -269,9 +276,8 @@ struct EmptyWorkspaceStateView: View {
     }
 
     private func chooseIconFile() {
-        let workspace = store.selectedWorkspace
-        if let filePath = WorkspaceStripIconFilePicker.chooseImageFile(for: workspace, store: store) {
-            store.setWorkspaceIconFilePath(workspace.id, to: filePath)
+        if let filePath = WorkspaceStripIconFilePicker.chooseImageFile(for: workspaceSnapshot, store: store) {
+            store.setWorkspaceIconFilePath(workspaceSnapshot.id, to: filePath)
         }
     }
 
@@ -280,21 +286,21 @@ struct EmptyWorkspaceStateView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = store.selectedWorkspace.folderPath == nil ? "Assign" : "Change"
+        panel.prompt = workspaceSnapshot.folderPath == nil ? "Assign" : "Change"
         panel.message = "Choose a folder for this strip."
-        if let currentPath = WorkspaceStore.normalizedAssignedFolderPath(store.selectedWorkspace.folderPath) {
+        if let currentPath = WorkspaceStore.normalizedAssignedFolderPath(workspaceSnapshot.folderPath) {
             panel.directoryURL = URL(fileURLWithPath: currentPath, isDirectory: true)
         } else if let initialURL = initialFolderPickerURL() {
             panel.directoryURL = initialURL
         }
 
         if panel.runModal() == .OK {
-            store.setWorkspaceFolder(store.selectedWorkspaceID, to: panel.url?.path(percentEncoded: false))
+            store.setWorkspaceFolder(workspaceSnapshot.id, to: panel.url?.path(percentEncoded: false))
         }
     }
 
     private func initialFolderPickerURL() -> URL? {
-        if let selectedTileID = store.selectedTileID,
+        if let selectedTileID,
             let tile = store.tile(selectedTileID),
             let pwd = tile.pwd,
             !pwd.isEmpty
