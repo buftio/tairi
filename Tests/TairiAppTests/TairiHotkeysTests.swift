@@ -21,37 +21,4 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertTrue(entryIDs.contains("toggleSidebar"))
         XCTAssertTrue(entryIDs.contains("reloadGhosttyConfiguration"))
     }
-
-    func testWorkspaceScrollOffsetRequiresWorkspaceModifiersAndVerticalIntent() {
-        XCTAssertEqual(
-            TairiHotkeys.workspaceScrollOffset(
-                modifierFlags: [.command, .option],
-                deltaX: 0,
-                deltaY: 12
-            ),
-            -1
-        )
-        XCTAssertEqual(
-            TairiHotkeys.workspaceScrollOffset(
-                modifierFlags: [.command, .option],
-                deltaX: 1,
-                deltaY: -12
-            ),
-            1
-        )
-        XCTAssertNil(
-            TairiHotkeys.workspaceScrollOffset(
-                modifierFlags: [],
-                deltaX: 0,
-                deltaY: 12
-            )
-        )
-        XCTAssertNil(
-            TairiHotkeys.workspaceScrollOffset(
-                modifierFlags: [.command, .option],
-                deltaX: 12,
-                deltaY: 6
-            )
-        )
-    }
 }

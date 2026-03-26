@@ -151,19 +151,6 @@ enum TairiHotkeys {
         modifiers: [.command, .option]
     )
 
-    static func workspaceScrollOffset(
-        modifierFlags: NSEvent.ModifierFlags,
-        deltaX: CGFloat,
-        deltaY: CGFloat
-    ) -> Int? {
-        let activeModifiers = modifierFlags.intersection(.tairiShortcutRelevant)
-        guard activeModifiers == previousWorkspace.eventModifiers else { return nil }
-
-        let verticalDelta = abs(deltaY)
-        guard verticalDelta > 0, verticalDelta > abs(deltaX) else { return nil }
-        return deltaY > 0 ? -1 : 1
-    }
-
     static let sections: [TairiHotkeySection] = [
         TairiHotkeySection(
             id: "search",

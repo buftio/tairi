@@ -13,17 +13,6 @@ extension GhosttySurfaceView {
             return
         }
 
-        if let tileID = attachedTileID,
-            let workspaceOffset = TairiHotkeys.workspaceScrollOffset(
-                modifierFlags: event.modifierFlags,
-                deltaX: event.scrollingDeltaX,
-                deltaY: event.scrollingDeltaY
-            ),
-            interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true
-        {
-            return
-        }
-
         guard let surface else { return }
         var deltaX = event.scrollingDeltaX
         var deltaY = event.scrollingDeltaY
