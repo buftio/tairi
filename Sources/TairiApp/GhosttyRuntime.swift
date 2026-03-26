@@ -411,12 +411,35 @@ final class GhosttyRuntime: ObservableObject {
                 self?.terminateAllSessions(reason: .appShutdown)
             }
         }
+
+        NotificationCenter.default.addObserver(
+            forName: NSTextInputContext.keyboardSelectionDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.notifyKeyboardInputSourceChanged()
+            }
+        }
     }
 
     private func setAllAppsFocused(_ focused: Bool) {
         for session in sessionRegistry.allSessions {
             if let app = session.appContext.app {
                 tairi_ghostty_app_set_focus(app, focused)
+            }
+        }
+    }
+
+    private func notifyKeyboardInputSourceChanged() {
+        let selectedInputSource = NSTextInputContext.current?.selectedKeyboardInputSource ?? "unknown"
+        TairiLog.write(
+            "ghostty keyboard input source changed selected=\(selectedInputSource) sessions=\(sessionRegistry.allSessions.count)"
+        )
+
+        for session in sessionRegistry.allSessions {
+            if let app = session.appContext.app {
+                tairi_ghostty_app_keyboard_changed(app)
             }
         }
     }

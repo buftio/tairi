@@ -34,6 +34,7 @@ DECLARE_SYM(ghostty_app_new, ghostty_app_t, (const ghostty_runtime_config_s *, g
 DECLARE_SYM(ghostty_app_free, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_tick, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_set_focus, void, (ghostty_app_t, bool));
+DECLARE_SYM(ghostty_app_keyboard_changed, void, (ghostty_app_t));
 DECLARE_SYM(ghostty_app_update_config, void, (ghostty_app_t, ghostty_config_t));
 DECLARE_SYM(ghostty_app_userdata, void *, (ghostty_app_t));
 DECLARE_SYM(ghostty_surface_config_new, ghostty_surface_config_s, (void));
@@ -133,6 +134,7 @@ const char *tairi_ghostty_load(const char *binary_path) {
     LOAD_SYM(ghostty_app_free);
     LOAD_SYM(ghostty_app_tick);
     LOAD_SYM(ghostty_app_set_focus);
+    LOAD_SYM(ghostty_app_keyboard_changed);
     LOAD_SYM(ghostty_app_update_config);
     LOAD_SYM(ghostty_app_userdata);
     LOAD_SYM(ghostty_surface_config_new);
@@ -267,6 +269,11 @@ void tairi_ghostty_app_tick(ghostty_app_t app) {
 void tairi_ghostty_app_set_focus(ghostty_app_t app, bool focused) {
     require_loaded();
     p_ghostty_app_set_focus(app, focused);
+}
+
+void tairi_ghostty_app_keyboard_changed(ghostty_app_t app) {
+    require_loaded();
+    p_ghostty_app_keyboard_changed(app);
 }
 
 void tairi_ghostty_app_update_config(ghostty_app_t app, ghostty_config_t config) {

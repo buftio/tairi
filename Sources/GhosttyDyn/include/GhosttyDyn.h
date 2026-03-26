@@ -41,6 +41,7 @@ ghostty_app_t tairi_ghostty_app_new(
 void tairi_ghostty_app_free(ghostty_app_t app);
 void tairi_ghostty_app_tick(ghostty_app_t app);
 void tairi_ghostty_app_set_focus(ghostty_app_t app, bool focused);
+void tairi_ghostty_app_keyboard_changed(ghostty_app_t app);
 void tairi_ghostty_app_update_config(ghostty_app_t app, ghostty_config_t config);
 void *tairi_ghostty_app_userdata(ghostty_app_t app);
 
