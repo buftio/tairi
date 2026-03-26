@@ -232,12 +232,13 @@ final class GhosttySurfaceView: NSView {
         button: ghostty_input_mouse_button_e
     ) {
         guard let surface else { return }
+        sendMousePosition(event)
         let mods = ghosttyMods(from: event.modifierFlags)
         _ = tairi_ghostty_surface_mouse_button(surface, state, button, mods)
         sendMousePosition(event)
     }
 
-    private func sendMousePosition(_ event: NSEvent) {
+    func sendMousePosition(_ event: NSEvent) {
         guard let surface else { return }
         let point = convert(event.locationInWindow, from: nil)
         let mods = ghosttyMods(from: event.modifierFlags)

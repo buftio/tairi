@@ -3,6 +3,11 @@ import GhosttyDyn
 
 @MainActor
 extension GhosttySurfaceView {
+    override func flagsChanged(with event: NSEvent) {
+        sendMousePosition(event)
+        super.flagsChanged(with: event)
+    }
+
     override func scrollWheel(with event: NSEvent) {
         if interactionCoordinator?.handleHorizontalScroll(event) == true {
             return
@@ -35,6 +40,16 @@ extension GhosttySurfaceView {
             return
         }
         super.magnify(with: event)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        sendMousePosition(event)
+        super.mouseEntered(with: event)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        sendMousePosition(event)
+        super.mouseExited(with: event)
     }
 
     override func keyDown(with event: NSEvent) {
