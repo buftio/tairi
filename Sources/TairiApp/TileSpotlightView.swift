@@ -302,12 +302,12 @@ private struct TileSpotlightRow: View {
 
                 // Title + path
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(result.tileTitle)
+                    Text(TerminalTitleDisplay.displayTitle(for: result.tileTitle))
                         .font(.system(size: 14, weight: .medium))
                         .lineLimit(1)
                         .foregroundStyle(primaryColor)
 
-                    Text(result.path ?? result.folderName)
+                    Text(TerminalTitleDisplay.displayPath(forTitle: result.tileTitle, path: result.path) ?? result.folderName)
                         .font(.system(size: 11, weight: .regular, design: .monospaced))
                         .lineLimit(1)
                         .foregroundStyle(secondaryColor.opacity(0.8))
@@ -329,7 +329,7 @@ private struct TileSpotlightRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(TairiAccessibility.tileSpotlightResult(result.id))
-        .accessibilityLabel("Tile \(result.tileTitle) in folder \(result.folderName)")
+        .accessibilityLabel("Tile \(TerminalTitleDisplay.displayTitle(for: result.tileTitle)) in folder \(result.folderName)")
         .onHover { hovered in
             isHovered = hovered
             if hovered {

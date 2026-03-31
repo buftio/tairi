@@ -63,7 +63,7 @@ final class WorkspaceTileHostView: NSView {
         contentContainerView.addSubview(headerView)
 
         titleField.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
-        titleField.lineBreakMode = .byTruncatingHead
+        titleField.lineBreakMode = .byTruncatingMiddle
         titleField.setAccessibilityIdentifier(TairiAccessibility.tileTitle(tileID))
         headerView.addSubview(titleField)
 
@@ -191,18 +191,21 @@ final class WorkspaceTileHostView: NSView {
         let previousHeaderIconPWD = lastHeaderIconPWD
         currentTile = tile
         syncSurfaceInteractionCoordinator()
-        let displayTitle = displayTitle(for: tile)
-        titleField.stringValue = displayTitle
+        let displayTitle = TerminalTitleDisplay.displayTitle(for: tile.title)
+        titleField.attributedStringValue = headerTitle(for: tile, selected: selected, theme: theme)
         if previousHeaderIconPWD != tile.pwd || iconView.image == nil {
             refreshHeaderIcon(for: tile.pwd)
         }
-        setAccessibilityLabel("Workspace tile \(displayTitle)")
+        let accessibilityPath = TerminalTitleDisplay.displayPath(forTitle: tile.title, path: tile.pwd)
+        let accessibilityTitle =
+            if let accessibilityPath {
+                "\(displayTitle) \(accessibilityPath)"
+            } else {
+                displayTitle
+            }
+        setAccessibilityLabel("Workspace tile \(accessibilityTitle)")
         setAccessibilityValue(selected ? "selected" : "unselected")
 
-        titleField.textColor =
-            selected
-            ? theme.primaryText
-            : theme.primaryText.withAlphaComponent(0.84)
         contentContainerView.layer?.backgroundColor = theme.background.cgColor
         layer?.backgroundColor = NSColor.clear.cgColor
         borderShapeLayer.lineWidth =
@@ -272,12 +275,42 @@ final class WorkspaceTileHostView: NSView {
         iconView.image = TerminalHeaderIconResolver.resolveIcon(forWorkingDirectory: workingDirectory)
     }
 
-    private func displayTitle(for tile: WorkspaceStore.Tile) -> String {
-        guard let pwd = tile.pwd, !pwd.isEmpty else {
-            return tile.title
+    private func headerTitle(
+        for tile: WorkspaceStore.Tile,
+        selected: Bool,
+        theme: GhosttyAppTheme
+    ) -> NSAttributedString {
+        let title = TerminalTitleDisplay.displayTitle(for: tile.title)
+        let titleColor =
+            selected
+            ? theme.primaryText
+            : theme.primaryText.withAlphaComponent(0.84)
+        let pathColor =
+            selected
+            ? theme.secondaryText.withAlphaComponent(0.78)
+            : theme.secondaryText.withAlphaComponent(0.62)
+
+        let attributedTitle = NSMutableAttributedString(
+            string: title,
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: titleColor,
+            ]
+        )
+
+        if let path = TerminalTitleDisplay.displayPath(forTitle: tile.title, path: tile.pwd) {
+            attributedTitle.append(
+                NSAttributedString(
+                    string: "  \(path)",
+                    attributes: [
+                        .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                        .foregroundColor: pathColor,
+                    ]
+                )
+            )
         }
 
-        return NSString(string: pwd).abbreviatingWithTildeInPath
+        return attributedTitle
     }
 
     private func syncSurfaceInteractionCoordinator() {
