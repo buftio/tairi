@@ -8,6 +8,7 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertEqual(TairiHotkeys.toggleSidebar.displayLabel, "⌘B")
         XCTAssertEqual(TairiHotkeys.previousWorkspace.displayLabel, "⌥⌘↑")
         XCTAssertEqual(TairiHotkeys.splitHorizontally.displayLabel, "⇧⌘D")
+        XCTAssertEqual(TairiHotkeys.toggleFullscreen.displayLabel, "⌃⌘F")
     }
 
     func testSectionsOrganizeShortcutReferences() {
@@ -19,6 +20,7 @@ final class TairiHotkeysTests: XCTestCase {
             .map(\.id)
         XCTAssertEqual(Set(entryIDs).count, entryIDs.count)
         XCTAssertTrue(entryIDs.contains("toggleSidebar"))
+        XCTAssertTrue(entryIDs.contains("toggleFullscreen"))
         XCTAssertTrue(entryIDs.contains("reloadGhosttyConfiguration"))
     }
 }

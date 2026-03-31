@@ -186,6 +186,13 @@ struct TairiApp: App {
                     TairiDiagnosticsAccess.exportBundleInteractively()
                 }
             }
+
+            CommandGroup(after: .toolbar) {
+                Button(fullScreenCommandTitle) {
+                    toggleFullscreen()
+                }
+                .tairiKeyboardShortcut(TairiHotkeys.toggleFullscreen)
+            }
         }
         Settings {
             SettingsView()
@@ -199,5 +206,17 @@ struct TairiApp: App {
     private func shortcutReferenceButton(title: String, hotkey: TairiHotkey) -> some View {
         Button("\(title) (\(hotkey.displayLabel))") {}
             .disabled(true)
+    }
+
+    private var fullScreenCommandTitle: String {
+        let targetWindow = NSApp.keyWindow ?? NSApp.mainWindow
+        let isFullscreen = targetWindow?.styleMask.contains(.fullScreen) == true
+        return isFullscreen ? "Exit Full Screen" : "Enter Full Screen"
+    }
+
+    private func toggleFullscreen() {
+        let targetWindow = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: \.isVisible)
+        guard let targetWindow else { return }
+        targetWindow.toggleFullScreen(nil)
     }
 }

@@ -150,6 +150,10 @@ enum TairiHotkeys {
         key: .character("="),
         modifiers: [.command, .option]
     )
+    static let toggleFullscreen = TairiHotkey(
+        key: .character("f"),
+        modifiers: [.command, .control]
+    )
 
     static let sections: [TairiHotkeySection] = [
         TairiHotkeySection(
@@ -182,6 +186,7 @@ enum TairiHotkeys {
             id: "view",
             title: "View",
             entries: [
+                .init(id: "toggleFullscreen", title: "Toggle Full Screen", hotkey: toggleFullscreen),
                 .init(id: "zoomOutOverview", title: "Zoom Out Overview", hotkey: zoomOutOverview),
                 .init(id: "zoomInSelection", title: "Zoom In Selection", hotkey: zoomInSelection),
             ]
