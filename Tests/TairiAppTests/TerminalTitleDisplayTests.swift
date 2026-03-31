@@ -9,6 +9,38 @@ final class TerminalTitleDisplayTests: XCTestCase {
         XCTAssertEqual(TerminalTitleDisplay.displayTitle(for: "✳ Claude Code"), "✳ Claude Code")
     }
 
+    func testDisplayTitleCanonicalizesWorkingDirectoryTitles() {
+        let homePath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("glite/experiments/shadowing", isDirectory: true)
+            .path(percentEncoded: false)
+
+        XCTAssertEqual(
+            TerminalTitleDisplay.displayTitle(for: homePath, path: homePath),
+            "~/glite/experiments/shadowing"
+        )
+        XCTAssertEqual(
+            TerminalTitleDisplay.displayTitle(for: "…/experiments/shadowing/", path: homePath),
+            "~/glite/experiments/shadowing"
+        )
+        XCTAssertEqual(
+            TerminalTitleDisplay.displayTitle(
+                for: "buft@humanity:~/glite/experiments/shadowing/",
+                path: homePath
+            ),
+            "~/glite/experiments/shadowing"
+        )
+    }
+
+    func testDisplayTitleUsesPromptPathWhilePWDIsStillCatchingUp() {
+        XCTAssertEqual(
+            TerminalTitleDisplay.displayTitle(
+                for: "buft@humanity:~/glite/experiments/shadowing/applet-linker/",
+                path: "/Users/buft/glite/experiments/shadowing"
+            ),
+            "~/glite/experiments/shadowing/applet-linker"
+        )
+    }
+
     func testAbbreviatedPathUsesTilde() {
         let homePath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("glite/experiments/shadowing", isDirectory: true)
@@ -27,6 +59,27 @@ final class TerminalTitleDisplayTests: XCTestCase {
             TerminalTitleDisplay.displayPath(
                 forTitle: "~/glite/experiments/shadowing",
                 path: homePath
+            )
+        )
+        XCTAssertNil(
+            TerminalTitleDisplay.displayPath(
+                forTitle: "…/experiments/shadowing/",
+                path: homePath
+            )
+        )
+        XCTAssertNil(
+            TerminalTitleDisplay.displayPath(
+                forTitle: "buft@humanity:~/glite/experiments/shadowing/",
+                path: homePath
+            )
+        )
+    }
+
+    func testDisplayPathHidesStalePWDWhenTitleAlreadyLooksLikeWorkingDirectory() {
+        XCTAssertNil(
+            TerminalTitleDisplay.displayPath(
+                forTitle: "buft@humanity:~/glite/experiments/shadowing/applet-linker/",
+                path: "/Users/buft/glite/experiments/shadowing"
             )
         )
     }

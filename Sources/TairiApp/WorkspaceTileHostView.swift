@@ -191,7 +191,7 @@ final class WorkspaceTileHostView: NSView {
         let previousHeaderIconPWD = lastHeaderIconPWD
         currentTile = tile
         syncSurfaceInteractionCoordinator()
-        let displayTitle = TerminalTitleDisplay.displayTitle(for: tile.title)
+        let displayTitle = TerminalTitleDisplay.displayTitle(for: tile.title, path: tile.pwd)
         titleField.attributedStringValue = headerTitle(for: tile, selected: selected, theme: theme)
         if previousHeaderIconPWD != tile.pwd || iconView.image == nil {
             refreshHeaderIcon(for: tile.pwd)
@@ -280,7 +280,7 @@ final class WorkspaceTileHostView: NSView {
         selected: Bool,
         theme: GhosttyAppTheme
     ) -> NSAttributedString {
-        let title = TerminalTitleDisplay.displayTitle(for: tile.title)
+        let title = TerminalTitleDisplay.displayTitle(for: tile.title, path: tile.pwd)
         let titleColor =
             selected
             ? theme.primaryText
