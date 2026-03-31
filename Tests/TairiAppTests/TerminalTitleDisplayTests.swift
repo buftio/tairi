@@ -32,10 +32,14 @@ final class TerminalTitleDisplayTests: XCTestCase {
     }
 
     func testDisplayPathKeepsDistinctPath() {
+        let homePath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("glite/experiments/shadowing", isDirectory: true)
+            .path(percentEncoded: false)
+
         XCTAssertEqual(
             TerminalTitleDisplay.displayPath(
                 forTitle: "claude",
-                path: "/Users/igor/glite/experiments/shadowing"
+                path: homePath
             ),
             "~/glite/experiments/shadowing"
         )
