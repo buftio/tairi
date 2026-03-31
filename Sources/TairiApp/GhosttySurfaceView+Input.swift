@@ -9,7 +9,7 @@ extension GhosttySurfaceView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        if interactionCoordinator?.handleHorizontalScroll(event) == true {
+        if interactionCoordinator?.scrollWheelRoutingDecision(for: event) == .interceptForWorkspaceHorizontalPan {
             return
         }
 

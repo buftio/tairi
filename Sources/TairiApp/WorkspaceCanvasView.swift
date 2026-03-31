@@ -71,6 +71,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     var lastDiscreteVerticalNavigationAt = Date.distantPast
     var verticalScrollAccumulator: CGFloat = 0
     var didNavigateDuringCurrentScrollGesture = false
+    var tileScrollGestureLock = TileScrollGestureLock()
     var isSidebarHidden = false
     var currentStripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
     var workspaceScrollAnimationTimer: Timer?

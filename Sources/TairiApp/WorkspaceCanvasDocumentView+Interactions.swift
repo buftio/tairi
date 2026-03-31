@@ -45,9 +45,33 @@ extension WorkspaceCanvasDocumentView {
         }
     }
 
-    func handleHorizontalScrollGesture(_ event: NSEvent) -> Bool {
-        guard shouldTreatAsHorizontalScroll(event) else { return false }
-        return handleHorizontalScroll(event)
+    func scrollWheelRoutingDecisionForTileGesture(
+        _ event: NSEvent
+    ) -> GhosttySurfaceInteractionCoordinator.ScrollWheelRoutingDecision {
+        let sample = TileScrollGestureLock.Sample(
+            deltaX: event.scrollingDeltaX,
+            deltaY: event.scrollingDeltaY,
+            hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+            phase: event.phase,
+            momentumPhase: event.momentumPhase
+        )
+        let previousAxisLock = tileScrollGestureLock.axisLock
+        let routingDecision = tileScrollGestureLock.routingDecision(for: sample)
+        let currentAxisLock = tileScrollGestureLock.axisLock
+
+        if currentAxisLock != previousAxisLock, currentAxisLock != .undecided {
+            TairiLog.write(
+                "workspace canvas tileScroll axisLocked axis=\(String(describing: currentAxisLock)) deltaX=\(String(format: "%.2f", event.scrollingDeltaX)) deltaY=\(String(format: "%.2f", event.scrollingDeltaY))"
+            )
+        }
+
+        switch routingDecision {
+        case .forwardToTile:
+            return .forwardToTile
+        case .interceptForWorkspaceHorizontalPan:
+            guard shouldTreatAsHorizontalScroll(event) else { return .forwardToTile }
+            return handleHorizontalScroll(event) ? .interceptForWorkspaceHorizontalPan : .forwardToTile
+        }
     }
 
     func handleMagnify(_ event: NSEvent, preferredTileID: UUID?) -> Bool {
@@ -406,15 +430,17 @@ extension WorkspaceCanvasDocumentView {
     }
 
     private func shouldTreatAsHorizontalScroll(_ event: NSEvent) -> Bool {
-        let horizontalDelta = abs(event.scrollingDeltaX)
-        guard horizontalDelta > 0 else { return false }
-        return horizontalDelta >= abs(event.scrollingDeltaY)
+        TileScrollGestureLock.isHorizontallyDominant(
+            deltaX: event.scrollingDeltaX,
+            deltaY: event.scrollingDeltaY
+        )
     }
 
     private func shouldTreatAsVerticalScroll(_ event: NSEvent) -> Bool {
-        let verticalDelta = abs(event.scrollingDeltaY)
-        guard verticalDelta > 0 else { return false }
-        return verticalDelta > abs(event.scrollingDeltaX)
+        TileScrollGestureLock.isVerticallyDominant(
+            deltaX: event.scrollingDeltaX,
+            deltaY: event.scrollingDeltaY
+        )
     }
 
     private func resetVerticalGestureIfNeeded(for event: NSEvent) {
