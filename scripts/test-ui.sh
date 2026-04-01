@@ -10,7 +10,7 @@ DESTINATION="${TAIRI_UI_TEST_DESTINATION:-platform=macOS}"
 BUILD_APP="${TAIRI_UI_TEST_BUILD_APP:-1}"
 
 export DEVELOPER_DIR
-export TAIRI_APP_BUNDLE="${TAIRI_APP_BUNDLE:-$ROOT/dist/tairi.app}"
+export TAIRI_APP_BUNDLE="${TAIRI_APP_BUNDLE:-$ROOT/dist/Tairi.app}"
 
 if [[ "$BUILD_APP" == "1" ]]; then
   "$ROOT/scripts/build-app.sh"

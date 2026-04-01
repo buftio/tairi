@@ -41,7 +41,7 @@ struct TairiApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("tairi") {
+        WindowGroup("Tairi") {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(store)

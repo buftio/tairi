@@ -5,7 +5,7 @@ and bundled app runtime.
 
 The built app bundle ships these notice files under:
 
-- `tairi.app/Contents/Resources/ThirdPartyNotices/`
+- `Tairi.app/Contents/Resources/ThirdPartyNotices/`
 - `Tairi-LICENSE.txt`
 - `THIRD_PARTY_NOTICES.md`
 - `Ghostty-LICENSE.txt`
@@ -20,8 +20,8 @@ The built app bundle ships these notice files under:
 - Usage in Tairi:
   - the local runtime cache under `.local/vendor/Ghostty/<version>/...`
   - the bundled helper app at
-    `tairi.app/Contents/Frameworks/GhosttyRuntime.app`
-  - copied Ghostty resources at `tairi.app/Contents/Resources/ghostty`
+    `Tairi.app/Contents/Frameworks/GhosttyRuntime.app`
+  - copied Ghostty resources at `Tairi.app/Contents/Resources/ghostty`
 
 Ghostty is embedded as the terminal runtime used by Tairi tiles.
 

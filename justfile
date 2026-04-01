@@ -46,7 +46,7 @@ install target="":
   if [[ -n "{{target}}" ]]; then ./scripts/install-app.sh "{{target}}"; else ./scripts/install-app.sh; fi
 
 open:
-  open dist/tairi.app
+  open dist/Tairi.app
 
 bundle-open:
   just bundle
@@ -55,6 +55,7 @@ bundle-open:
 alias app := bundle-open
 
 clean-dist:
+  if [[ -d dist/Tairi.app ]]; then trash dist/Tairi.app; fi
   if [[ -d dist/tairi.app ]]; then trash dist/tairi.app; fi
 
 rebuild-app:

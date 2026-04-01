@@ -19,8 +19,8 @@ It also ensures the manifest-pinned Ghostty runtime is cached before building.
 
 The bundled runtime is placed at:
 
-- `tairi.app/Contents/Frameworks/GhosttyRuntime.app`
-- `tairi.app/Contents/Resources/ghostty`
+- `Tairi.app/Contents/Frameworks/GhosttyRuntime.app`
+- `Tairi.app/Contents/Resources/ghostty`
 
 Development uses the cached runtime under `.local/vendor/Ghostty/...`.
 

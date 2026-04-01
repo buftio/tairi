@@ -22,7 +22,7 @@
 ## Repro targets
 
 - Local dev: `just dev`
-- Packaged app: `just bundle` then `open -na dist/tairi.app`
+- Packaged app: `just bundle` then `open -na dist/Tairi.app`
 
 ## When to prefer each
 

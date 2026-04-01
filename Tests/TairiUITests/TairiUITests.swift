@@ -143,7 +143,7 @@ final class TairiUITests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        return repoRoot.appendingPathComponent("dist/tairi.app")
+        return repoRoot.appendingPathComponent("dist/Tairi.app")
     }
 
     private func tileQuery(in app: XCUIApplication) -> XCUIElementQuery {

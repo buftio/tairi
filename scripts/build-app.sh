@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a distributable tairi.app, embed the vendored Ghostty runtime as a
+# Build a distributable Tairi.app, embed the vendored Ghostty runtime as a
 # nested helper app, and sign the resulting bundle.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ source "$ROOT/scripts/release-config.sh"
 BUILD_CONFIGURATION="${TAIRI_BUILD_CONFIGURATION:-release}"
 BUILD_DIR="$ROOT/.build/$BUILD_CONFIGURATION"
 DIST_DIR="$ROOT/dist"
-APP_DIR="$DIST_DIR/$TAIRI_APP_NAME.app"
+APP_DIR="$DIST_DIR/$TAIRI_APP_BUNDLE_NAME.app"
 GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
 APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
 APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
@@ -113,8 +113,10 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
   <string>AppIcon</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleDisplayName</key>
+  <string>${TAIRI_APP_BUNDLE_NAME}</string>
   <key>CFBundleName</key>
-  <string>${TAIRI_APP_NAME}</string>
+  <string>${TAIRI_APP_BUNDLE_NAME}</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

@@ -34,7 +34,7 @@ cask "${TAIRI_APP_NAME}" do
   sha256 "${SHA256}"
 
   url "${CASK_URL}"
-  name "${TAIRI_APP_NAME}"
+  name "${TAIRI_APP_BUNDLE_NAME}"
   desc "Minimal workspace app inspired by Niri's scrolling philosophy"
   homepage "${TAIRI_HOMEPAGE_URL}"
 
@@ -46,7 +46,7 @@ cask "${TAIRI_APP_NAME}" do
   depends_on arch: :arm64
   depends_on macos: "${TAIRI_HOMEBREW_MIN_MACOS}"
 
-  app "${TAIRI_APP_NAME}.app"
+  app "${TAIRI_APP_BUNDLE_NAME}.app"
 
   zap trash: [
     "~/Library/Logs/${TAIRI_APP_NAME}",

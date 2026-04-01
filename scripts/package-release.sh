@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/release-config.sh"
 
-APP_DIR="$ROOT/dist/${TAIRI_APP_NAME}.app"
+APP_DIR="$ROOT/dist/${TAIRI_APP_BUNDLE_NAME}.app"
 RELEASE_DIR="$ROOT/dist/release"
 RELEASE_ARCH="${TAIRI_RELEASE_ARCH:-$(uname -m)}"
 RELEASE_BASENAME="${TAIRI_APP_NAME}-${TAIRI_VERSION}-macos-${RELEASE_ARCH}"
@@ -149,11 +149,11 @@ fi
 ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
 
 mkdir -p "$STAGING_DIR"
-ditto "$APP_DIR" "$STAGING_DIR/${TAIRI_APP_NAME}.app"
+ditto "$APP_DIR" "$STAGING_DIR/${TAIRI_APP_BUNDLE_NAME}.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 hdiutil create \
-  -volname "$TAIRI_APP_NAME" \
+  -volname "$TAIRI_APP_BUNDLE_NAME" \
   -srcfolder "$STAGING_DIR" \
   -fs APFS \
   -format UDZO \

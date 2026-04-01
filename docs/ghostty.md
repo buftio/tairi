@@ -13,8 +13,8 @@ Ghostty runtime is present in that cache before launching or bundling.
 
 Bundled app builds place the runtime at:
 
-- `tairi.app/Contents/Frameworks/GhosttyRuntime.app`
-- `tairi.app/Contents/Resources/ghostty`
+- `Tairi.app/Contents/Frameworks/GhosttyRuntime.app`
+- `Tairi.app/Contents/Resources/ghostty`
 
 There is no fallback to a system-installed `/Applications/Ghostty.app`.
 
