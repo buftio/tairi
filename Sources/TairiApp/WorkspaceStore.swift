@@ -554,10 +554,10 @@ final class WorkspaceStore: ObservableObject {
             return selectedTileID
         }
 
-        let workspaceID = workspaces[workspaceIndex].id
+        let closedWorkspaceID = workspaces[workspaceIndex].id
         let wasSelectedTile = selectedTileID == tileID
         TairiLog.write(
-            "workspace store closeTile begin tile=\(tileID.uuidString) workspace=\(workspaceID.uuidString) wasSelected=\(wasSelectedTile) tileCountBefore=\(workspaces[workspaceIndex].tiles.count) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") preferredVisibleMidX=\(preferredVisibleMidX.map { String(format: "%.1f", $0) } ?? "nil")"
+            "workspace store closeTile begin tile=\(tileID.uuidString) workspace=\(closedWorkspaceID.uuidString) wasSelected=\(wasSelectedTile) tileCountBefore=\(workspaces[workspaceIndex].tiles.count) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") preferredVisibleMidX=\(preferredVisibleMidX.map { String(format: "%.1f", $0) } ?? "nil")"
         )
         let neighboringTileIDs = neighboringTileIDs(
             aroundTileAt: tileIndex,
@@ -572,21 +572,27 @@ final class WorkspaceStore: ObservableObject {
         )
 
         if wasSelectedTile {
-            selectedTileID =
+            let fallbackTileID =
                 preferredNeighborTileID(
                     neighboringTileIDs,
                     in: workspaces[workspaceIndex],
                     preferredVisibleMidX: preferredVisibleMidX,
                     stripLeadingInset: stripLeadingInset
                 ) ?? preferredTileID(
-                    in: workspaceID,
+                    in: closedWorkspaceID,
                     preferredVisibleMidX: preferredVisibleMidX,
                     stripLeadingInset: stripLeadingInset
                 ) ?? workspaces[workspaceIndex].tiles.first?.id
+            let nextTileID = previouslyVisitedTileID(excluding: tileID) ?? fallbackTileID
+            selectedTileID = nextTileID
+            if let nextTileID {
+                selectedWorkspaceID = workspaceID(containing: nextTileID) ?? selectedWorkspaceID
+                markTileVisited(nextTileID)
+            }
         }
         normalize()
         TairiLog.write(
-            "workspace store closeTile end tile=\(tileID.uuidString) workspace=\(workspaceID.uuidString) tileCountAfter=\(workspaces.first(where: { $0.id == workspaceID })?.tiles.count ?? 0) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") workspaces=\(workspaceDebugSummary())"
+            "workspace store closeTile end tile=\(tileID.uuidString) workspace=\(closedWorkspaceID.uuidString) tileCountAfter=\(workspaces.first(where: { $0.id == closedWorkspaceID })?.tiles.count ?? 0) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") workspaces=\(workspaceDebugSummary())"
         )
         return selectedTileID
     }
@@ -626,6 +632,19 @@ final class WorkspaceStore: ObservableObject {
         workspaces.first(where: { workspace in
             workspace.tiles.contains(where: { $0.id == tileID })
         })
+    }
+
+    private func previouslyVisitedTileID(excluding tileID: UUID) -> UUID? {
+        workspaces
+            .flatMap(\.tiles)
+            .filter { $0.id != tileID }
+            .max { lhs, rhs in
+                if lhs.lastVisitedAt != rhs.lastVisitedAt {
+                    return lhs.lastVisitedAt < rhs.lastVisitedAt
+                }
+                return lhs.id.uuidString > rhs.id.uuidString
+            }?
+            .id
     }
 
     private func preferredTileID(

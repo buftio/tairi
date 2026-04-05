@@ -211,14 +211,15 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(resolved, homeDirectory)
     }
 
-    func testClosingSelectedTileChoosesNeighborNearestVisibleCenter() throws {
+    func testClosingSelectedTileReturnsToPreviouslyVisitedTile() throws {
         let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
 
         let middleTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
         let trailingNeighborTile = store.addTerminalTile(nextTo: middleTile.id, sessionID: UUID())
-        let farTrailingTile = store.addTerminalTile(nextTo: trailingNeighborTile.id, sessionID: UUID())
+        _ = store.addTerminalTile(nextTo: trailingNeighborTile.id, sessionID: UUID())
 
+        store.selectTile(firstTileID)
         store.selectTile(middleTile.id)
         let selectedTileID = store.closeTile(
             middleTile.id,
@@ -226,9 +227,33 @@ final class WorkspaceStoreTests: XCTestCase {
             stripLeadingInset: WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
         )
 
-        XCTAssertEqual(selectedTileID, trailingNeighborTile.id)
-        XCTAssertEqual(store.selectedTileID, trailingNeighborTile.id)
-        XCTAssertNotEqual(store.selectedTileID, farTrailingTile.id)
+        XCTAssertEqual(selectedTileID, firstTileID)
+        XCTAssertEqual(store.selectedTileID, firstTileID)
+        XCTAssertNotEqual(store.selectedTileID, trailingNeighborTile.id)
+    }
+
+    func testClosingSelectedTileCanReturnToPreviouslyVisitedTileInAnotherWorkspace() throws {
+        let store = makeStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: [
+                .init(tileWidthFactors: [1]),
+                .init(tileWidthFactors: [1]),
+            ]
+        )
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let secondWorkspaceID = try XCTUnwrap(
+            store.workspaces.first(where: { $0.id != store.selectedWorkspaceID && !$0.tiles.isEmpty })?.id
+        )
+
+        store.selectWorkspace(secondWorkspaceID)
+        let secondTileID = try XCTUnwrap(store.selectedTileID)
+        store.selectTile(firstTileID)
+
+        let selectedTileID = store.closeTile(firstTileID)
+
+        XCTAssertEqual(selectedTileID, secondTileID)
+        XCTAssertEqual(store.selectedTileID, secondTileID)
+        XCTAssertEqual(store.selectedWorkspaceID, secondWorkspaceID)
     }
 
     func testRevealTileLeavesPreviousTilePeekingForNonFirstTile() throws {
