@@ -231,6 +231,27 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertNotEqual(store.selectedTileID, farTrailingTile.id)
     }
 
+    func testRevealTileLeavesPreviousTilePeekingForNonFirstTile() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let secondTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+        let viewportWidth: CGFloat = 900
+        let stripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+
+        store.revealTile(
+            secondTile.id,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
+
+        XCTAssertEqual(
+            store.selectedWorkspace.horizontalOffset,
+            secondTile.width + WorkspaceCanvasLayoutMetrics.tileSpacing
+                - WorkspaceCanvasLayoutMetrics.neighboringTilePeek,
+            accuracy: 0.001
+        )
+    }
+
     func testMoveWorkspaceReordersList() throws {
         let store = makeStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",

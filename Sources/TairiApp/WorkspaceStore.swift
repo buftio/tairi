@@ -6,6 +6,7 @@ enum WorkspaceCanvasLayoutMetrics {
     static let horizontalPadding: CGFloat = 9
     static let verticalPadding: CGFloat = 9
     static let tileSpacing: CGFloat = 8
+    static let neighboringTilePeek: CGFloat = 20
     static let minimumTileHeight: CGFloat = 320
     static let resizeHandleWidth: CGFloat = 18
     static let resizeHandleInset: CGFloat = 28
@@ -731,7 +732,7 @@ final class WorkspaceStore: ObservableObject {
             return workspace.horizontalOffset
         }
 
-        let targetOffset = tileFrame.minX - anchorX
+        let targetOffset = tileFrame.minX - anchorX - WorkspaceCanvasLayoutMetrics.neighboringTilePeek
         let maxOffset = max(contentWidth(for: workspace, stripLeadingInset: stripLeadingInset) - viewportWidth, 0)
         return targetOffset.clamped(to: 0...maxOffset)
     }
