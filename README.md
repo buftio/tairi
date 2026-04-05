@@ -137,6 +137,11 @@ Common first-run issues:
 - `just install` expects `trash` to be installed
 - UI tests fail without a local signing identity
 
+## Troubleshooting
+
+- if Backspace does not work in `zsh`, add `term = xterm-256color` to your Ghostty config
+- this gives `zsh` a widely supported terminal description so Backspace is interpreted correctly
+
 ## License
 
 Tairi is available under the MIT license. See [LICENSE](LICENSE).

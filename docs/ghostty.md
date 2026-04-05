@@ -171,3 +171,21 @@ Useful log categories include:
 - releasing context
 
 For crash-focused guidance, see [crash-diagnostics.md](crash-diagnostics.md).
+
+## Troubleshooting
+
+### `zsh`: backspace does not work
+
+If backspace does not work correctly in `zsh`, add this to your Ghostty config:
+
+```ini
+term = xterm-256color
+```
+
+This helps because `zsh` and the terminal line editor rely on the active `TERM`
+entry to decide which control sequences the terminal sends and how keys such as
+Backspace should be interpreted. When the configured terminal type does not
+match what the shell expects, Backspace can arrive as the wrong character
+sequence and get ignored or rendered literally. `xterm-256color` is a widely
+supported terminfo entry, so using it gives `zsh` a terminal description it can
+usually interpret correctly.
