@@ -60,6 +60,10 @@ final class WorkspaceCanvasAnimator {
     private var renderedOpeningTileProgress: CGFloat = 1
     private var openingTileAnimationTimer: Timer?
 
+    var isHorizontalRevealAnimationActive: Bool {
+        horizontalRevealAnimationTimer != nil
+    }
+
     func pruneOffsets(workspaces: [WorkspaceStore.Workspace]) {
         renderedHorizontalOffsets = renderedHorizontalOffsets.filter { entry in
             workspaces.contains(where: { $0.id == entry.key })

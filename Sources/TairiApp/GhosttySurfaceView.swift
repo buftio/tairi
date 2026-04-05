@@ -17,6 +17,17 @@ extension NSEvent {
     }
 }
 
+enum GhosttySurfaceMouseInputPolicy {
+    static func shouldForwardInitialMouseEvent(clickedTileID: UUID?, selectedTileID: UUID?) -> Bool {
+        guard let clickedTileID else { return false }
+        return clickedTileID == selectedTileID
+    }
+
+    static func shouldForwardPointerMotion(isCanvasAnimating: Bool) -> Bool {
+        !isCanvasAnimating
+    }
+}
+
 @MainActor
 final class GhosttySurfaceView: NSView {
     struct TileCloseContext {
@@ -36,6 +47,8 @@ final class GhosttySurfaceView: NSView {
     private var lastLoggedScale = CGSize.zero
     private var lastLoggedDisplayID: UInt32?
     private var lastLoggedWindowNumber: Int?
+    private var suppressLeftMouseSequence = false
+    private var suppressRightMouseSequence = false
     private static let terminalDiagnosticCommand: String? = {
         guard ProcessInfo.processInfo.environment["TAIRI_TERMINAL_DIAG"] == "1" else {
             return nil
@@ -195,22 +208,40 @@ final class GhosttySurfaceView: NSView {
         {
             return
         }
+        if shouldSuppressInitialMouseSequence(for: attachedTileID) {
+            suppressLeftMouseSequence = true
+            focusAttachedTile(transition: .animatedReveal)
+            return
+        }
         recordInputIfAttached()
         focusAttachedTile(transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_LEFT)
     }
 
     override func mouseUp(with event: NSEvent) {
+        if suppressLeftMouseSequence {
+            suppressLeftMouseSequence = false
+            return
+        }
         sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE, button: GHOSTTY_MOUSE_LEFT)
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        if shouldSuppressInitialMouseSequence(for: attachedTileID) {
+            suppressRightMouseSequence = true
+            focusAttachedTile(transition: .animatedReveal)
+            return
+        }
         recordInputIfAttached()
         focusAttachedTile(transition: .animatedReveal)
         sendMouseButton(event, state: GHOSTTY_MOUSE_PRESS, button: GHOSTTY_MOUSE_RIGHT)
     }
 
     override func rightMouseUp(with event: NSEvent) {
+        if suppressRightMouseSequence {
+            suppressRightMouseSequence = false
+            return
+        }
         sendMouseButton(event, state: GHOSTTY_MOUSE_RELEASE, button: GHOSTTY_MOUSE_RIGHT)
     }
 
@@ -219,10 +250,16 @@ final class GhosttySurfaceView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if suppressLeftMouseSequence {
+            return
+        }
         sendMousePosition(event)
     }
 
     override func rightMouseDragged(with event: NSEvent) {
+        if suppressRightMouseSequence {
+            return
+        }
         sendMousePosition(event)
     }
 
@@ -240,6 +277,11 @@ final class GhosttySurfaceView: NSView {
 
     func sendMousePosition(_ event: NSEvent) {
         guard let surface else { return }
+        if !GhosttySurfaceMouseInputPolicy.shouldForwardPointerMotion(
+            isCanvasAnimating: interactionCoordinator?.shouldSuppressPointerMotion() == true
+        ) {
+            return
+        }
         let point = convert(event.locationInWindow, from: nil)
         let mods = ghosttyMods(from: event.modifierFlags)
         tairi_ghostty_surface_mouse_pos(surface, point.x, bounds.height - point.y, mods)
@@ -310,5 +352,12 @@ final class GhosttySurfaceView: NSView {
 
     private func describe(size: CGSize) -> String {
         "\(Int(size.width.rounded()))x\(Int(size.height.rounded()))"
+    }
+
+    private func shouldSuppressInitialMouseSequence(for tileID: UUID?) -> Bool {
+        !GhosttySurfaceMouseInputPolicy.shouldForwardInitialMouseEvent(
+            clickedTileID: tileID,
+            selectedTileID: runtime.store.selectedTileID
+        )
     }
 }

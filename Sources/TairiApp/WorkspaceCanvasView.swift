@@ -39,7 +39,7 @@ struct WorkspaceCanvasView: NSViewRepresentable {
 @MainActor
 final class WorkspaceCanvasDocumentView: NSView {
     enum Metrics {
-        static let workspacePeek: CGFloat = 28.8
+        static let workspacePeek: CGFloat = 44
         static let workspaceScrollAnimationDuration: TimeInterval = 0.22
     }
 
@@ -95,6 +95,12 @@ final class WorkspaceCanvasDocumentView: NSView {
 
     var isManagingAnchoredZoomTransition: Bool {
         anchoredZoomTransition != nil
+    }
+
+    var isAnimatingPointerSensitiveTransition: Bool {
+        animator.isHorizontalRevealAnimationActive
+            || workspaceScrollAnimationTimer != nil
+            || anchoredZoomTransition != nil
     }
 
     init(

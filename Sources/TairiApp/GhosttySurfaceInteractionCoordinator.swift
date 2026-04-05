@@ -48,6 +48,10 @@ final class GhosttySurfaceInteractionCoordinator {
         documentView?.handleWorkspaceKeyNavigation(offset: offset, from: tileID) == true
     }
 
+    func shouldSuppressPointerMotion() -> Bool {
+        documentView?.isAnimatingPointerSensitiveTransition == true
+    }
+
     func closeContext(for tileID: UUID) -> GhosttySurfaceView.TileCloseContext? {
         guard let documentView else { return nil }
         let workspaceID = runtime.store.workspaceID(containing: tileID) ?? runtime.store.selectedWorkspaceID
