@@ -89,11 +89,24 @@ final class GhosttyRuntime: ObservableObject {
         return tile
     }
 
+    @discardableResult
+    func createGitTile(
+        nextTo tileID: UUID? = nil,
+        transition: WorkspaceInteractionController.TileTransition = .animatedReveal
+    ) -> WorkspaceStore.Tile {
+        interactionController.addGitTile(
+            nextTo: tileID,
+            transition: transition
+        )
+    }
+
     func attachTile(_ tileID: UUID, to containerView: NSView) {
         guard let tile = store.tile(tileID) else { return }
+        guard tile.surface.isTerminal else { return }
+        guard let sessionID = tile.surface.terminalSessionID else { return }
         guard
             let session = ensureSessionExists(
-                id: tile.surface.terminalSessionID,
+                id: sessionID,
                 workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
             )
         else {
@@ -158,7 +171,9 @@ final class GhosttyRuntime: ObservableObject {
         snapshotImage: NSImage? = nil
     ) {
         let closeAnimationContext = tileCloseAnimationContext(for: tileID, snapshotImage: snapshotImage)
-        terminateSession(for: tileID, reason: .userClosedTile)
+        if store.tile(tileID)?.surface.isTerminal == true {
+            terminateSession(for: tileID, reason: .userClosedTile)
+        }
         finishClosingTile(
             tileID,
             preferredVisibleMidX: preferredVisibleMidX,
@@ -192,14 +207,25 @@ final class GhosttyRuntime: ObservableObject {
             TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=missing-tile")
             return
         }
+        guard tile.surface.isTerminal else {
+            if pendingFocusedTileID == tileID {
+                pendingFocusedTileID = nil
+            }
+            TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=non-terminal")
+            return
+        }
+        guard let sessionID = tile.surface.terminalSessionID else {
+            TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=missing-session-id")
+            return
+        }
         guard
             let session = ensureSessionExists(
-                id: tile.surface.terminalSessionID,
+                id: sessionID,
                 workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
             )
         else {
             TairiLog.write(
-                "ghostty focusSurface failed tile=\(tileID.uuidString) session=\(tile.surface.terminalSessionID.uuidString) reason=missing-session"
+                "ghostty focusSurface failed tile=\(tileID.uuidString) session=\(sessionID.uuidString) reason=missing-session"
             )
             return
         }
@@ -221,13 +247,13 @@ final class GhosttyRuntime: ObservableObject {
     func splitSelectedTileHorizontally() {
         let tileID = [pendingFocusedTileID, focusedTileID, store.selectedTileID]
             .compactMap { $0 }
-            .first(where: { store.tile($0) != nil })
+            .first(where: { store.tile($0)?.surface.isTerminal == true })
         guard let tileID else { return }
         splitTileHorizontally(tileID: tileID)
     }
 
     func splitTileHorizontally(tileID: UUID) {
-        guard store.tile(tileID) != nil else {
+        guard store.tile(tileID)?.surface.isTerminal == true else {
             TairiLog.write("ghostty split shortcut skipped tile=\(tileID.uuidString) reason=missing-tile")
             return
         }

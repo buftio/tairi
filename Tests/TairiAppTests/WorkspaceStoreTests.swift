@@ -55,6 +55,29 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(newTile.pwd, tempDirectory)
     }
 
+    func testGitTileUsesAssignedWorkspaceFolder() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+
+        store.setWorkspaceFolder(store.selectedWorkspaceID, to: tempDirectory)
+        let gitTile = store.addGitTile(nextTo: firstTileID)
+
+        XCTAssertEqual(gitTile.surface.kind, .git)
+        XCTAssertNil(gitTile.surface.terminalSessionID)
+        XCTAssertEqual(gitTile.pwd, tempDirectory)
+    }
+
+    func testSettingWorkspaceFolderUpdatesExistingGitTiles() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let gitTile = store.addGitTile()
+
+        store.setWorkspaceFolder(store.selectedWorkspaceID, to: tempDirectory)
+
+        XCTAssertEqual(store.tile(gitTile.id)?.pwd, tempDirectory)
+    }
+
     func testSplitTileCreatesVerticalSiblingOnSameWorkspaceAndDividesHeight() throws {
         let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
@@ -293,6 +316,47 @@ final class WorkspaceStoreTests: XCTestCase {
 
         XCTAssertEqual(store.workspaces.first?.id, sourceID)
         XCTAssertEqual(store.workspaces.dropFirst().first?.id, targetID)
+    }
+
+    func testSwapTileLayoutSlotsExchangesColumns() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let secondTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+        let thirdTile = store.addTerminalTile(nextTo: secondTile.id, sessionID: UUID())
+        let firstTileBefore = try XCTUnwrap(store.tile(firstTileID))
+        let thirdTileBefore = try XCTUnwrap(store.tile(thirdTile.id))
+
+        let didSwap = store.swapTileLayoutSlots(firstTileID, with: thirdTile.id)
+        let firstTileAfter = try XCTUnwrap(store.tile(firstTileID))
+        let thirdTileAfter = try XCTUnwrap(store.tile(thirdTile.id))
+
+        XCTAssertTrue(didSwap)
+        XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [thirdTile.id, secondTile.id, firstTileID])
+        XCTAssertEqual(firstTileAfter.columnID, thirdTileBefore.columnID)
+        XCTAssertEqual(firstTileAfter.width, thirdTileBefore.width, accuracy: 0.001)
+        XCTAssertEqual(firstTileAfter.heightWeight, thirdTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(thirdTileAfter.columnID, firstTileBefore.columnID)
+        XCTAssertEqual(thirdTileAfter.width, firstTileBefore.width, accuracy: 0.001)
+        XCTAssertEqual(thirdTileAfter.heightWeight, firstTileBefore.heightWeight, accuracy: 0.001)
+    }
+
+    func testSwapTileLayoutSlotsExchangesVerticalPositionsWithinColumn() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let bottomTile = try XCTUnwrap(store.splitTerminalTile(firstTileID, sessionID: UUID()))
+        let topTileBefore = try XCTUnwrap(store.tile(firstTileID))
+        let bottomTileBefore = try XCTUnwrap(store.tile(bottomTile.id))
+
+        let didSwap = store.swapTileLayoutSlots(firstTileID, with: bottomTile.id)
+        let topTileAfter = try XCTUnwrap(store.tile(firstTileID))
+        let bottomTileAfter = try XCTUnwrap(store.tile(bottomTile.id))
+
+        XCTAssertTrue(didSwap)
+        XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [bottomTile.id, firstTileID])
+        XCTAssertEqual(topTileAfter.heightWeight, bottomTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(bottomTileAfter.heightWeight, topTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(topTileAfter.columnID, bottomTileBefore.columnID)
+        XCTAssertEqual(bottomTileAfter.columnID, topTileBefore.columnID)
     }
 
     func testPersistentStripsRestoreFromSidebarPersistence() throws {

@@ -47,14 +47,23 @@ final class WorkspaceStore: ObservableObject {
 
     enum SurfaceKind: String, Codable, Equatable {
         case terminal
+        case git
     }
 
     struct Surface: Equatable {
         var kind: SurfaceKind
-        var terminalSessionID: UUID
+        var terminalSessionID: UUID?
 
         static func terminal(sessionID: UUID) -> Surface {
             Surface(kind: .terminal, terminalSessionID: sessionID)
+        }
+
+        static var git: Surface {
+            Surface(kind: .git, terminalSessionID: nil)
+        }
+
+        var isTerminal: Bool {
+            kind == .terminal
         }
     }
 
@@ -199,6 +208,31 @@ final class WorkspaceStore: ObservableObject {
         let tile = Tile(
             pwd: resolveWorkingDirectoryForNewTile(nextTo: tileID, workingDirectory: workingDirectory),
             surface: .terminal(sessionID: sessionID)
+        )
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
+            return tile
+        }
+
+        if let tileID,
+            let index = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID })
+        {
+            workspaces[workspaceIndex].tiles.insert(tile, at: index + 1)
+        } else {
+            workspaces[workspaceIndex].tiles.append(tile)
+        }
+
+        selectedTileID = tile.id
+        markTileVisited(tile.id)
+        normalize()
+        return tile
+    }
+
+    @discardableResult
+    func addGitTile(nextTo tileID: UUID? = nil) -> Tile {
+        let tile = Tile(
+            title: "git",
+            pwd: assignedFolderPathForNewTile(nextTo: tileID),
+            surface: .git
         )
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
             return tile
@@ -484,7 +518,11 @@ final class WorkspaceStore: ObservableObject {
 
     func setWorkspaceFolder(_ workspaceID: UUID, to proposedFolderPath: String?) {
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
-        workspaces[workspaceIndex].folderPath = Self.normalizedAssignedFolderPath(proposedFolderPath)
+        let normalizedFolderPath = Self.normalizedAssignedFolderPath(proposedFolderPath)
+        workspaces[workspaceIndex].folderPath = normalizedFolderPath
+        for tileIndex in workspaces[workspaceIndex].tiles.indices where workspaces[workspaceIndex].tiles[tileIndex].surface.kind == .git {
+            workspaces[workspaceIndex].tiles[tileIndex].pwd = normalizedFolderPath
+        }
         normalize()
     }
 
@@ -538,6 +576,41 @@ final class WorkspaceStore: ObservableObject {
 
         workspaces.insert(workspace, at: min(max(insertionIndex, 0), workspaces.count))
         normalize()
+    }
+
+    @discardableResult
+    func swapTileLayoutSlots(_ tileID: UUID, with targetTileID: UUID) -> Bool {
+        guard tileID != targetTileID else { return false }
+
+        for workspaceIndex in workspaces.indices {
+            guard let sourceIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }),
+                let targetIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == targetTileID })
+            else {
+                continue
+            }
+
+            let sourceTile = workspaces[workspaceIndex].tiles[sourceIndex]
+            let targetTile = workspaces[workspaceIndex].tiles[targetIndex]
+            let sourceSlot = (columnID: sourceTile.columnID, width: sourceTile.width, heightWeight: sourceTile.heightWeight)
+            let targetSlot = (columnID: targetTile.columnID, width: targetTile.width, heightWeight: targetTile.heightWeight)
+
+            var nextSourceTile = sourceTile
+            nextSourceTile.columnID = targetSlot.columnID
+            nextSourceTile.width = targetSlot.width
+            nextSourceTile.heightWeight = targetSlot.heightWeight
+
+            var nextTargetTile = targetTile
+            nextTargetTile.columnID = sourceSlot.columnID
+            nextTargetTile.width = sourceSlot.width
+            nextTargetTile.heightWeight = sourceSlot.heightWeight
+
+            workspaces[workspaceIndex].tiles[sourceIndex] = nextTargetTile
+            workspaces[workspaceIndex].tiles[targetIndex] = nextSourceTile
+            selectedWorkspaceID = workspaces[workspaceIndex].id
+            return true
+        }
+
+        return false
     }
 
     @discardableResult

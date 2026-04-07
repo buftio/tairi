@@ -162,6 +162,25 @@ final class WorkspaceInteractionController: ObservableObject {
     }
 
     @discardableResult
+    func addGitTile(
+        nextTo tileID: UUID? = nil,
+        transition: TileTransition = .preserveViewport
+    ) -> WorkspaceStore.Tile {
+        let tile = store.addGitTile(nextTo: tileID)
+        if transition != .preserveViewport {
+            tileOpenAnimation = TileOpenAnimation(
+                id: nextTransitionID,
+                tileID: tile.id,
+                kind: .columnOpen,
+                animated: transition == .animatedReveal
+            )
+            nextTransitionID += 1
+        }
+        publishTransition(for: tile.id, transition: transition)
+        return tile
+    }
+
+    @discardableResult
     func splitTerminalTile(
         _ tileID: UUID,
         workingDirectory: String? = nil,

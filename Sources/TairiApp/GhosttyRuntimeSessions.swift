@@ -18,10 +18,11 @@ extension GhosttyRuntime {
         let liveTileIDs = Set(liveTiles.map(\.id))
 
         for tile in liveTiles {
-            sessionRegistry.setSessionID(tile.surface.terminalSessionID, forTileID: tile.id)
+            guard let sessionID = tile.surface.terminalSessionID else { continue }
+            sessionRegistry.setSessionID(sessionID, forTileID: tile.id)
             guard
                 let session = ensureSessionExists(
-                    id: tile.surface.terminalSessionID,
+                    id: sessionID,
                     workingDirectory: tile.pwd ?? TerminalWorkingDirectory.defaultDirectoryForEmptyWorkspace()
                 )
             else {

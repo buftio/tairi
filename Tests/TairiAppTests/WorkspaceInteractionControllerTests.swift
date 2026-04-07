@@ -50,6 +50,23 @@ final class WorkspaceInteractionControllerTests: XCTestCase {
         XCTAssertEqual(animation.kind, .verticalSplit(sourceTileID: sourceTileID))
     }
 
+    func testAddGitTilePublishesColumnOpenAnimation() throws {
+        let store = makeStore()
+        let controller = WorkspaceInteractionController(store: store)
+        let tileID = try XCTUnwrap(store.selectedTileID)
+
+        let tile = controller.addGitTile(
+            nextTo: tileID,
+            transition: .animatedReveal
+        )
+        let animation = try XCTUnwrap(controller.tileOpenAnimation)
+
+        XCTAssertEqual(tile.surface.kind, .git)
+        XCTAssertEqual(animation.tileID, tile.id)
+        XCTAssertTrue(animation.animated)
+        XCTAssertEqual(animation.kind, .columnOpen)
+    }
+
     private func makeStore() -> WorkspaceStore {
         WorkspaceStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",

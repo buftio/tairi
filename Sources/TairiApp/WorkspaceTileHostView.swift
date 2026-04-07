@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 @MainActor
 final class WorkspaceTileHostView: NSView {
@@ -24,13 +25,20 @@ final class WorkspaceTileHostView: NSView {
     private let iconView = NSImageView()
     private let closeButton = TrafficLightButton(frame: .zero)
     private let headerView = NSView()
+    private let headerInteractionView = WorkspaceTileHeaderInteractionView()
     private let surfaceContainerView = NSView()
 
     private let tileID: UUID
+    private let gitTileViewModel = GitTileViewModel()
     private var currentTile: WorkspaceStore.Tile?
+    private var currentIsSelected = false
     private var lastHeaderIconPWD: String?
     private weak var coordinatedDocumentView: WorkspaceCanvasDocumentView?
     private var surfaceInteractionCoordinator: GhosttySurfaceInteractionCoordinator?
+    private var gitHostingView: NSHostingView<GitTileView>?
+    private var isTileReorderLifted = false
+    private var isTileReorderDropTarget = false
+    private var isTileReorderDragSource = false
 
     override var isFlipped: Bool { true }
 
@@ -73,6 +81,25 @@ final class WorkspaceTileHostView: NSView {
         iconView.imageScaling = .scaleProportionallyUpOrDown
         headerView.addSubview(iconView)
 
+        headerInteractionView.tileID = tileID
+        headerInteractionView.onSelect = { [weak self] in
+            guard let self else { return }
+            self.runtime.focus(tileID: self.tileID, transition: .animatedReveal)
+        }
+        headerInteractionView.canBeginDrag = { [weak self] in
+            self?.workspaceCanvasDocumentView()?.canBeginTileReorderDrag(for: tileID) == true
+        }
+        headerInteractionView.onBeginDrag = { [weak self] in
+            self?.workspaceCanvasDocumentView()?.beginTileReorderDrag(tileID)
+        }
+        headerInteractionView.onEndDrag = { [weak self] in
+            self?.workspaceCanvasDocumentView()?.endTileReorderDrag(tileID)
+        }
+        headerInteractionView.dragPreviewProvider = { [weak self] in
+            self?.tileDragPreview()
+        }
+        headerView.addSubview(headerInteractionView)
+
         closeButton.title = ""
         closeButton.isBordered = false
         closeButton.bezelStyle = .regularSquare
@@ -86,10 +113,16 @@ final class WorkspaceTileHostView: NSView {
 
         surfaceContainerView.configureAccessibility(
             identifier: TairiAccessibility.tileSurface(tileID),
-            label: "Terminal surface"
+            label: "Tile surface"
         )
         contentContainerView.addSubview(surfaceContainerView)
-        runtime.attachTile(tileID, to: surfaceContainerView)
+        gitTileViewModel.onStateChange = { [weak self] _ in
+            guard let self, let tile = self.currentTile else { return }
+            self.applyHeader(for: tile, selected: self.currentIsSelected, theme: self.runtime.appTheme)
+        }
+        if let tile = runtime.store.tile(tileID) {
+            updateSurfaceContent(for: tile)
+        }
     }
 
     @available(*, unavailable)
@@ -133,6 +166,7 @@ final class WorkspaceTileHostView: NSView {
         contentContainerView.layer?.masksToBounds = true
 
         headerView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: Metrics.headerHeight)
+        headerInteractionView.frame = headerView.bounds
         let closeButtonY = floor((Metrics.headerHeight - Metrics.closeButtonHitSize) / 2)
         titleField.frame = NSRect(
             x: Metrics.headerHorizontalInset + Metrics.closeButtonSize + Metrics.interItemSpacing + Metrics.iconSize
@@ -188,58 +222,19 @@ final class WorkspaceTileHostView: NSView {
 
     func update(tile: WorkspaceStore.Tile, selected: Bool) {
         let theme = runtime.appTheme
-        let previousHeaderIconPWD = lastHeaderIconPWD
         currentTile = tile
+        currentIsSelected = selected
+        updateSurfaceContent(for: tile)
         syncSurfaceInteractionCoordinator()
-        let displayTitle = TerminalTitleDisplay.displayTitle(for: tile.title, path: tile.pwd)
-        titleField.attributedStringValue = headerTitle(for: tile, selected: selected, theme: theme)
-        if previousHeaderIconPWD != tile.pwd || iconView.image == nil {
-            refreshHeaderIcon(for: tile.pwd)
-        }
-        let accessibilityPath = TerminalTitleDisplay.displayPath(forTitle: tile.title, path: tile.pwd)
-        let accessibilityTitle =
-            if let accessibilityPath {
-                "\(displayTitle) \(accessibilityPath)"
-            } else {
-                displayTitle
-            }
-        setAccessibilityLabel("Workspace tile \(accessibilityTitle)")
-        setAccessibilityValue(selected ? "selected" : "unselected")
-
-        contentContainerView.layer?.backgroundColor = theme.background.cgColor
-        layer?.backgroundColor = NSColor.clear.cgColor
-        borderShapeLayer.lineWidth =
-            selected
-            ? WorkspaceTileChromeMetrics.activeBorderWidth
-            : WorkspaceTileChromeMetrics.inactiveBorderWidth
-        borderShapeLayer.strokeColor =
-            (selected
-            ? theme.tileActiveBorder
-            : theme.tileInactiveBorder).cgColor
-        borderHighlightLayer.lineWidth = selected ? 0.9 : 0
-        borderHighlightLayer.strokeColor =
-            (selected
-            ? theme.tileActiveBorderHighlight
-            : .clear).cgColor
-        needsLayout = true
-        layer?.shadowColor = theme.tileShadow.cgColor
-        layer?.shadowOpacity = selected ? 0.6 : 0
-        layer?.shadowRadius = selected ? 18 : 0
-        layer?.shadowOffset = .zero
-
-        headerView.layer?.backgroundColor = theme.background.cgColor
-        closeButton.configureAppearance(
-            fillColor: theme.closeButtonFill,
-            borderColor: theme.closeButtonBorder,
-            opacity: selected ? 1 : 0.92,
-            visualDiameter: Metrics.closeButtonSize
-        )
+        applyHeader(for: tile, selected: selected, theme: theme)
+        applyAppearance(animated: false, animationPolicy: .defaultValue)
     }
 
     func dispose() {
         runtime.session(for: tileID)?.surfaceView.interactionCoordinator = nil
         surfaceInteractionCoordinator = nil
         coordinatedDocumentView = nil
+        gitTileViewModel.stopRefreshing()
         runtime.detachTile(tileID, reason: .uiChurn)
     }
 
@@ -280,7 +275,7 @@ final class WorkspaceTileHostView: NSView {
         selected: Bool,
         theme: GhosttyAppTheme
     ) -> NSAttributedString {
-        let title = TerminalTitleDisplay.displayTitle(for: tile.title, path: tile.pwd)
+        let title = displayTitle(for: tile)
         let titleColor =
             selected
             ? theme.primaryText
@@ -298,7 +293,7 @@ final class WorkspaceTileHostView: NSView {
             ]
         )
 
-        if let path = TerminalTitleDisplay.displayPath(forTitle: tile.title, path: tile.pwd) {
+        if let path = TerminalTitleDisplay.displayPath(forTitle: title, path: tile.pwd) {
             attributedTitle.append(
                 NSAttributedString(
                     string: "  \(path)",
@@ -313,7 +308,39 @@ final class WorkspaceTileHostView: NSView {
         return attributedTitle
     }
 
+    private func applyHeader(for tile: WorkspaceStore.Tile, selected: Bool, theme: GhosttyAppTheme) {
+        let previousHeaderIconPWD = lastHeaderIconPWD
+        let title = displayTitle(for: tile)
+        titleField.attributedStringValue = headerTitle(for: tile, selected: selected, theme: theme)
+        if previousHeaderIconPWD != tile.pwd || iconView.image == nil {
+            refreshHeaderIcon(for: tile.pwd)
+        }
+        let accessibilityPath = TerminalTitleDisplay.displayPath(forTitle: title, path: tile.pwd)
+        let accessibilityTitle =
+            if let accessibilityPath {
+                "\(title) \(accessibilityPath)"
+            } else {
+                title
+            }
+        setAccessibilityLabel("Workspace tile \(accessibilityTitle)")
+        setAccessibilityValue(selected ? "selected" : "unselected")
+    }
+
+    private func displayTitle(for tile: WorkspaceStore.Tile) -> String {
+        if tile.surface.kind == .git,
+            case .ready(let snapshot) = gitTileViewModel.state
+        {
+            return snapshot.branchName
+        }
+        return TerminalTitleDisplay.displayTitle(for: tile.title, path: tile.pwd)
+    }
+
     private func syncSurfaceInteractionCoordinator() {
+        guard currentTile?.surface.isTerminal != false else {
+            coordinatedDocumentView = nil
+            surfaceInteractionCoordinator = nil
+            return
+        }
         guard let surfaceView = runtime.session(for: tileID)?.surfaceView else { return }
         guard let documentView = workspaceCanvasDocumentView() else {
             surfaceView.interactionCoordinator = nil
@@ -334,6 +361,150 @@ final class WorkspaceTileHostView: NSView {
         }
 
         surfaceView.interactionCoordinator = surfaceInteractionCoordinator
+    }
+
+    private func updateSurfaceContent(for tile: WorkspaceStore.Tile) {
+        if tile.surface.isTerminal {
+            gitTileViewModel.stopRefreshing()
+            gitHostingView?.removeFromSuperview()
+            gitHostingView = nil
+            runtime.attachTile(tileID, to: surfaceContainerView)
+            return
+        }
+
+        runtime.detachTile(tileID, reason: .uiChurn)
+        gitTileViewModel.updateWorkspaceFolderPath(workspaceFolderPath())
+        gitTileViewModel.startRefreshing()
+
+        let rootView = GitTileView(
+            model: gitTileViewModel,
+            theme: runtime.appTheme,
+            selectTile: { [weak self] in
+                guard let self else { return }
+                self.runtime.focus(tileID: self.tileID, transition: .immediate)
+            }
+        )
+
+        if let gitHostingView {
+            gitHostingView.rootView = rootView
+        } else {
+            let hostingView = NSHostingView(rootView: rootView)
+            hostingView.frame = surfaceContainerView.bounds
+            hostingView.autoresizingMask = [.width, .height]
+            hostingView.wantsLayer = false
+            surfaceContainerView.addSubview(hostingView)
+            gitHostingView = hostingView
+        }
+    }
+
+    func setTileReorderPresentation(
+        lifted: Bool,
+        dropTarget: Bool,
+        dragSource: Bool,
+        animated: Bool,
+        animationPolicy: AppAnimationPolicy
+    ) {
+        guard
+            lifted != isTileReorderLifted
+                || dropTarget != isTileReorderDropTarget
+                || dragSource != isTileReorderDragSource
+        else {
+            return
+        }
+
+        isTileReorderLifted = lifted
+        isTileReorderDropTarget = dropTarget
+        isTileReorderDragSource = dragSource
+        applyAppearance(animated: animated, animationPolicy: animationPolicy)
+    }
+
+    private func applyAppearance(animated: Bool, animationPolicy: AppAnimationPolicy) {
+        let theme = runtime.appTheme
+        contentContainerView.layer?.backgroundColor = theme.background.cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
+        headerView.layer?.backgroundColor = theme.background.cgColor
+        layer?.shadowColor = theme.tileShadow.cgColor
+        layer?.shadowOffset = .zero
+
+        let borderWidth =
+            currentIsSelected || isTileReorderDropTarget
+            ? WorkspaceTileChromeMetrics.activeBorderWidth
+            : WorkspaceTileChromeMetrics.inactiveBorderWidth
+        let borderColor =
+            isTileReorderDropTarget
+            ? theme.tileActiveBorder
+            : (currentIsSelected ? theme.tileActiveBorder : theme.tileInactiveBorder)
+        let highlightWidth: CGFloat =
+            isTileReorderDropTarget
+            ? 1.2
+            : (currentIsSelected ? 0.9 : 0)
+        let highlightColor =
+            isTileReorderDropTarget
+            ? theme.tileActiveBorder
+            : (currentIsSelected ? theme.tileActiveBorderHighlight : .clear)
+        let shadowOpacity: Float =
+            isTileReorderLifted
+            ? 0.9
+            : (currentIsSelected ? 0.6 : 0)
+        let shadowRadius: CGFloat = isTileReorderLifted ? 24 : (currentIsSelected ? 18 : 0)
+        let targetAlpha: CGFloat = isTileReorderDragSource ? 0.38 : 1
+        let targetZPosition: CGFloat = isTileReorderLifted ? 120 : (isTileReorderDropTarget ? 60 : 0)
+        let targetTransform =
+            isTileReorderLifted
+            ? CATransform3DConcat(
+                CATransform3DMakeTranslation(0, -12, 0),
+                CATransform3DMakeScale(1.015, 1.015, 1)
+            )
+            : CATransform3DIdentity
+        let duration = animationPolicy.scaledDuration(0.18, requested: animated)
+
+        borderShapeLayer.lineWidth = borderWidth
+        borderShapeLayer.strokeColor = borderColor.cgColor
+        borderHighlightLayer.lineWidth = highlightWidth
+        borderHighlightLayer.strokeColor = highlightColor.cgColor
+        closeButton.configureAppearance(
+            fillColor: theme.closeButtonFill,
+            borderColor: theme.closeButtonBorder,
+            opacity: currentIsSelected || isTileReorderLifted ? 1 : 0.92,
+            visualDiameter: Metrics.closeButtonSize
+        )
+
+        if duration > 0 {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                animator().alphaValue = targetAlpha
+            }
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(duration)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+            layer?.zPosition = targetZPosition
+            layer?.shadowOpacity = shadowOpacity
+            layer?.shadowRadius = shadowRadius
+            layer?.transform = targetTransform
+            CATransaction.commit()
+        } else {
+            alphaValue = targetAlpha
+            layer?.zPosition = targetZPosition
+            layer?.shadowOpacity = shadowOpacity
+            layer?.shadowRadius = shadowRadius
+            layer?.transform = targetTransform
+        }
+
+        needsLayout = true
+    }
+
+    private func tileDragPreview() -> WorkspaceTileHeaderDragPreview? {
+        guard let image = tairiSnapshotImage() else { return nil }
+        return WorkspaceTileHeaderDragPreview(
+            image: image,
+            frame: convert(bounds, to: headerInteractionView)
+        )
+    }
+
+    private func workspaceFolderPath() -> String? {
+        guard let workspaceID = runtime.store.workspaceID(containing: tileID) else { return nil }
+        return runtime.store.workspaces.first(where: { $0.id == workspaceID })?.folderPath
     }
 }
 
