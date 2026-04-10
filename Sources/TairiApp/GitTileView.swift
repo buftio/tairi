@@ -20,7 +20,7 @@ struct GitTileView: View {
     var body: some View {
         GeometryReader { proxy in
             let compact = proxy.size.width < 430
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: compact ? 8 : Metrics.sectionSpacing) {
                     content(compact: compact)
                 }
@@ -28,7 +28,13 @@ struct GitTileView: View {
                 .padding(.vertical, Metrics.verticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .scrollIndicators(.hidden)
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    selectTile()
+                }
+            )
+            .scrollBounceBehavior(.basedOnSize, axes: .vertical)
             .background(backgroundColor)
         }
     }
