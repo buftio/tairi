@@ -183,6 +183,34 @@ final class GhosttyRuntime: ObservableObject {
         )
     }
 
+    func removeWorkspace(_ workspaceID: UUID) {
+        guard let workspace = store.workspaces.first(where: { $0.id == workspaceID }) else { return }
+
+        let wasSelectedWorkspace = workspaceID == store.selectedWorkspaceID
+        TairiLog.write(
+            "ghostty removeWorkspace begin workspace=\(workspaceID.uuidString) tileCount=\(workspace.tiles.count) wasSelected=\(wasSelectedWorkspace)"
+        )
+
+        for tile in workspace.tiles where tile.surface.isTerminal {
+            terminateSession(for: tile.id, reason: .workspaceRemoved)
+        }
+
+        let selectedTileID = store.removeWorkspace(workspaceID)
+
+        if wasSelectedWorkspace {
+            if let selectedTileID {
+                interactionController.revealSelection(of: selectedTileID)
+                focusSurface(tileID: selectedTileID)
+            } else {
+                interactionController.revealWorkspace(store.selectedWorkspaceID, animated: false)
+            }
+        }
+
+        TairiLog.write(
+            "ghostty removeWorkspace end workspace=\(workspaceID.uuidString) selectedWorkspace=\(store.selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none")"
+        )
+    }
+
     func terminateAllSessions(reason: TerminateReason) {
         for session in sessionRegistry.allSessions {
             destroySession(sessionID: session.id, reasonLabel: reason.rawValue, requestedTileID: session.attachedTileID)
@@ -198,19 +226,21 @@ final class GhosttyRuntime: ObservableObject {
     func didFocusSurface(sessionID: UUID) {
         guard let tileID = attachedTileID(for: sessionID) else { return }
         focusedTileID = tileID
+        pendingFocusedTileID = nil
         interactionController.selectTile(tileID)
     }
 
     func focusSurface(tileID: UUID) {
         TairiLog.write("ghostty focusSurface start tile=\(tileID.uuidString)")
+        if pendingFocusedTileID != tileID {
+            pendingFocusedTileID = nil
+        }
         guard let tile = store.tile(tileID) else {
             TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=missing-tile")
             return
         }
         guard tile.surface.isTerminal else {
-            if pendingFocusedTileID == tileID {
-                pendingFocusedTileID = nil
-            }
+            focusedTileID = nil
             TairiLog.write("ghostty focusSurface skipped tile=\(tileID.uuidString) reason=non-terminal")
             return
         }

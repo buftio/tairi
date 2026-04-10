@@ -4,6 +4,7 @@ import AppKit
 final class WorkspaceCanvasContainerView: NSView {
     private let settings: AppSettings
     private let store: WorkspaceStore
+    private let interactionController: WorkspaceInteractionController
     private let scrollView = WorkspaceCanvasScrollView()
     private let documentView: WorkspaceCanvasDocumentView
     private var lastSelectedTileID: UUID?
@@ -26,8 +27,17 @@ final class WorkspaceCanvasContainerView: NSView {
     private var pendingEmptySelectionResponderWorkspaceID: UUID?
     private var pendingEmptySelectionResponderReason: String?
     private var pendingEmptySelectionHeartbeatWorkspaceID: UUID?
+    nonisolated(unsafe) private var keyDownMonitor: Any?
+    nonisolated(unsafe) private var flagsChangedMonitor: Any?
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handleKeyboardReorderShortcut(event) {
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 
     init(
         settings: AppSettings,
@@ -37,6 +47,7 @@ final class WorkspaceCanvasContainerView: NSView {
     ) {
         self.settings = settings
         self.store = store
+        self.interactionController = interactionController
         documentView = WorkspaceCanvasDocumentView(
             settings: settings,
             store: store,
@@ -69,6 +80,7 @@ final class WorkspaceCanvasContainerView: NSView {
         scrollView.documentView = documentView
 
         addSubview(scrollView)
+        startKeyboardReorderMonitors()
     }
 
     @available(*, unavailable)
@@ -76,10 +88,20 @@ final class WorkspaceCanvasContainerView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        if let keyDownMonitor {
+            NSEvent.removeMonitor(keyDownMonitor)
+        }
+        if let flagsChangedMonitor {
+            NSEvent.removeMonitor(flagsChangedMonitor)
+        }
+    }
+
     override func layout() {
         super.layout()
         scrollView.frame = bounds
         documentView.viewportSize = scrollView.contentView.bounds.size
+        interactionController.updateWorkspaceNavigationViewport(width: scrollView.contentView.bounds.width)
         stabilizeInitialViewportIfNeeded()
     }
 
@@ -110,6 +132,9 @@ final class WorkspaceCanvasContainerView: NSView {
             sidebarHidden: sidebarHidden,
             renderedStripLeadingInset: renderedStripLeadingInset
         )
+        if !keyboardReorderLiftCanArm {
+            documentView.setKeyboardTileReorderArmed(false)
+        }
         requestEmptySelectionResponderHandoffIfNeeded(
             selectedWorkspaceID: selectedWorkspaceID,
             selectedTileID: selectedTileID,
@@ -122,6 +147,7 @@ final class WorkspaceCanvasContainerView: NSView {
         }
         setAccessibilityValue(canvasZoomMode == .overview ? "overview" : "focused")
         documentView.viewportSize = scrollView.contentView.bounds.size
+        interactionController.updateWorkspaceNavigationViewport(width: scrollView.contentView.bounds.width)
 
         if canvasZoomMode == .overview {
             if lastCanvasZoomMode != .overview {
@@ -383,5 +409,84 @@ final class WorkspaceCanvasContainerView: NSView {
                 "workspace canvas emptySelection heartbeat workspace=\(selectedWorkspaceID.uuidString) reason=\(reason) delay=\(String(format: "%.2f", delay)) window=\(windowNumber) firstResponder=\(firstResponderDescription)"
             )
         }
+    }
+
+    private func startKeyboardReorderMonitors() {
+        guard keyDownMonitor == nil, flagsChangedMonitor == nil else { return }
+
+        keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handleKeyboardReorderKeyDown(event) ?? event
+        }
+        flagsChangedMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleKeyboardReorderFlagsChanged(event) ?? event
+        }
+    }
+
+    private func stopKeyboardReorderMonitors() {
+        if let keyDownMonitor {
+            NSEvent.removeMonitor(keyDownMonitor)
+            self.keyDownMonitor = nil
+        }
+        if let flagsChangedMonitor {
+            NSEvent.removeMonitor(flagsChangedMonitor)
+            self.flagsChangedMonitor = nil
+        }
+    }
+
+    private func handleKeyboardReorderKeyDown(_ event: NSEvent) -> NSEvent? {
+        handleKeyboardReorderShortcut(event) ? nil : event
+    }
+
+    private func handleKeyboardReorderFlagsChanged(_ event: NSEvent) -> NSEvent? {
+        documentView.setKeyboardTileReorderArmed(
+            keyboardReorderLiftCanArm && TairiHotkeys.isTileReorderLiftActive(event)
+        )
+        return event
+    }
+
+    private func handleKeyboardReorderShortcut(_ event: NSEvent) -> Bool {
+        if keyboardReorderEventsAreEligible,
+            !isGhosttySurfaceFirstResponder,
+            TairiHotkeys.isDisabledTileReorderShortcut(event)
+        {
+            return true
+        }
+
+        guard keyboardReorderEventsAreEligible,
+            !isGhosttySurfaceFirstResponder,
+            let selectedTileID = currentSelectedTileID,
+            let direction = TairiHotkeys.tileReorderDirection(for: event)
+        else {
+            return false
+        }
+
+        _ = documentView.handleKeyboardTileReorder(direction, from: selectedTileID)
+        return true
+    }
+
+    private var keyboardReorderEventsAreEligible: Bool {
+        guard currentCanvasZoomMode != .overview,
+            currentSelectedTileID != nil,
+            let window,
+            window.isKeyWindow
+        else {
+            return false
+        }
+
+        guard let firstResponderView = window.firstResponder as? NSView else {
+            return false
+        }
+
+        return firstResponderView.isDescendant(of: self)
+    }
+
+    private var keyboardReorderLiftCanArm: Bool {
+        currentCanvasZoomMode != .overview
+            && currentSelectedTileID != nil
+            && window?.isKeyWindow == true
+    }
+
+    private var isGhosttySurfaceFirstResponder: Bool {
+        (window?.firstResponder as? GhosttySurfaceView) != nil
     }
 }

@@ -79,6 +79,9 @@ final class WorkspaceCanvasDocumentView: NSView {
     var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
     var workspaceScrollAnimationStartedAt = Date.distantPast
     var anchoredZoomTransition: AnchoredZoomTransition?
+    var activeTileReorderDragTileID: UUID?
+    var hoveredTileReorderTargetTileID: UUID?
+    var keyboardTileReorderArmed = false
 
     var targetStripLeadingInset: CGFloat {
         WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: isSidebarHidden)
@@ -116,6 +119,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        registerForDraggedTypes([workspaceTileDragType])
         animator.onChange = { [weak self] in
             self?.needsLayout = true
         }
@@ -168,6 +172,19 @@ final class WorkspaceCanvasDocumentView: NSView {
             view.removeFromSuperview()
             tileViews.removeValue(forKey: tileID)
         }
+        if let activeTileReorderDragTileID, !allTileIDs.contains(activeTileReorderDragTileID) {
+            self.activeTileReorderDragTileID = nil
+        }
+        if let hoveredTileReorderTargetTileID, !allTileIDs.contains(hoveredTileReorderTargetTileID) {
+            self.hoveredTileReorderTargetTileID = nil
+        }
+        if selectedTileID == nil {
+            keyboardTileReorderArmed = false
+        }
+        if canvasZoomMode == .overview {
+            hoveredTileReorderTargetTileID = nil
+            keyboardTileReorderArmed = false
+        }
         pruneVerticalSplitOpenAnimation(using: allTileIDs)
 
         animator.pruneOffsets(workspaces: workspaces)
@@ -189,6 +206,13 @@ final class WorkspaceCanvasDocumentView: NSView {
                     addSubview(tileView)
                 }
                 tileView.update(tile: tile, selected: tile.id == selectedTileID)
+                tileView.setTileReorderPresentation(
+                    lifted: tile.id == liftedTileID,
+                    dropTarget: tile.id == hoveredTileReorderTargetTileID,
+                    dragSource: tile.id == activeTileReorderDragTileID,
+                    animated: true,
+                    animationPolicy: animationPolicy
+                )
             }
         }
 
@@ -340,11 +364,12 @@ final class WorkspaceCanvasDocumentView: NSView {
             )
         }
 
+        let overviewWorkspaces = WorkspaceCanvasZoomController.overviewWorkspaces(from: workspaces)
         let totalHeight =
             isOverviewPresented
             ? overviewTopInsetAdjustment
-                + overviewRowHeight * CGFloat(workspaces.count)
-                + overviewRowSpacing * CGFloat(max(workspaces.count - 1, 0))
+                + overviewRowHeight * CGFloat(overviewWorkspaces.count)
+                + overviewRowSpacing * CGFloat(max(overviewWorkspaces.count - 1, 0))
             : rowHeight * CGFloat(workspaces.count)
                 + baseRowSpacing * CGFloat(max(workspaces.count - 1, 0))
         let contentSize = NSSize(width: viewportWidth, height: max(totalHeight, viewportHeight))
@@ -453,5 +478,13 @@ final class WorkspaceCanvasDocumentView: NSView {
         resizeHandles[tileID] = handle
         addSubview(handle)
         return handle
+    }
+
+    private var liftedTileID: UUID? {
+        if let activeTileReorderDragTileID {
+            return activeTileReorderDragTileID
+        }
+        guard keyboardTileReorderArmed else { return nil }
+        return selectedTileID
     }
 }

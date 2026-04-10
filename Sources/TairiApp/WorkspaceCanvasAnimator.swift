@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 @MainActor
@@ -12,6 +13,7 @@ final class WorkspaceCanvasAnimator {
         static let stripLeadingInsetAnimationDuration: TimeInterval = 0.28
         static let closingGapAnimationDuration: TimeInterval = 0.22
         static let openingTileAnimationDuration: TimeInterval = 0.2
+        static let tileReorderAnimationDuration: TimeInterval = 0.22
     }
 
     private struct ClosingGapAnimation {
@@ -28,6 +30,12 @@ final class WorkspaceCanvasAnimator {
         let startedAt: Date
     }
 
+    private struct TileReorderAnimation {
+        let tileIDs: Set<UUID>
+        let startFrames: [UUID: CGRect]
+        let startedAt: Date
+    }
+
     var onChange: (() -> Void)?
     var animationPolicy: AppAnimationPolicy = .defaultValue {
         didSet {
@@ -37,6 +45,7 @@ final class WorkspaceCanvasAnimator {
             stopStripLeadingInsetAnimation()
             stopClosingGapAnimation()
             stopOpeningTileAnimation()
+            stopTileReorderAnimation()
             onChange?()
         }
     }
@@ -59,6 +68,9 @@ final class WorkspaceCanvasAnimator {
     private var openingTileAnimation: OpeningTileAnimation?
     private var renderedOpeningTileProgress: CGFloat = 1
     private var openingTileAnimationTimer: Timer?
+    private var tileReorderAnimation: TileReorderAnimation?
+    private var renderedTileReorderProgress: CGFloat = 1
+    private var tileReorderAnimationTimer: Timer?
 
     var isHorizontalRevealAnimationActive: Bool {
         horizontalRevealAnimationTimer != nil
@@ -79,6 +91,12 @@ final class WorkspaceCanvasAnimator {
             }
             if !tileStillExists {
                 stopOpeningTileAnimation()
+            }
+        }
+        if let tileReorderAnimation {
+            let activeTileIDs = Set(workspaces.flatMap(\.tiles).map(\.id))
+            if !tileReorderAnimation.tileIDs.isSubset(of: activeTileIDs) {
+                stopTileReorderAnimation()
             }
         }
     }
@@ -199,6 +217,56 @@ final class WorkspaceCanvasAnimator {
             return nil
         }
         return renderedOpeningTileProgress
+    }
+
+    func queueTileReorder(
+        tileIDs: Set<UUID>,
+        startFrames: [UUID: CGRect],
+        animated: Bool
+    ) {
+        guard !tileIDs.isEmpty else {
+            stopTileReorderAnimation()
+            onChange?()
+            return
+        }
+
+        guard animationPolicy.shouldAnimate(animated) else {
+            stopTileReorderAnimation()
+            onChange?()
+            return
+        }
+
+        renderedTileReorderProgress = 0
+        tileReorderAnimation = TileReorderAnimation(
+            tileIDs: tileIDs,
+            startFrames: startFrames,
+            startedAt: Date()
+        )
+
+        tileReorderAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1 / 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.stepTileReorderAnimation()
+            }
+        }
+        tileReorderAnimationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+        onChange?()
+    }
+
+    func reorderedFrame(for tileID: UUID, targetFrame: CGRect) -> CGRect? {
+        guard let tileReorderAnimation,
+            let startFrame = tileReorderAnimation.startFrames[tileID]
+        else {
+            return nil
+        }
+
+        return CGRect(
+            x: interpolatedValue(from: startFrame.minX, to: targetFrame.minX, progress: renderedTileReorderProgress),
+            y: interpolatedValue(from: startFrame.minY, to: targetFrame.minY, progress: renderedTileReorderProgress),
+            width: interpolatedValue(from: startFrame.width, to: targetFrame.width, progress: renderedTileReorderProgress),
+            height: interpolatedValue(from: startFrame.height, to: targetFrame.height, progress: renderedTileReorderProgress)
+        )
     }
 
     func syncRenderedHorizontalOffsets(for workspaces: [WorkspaceStore.Workspace]) {
@@ -401,5 +469,37 @@ final class WorkspaceCanvasAnimator {
         openingTileAnimation = nil
         openingTileAnimationTimer?.invalidate()
         openingTileAnimationTimer = nil
+    }
+
+    private func stepTileReorderAnimation() {
+        guard let tileReorderAnimation else { return }
+
+        let elapsed = Date().timeIntervalSince(tileReorderAnimation.startedAt)
+        let duration = animationPolicy.scaledDuration(Metrics.tileReorderAnimationDuration)
+        guard duration > 0 else {
+            stopTileReorderAnimation()
+            onChange?()
+            return
+        }
+
+        let progress = min(max(elapsed / duration, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        renderedTileReorderProgress = eased
+        onChange?()
+
+        if progress >= 1 {
+            stopTileReorderAnimation()
+        }
+    }
+
+    private func stopTileReorderAnimation() {
+        renderedTileReorderProgress = 1
+        tileReorderAnimation = nil
+        tileReorderAnimationTimer?.invalidate()
+        tileReorderAnimationTimer = nil
+    }
+
+    private func interpolatedValue(from start: CGFloat, to end: CGFloat, progress: CGFloat) -> CGFloat {
+        start + (end - start) * progress
     }
 }

@@ -63,6 +63,7 @@ final class WorkspaceInteractionController: ObservableObject {
 
     private let store: WorkspaceStore
     private var nextTransitionID = 1
+    private var workspaceNavigationViewportMidX: CGFloat?
 
     init(
         store: WorkspaceStore,
@@ -105,6 +106,24 @@ final class WorkspaceInteractionController: ObservableObject {
         )
         TairiLog.write(
             "workspace interaction selectAdjacentWorkspace resolved workspace=\(store.selectedWorkspaceID.uuidString) tile=\(store.selectedTileID?.uuidString ?? "none")"
+        )
+    }
+
+    func updateWorkspaceNavigationViewport(width: CGFloat) {
+        workspaceNavigationViewportMidX = width > 0 ? (width / 2) : nil
+    }
+
+    func selectAdjacentWorkspacePreservingViewport(
+        offset: Int,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) {
+        guard let index = store.workspaces.firstIndex(where: { $0.id == store.selectedWorkspaceID }) else { return }
+        let nextIndex = min(max(index + offset, 0), store.workspaces.count - 1)
+        let preferredVisibleMidX = workspaceNavigationViewportMidX.map { store.workspaces[nextIndex].horizontalOffset + $0 }
+        selectAdjacentWorkspace(
+            offset: offset,
+            preferredVisibleMidX: preferredVisibleMidX,
+            stripLeadingInset: stripLeadingInset
         )
     }
 

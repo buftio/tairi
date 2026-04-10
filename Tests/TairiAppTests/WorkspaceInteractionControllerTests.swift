@@ -67,9 +67,40 @@ final class WorkspaceInteractionControllerTests: XCTestCase {
         XCTAssertEqual(animation.kind, .columnOpen)
     }
 
-    private func makeStore() -> WorkspaceStore {
+    func testSelectAdjacentWorkspacePreservingViewportUsesTargetWorkspaceOffset() throws {
+        let store = makeStore(
+            initialStrips: [
+                .init(tileWidthFactors: [1, 1, 1]),
+                .init(tileWidthFactors: [1, 1, 1]),
+            ]
+        )
+        let controller = WorkspaceInteractionController(store: store)
+        let secondWorkspace = try XCTUnwrap(store.workspaces.dropFirst().first(where: { !$0.tiles.isEmpty }))
+        let secondTileID = secondWorkspace.tiles[1].id
+        let viewportWidth: CGFloat = 900
+        let stripLeadingInset = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+
+        store.setHorizontalOffset(
+            secondWorkspace.tiles[1].width + WorkspaceCanvasLayoutMetrics.tileSpacing
+                - WorkspaceCanvasLayoutMetrics.neighboringTilePeek,
+            for: secondWorkspace.id,
+            viewportWidth: viewportWidth,
+            stripLeadingInset: stripLeadingInset
+        )
+        controller.updateWorkspaceNavigationViewport(width: viewportWidth)
+
+        controller.selectAdjacentWorkspacePreservingViewport(offset: 1)
+
+        XCTAssertEqual(store.selectedWorkspaceID, secondWorkspace.id)
+        XCTAssertEqual(store.selectedTileID, secondTileID)
+    }
+
+    private func makeStore(
+        initialStrips: [TairiLaunchConfiguration.Strip] = TairiLaunchConfiguration.defaultStrips
+    ) -> WorkspaceStore {
         WorkspaceStore(
             initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: initialStrips,
             sidebarPersistence: makeSidebarPersistence()
         )
     }

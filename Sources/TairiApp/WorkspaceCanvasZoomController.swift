@@ -133,7 +133,8 @@ final class WorkspaceCanvasZoomController {
     ) -> CGFloat {
         guard viewportSize.width > 0, viewportSize.height > 0 else { return 1 }
 
-        let maxWorkspaceTileSpan = workspaces.map(rawTileSpan(for:)).max() ?? 0
+        let overviewWorkspaces = Self.overviewWorkspaces(from: workspaces)
+        let maxWorkspaceTileSpan = overviewWorkspaces.map(rawTileSpan(for:)).max() ?? 0
         let availableWidth = max(
             viewportSize.width
                 - stripLeadingInset
@@ -150,11 +151,20 @@ final class WorkspaceCanvasZoomController {
         )
         let baseRowHeight = baseTileHeight + (WorkspaceCanvasLayoutMetrics.verticalPadding * 2)
         let totalHeight =
-            baseRowHeight * CGFloat(workspaces.count)
-            + WorkspaceCanvasLayoutMetrics.rowSpacing * CGFloat(max(workspaces.count - 1, 0))
+            baseRowHeight * CGFloat(overviewWorkspaces.count)
+            + WorkspaceCanvasLayoutMetrics.rowSpacing * CGFloat(max(overviewWorkspaces.count - 1, 0))
         let heightScale = totalHeight > 0 ? min(viewportSize.height / totalHeight, 1) : 1
 
         return max(min(widthScale, heightScale), Metrics.minimumOverviewScale)
+    }
+
+    static func overviewWorkspaces(
+        from workspaces: [WorkspaceStore.Workspace]
+    ) -> [WorkspaceStore.Workspace] {
+        guard let lastWorkspaceWithTiles = workspaces.lastIndex(where: { !$0.tiles.isEmpty }) else {
+            return []
+        }
+        return Array(workspaces[...lastWorkspaceWithTiles])
     }
 
     private func rawTileSpan(for workspace: WorkspaceStore.Workspace) -> CGFloat {

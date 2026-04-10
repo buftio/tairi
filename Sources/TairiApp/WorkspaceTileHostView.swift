@@ -35,7 +35,7 @@ final class WorkspaceTileHostView: NSView {
     private var lastHeaderIconPWD: String?
     private weak var coordinatedDocumentView: WorkspaceCanvasDocumentView?
     private var surfaceInteractionCoordinator: GhosttySurfaceInteractionCoordinator?
-    private var gitHostingView: NSHostingView<GitTileView>?
+    private var gitHostingView: WorkspaceTileContentHostingView<GitTileView>?
     private var isTileReorderLifted = false
     private var isTileReorderDropTarget = false
     private var isTileReorderDragSource = false
@@ -134,13 +134,14 @@ final class WorkspaceTileHostView: NSView {
         super.layout()
         let cornerRadius = effectiveCornerRadius()
         let borderWidth = borderShapeLayer.lineWidth
-        let borderBounds = bounds.insetBy(dx: -(borderWidth / 2), dy: -(borderWidth / 2))
-        let borderCornerRadius = cornerRadius + (borderWidth / 2)
+        let borderInset = borderWidth / 2
+        let borderBounds = bounds.insetBy(dx: borderInset, dy: borderInset)
+        let borderCornerRadius = max(cornerRadius - borderInset, 0)
         layer?.cornerRadius = cornerRadius
         layer?.shadowPath = CGPath(
-            roundedRect: borderBounds,
-            cornerWidth: borderCornerRadius,
-            cornerHeight: borderCornerRadius,
+            roundedRect: bounds,
+            cornerWidth: cornerRadius,
+            cornerHeight: cornerRadius,
             transform: nil
         )
         borderShapeLayer.frame = bounds
@@ -388,10 +389,25 @@ final class WorkspaceTileHostView: NSView {
         if let gitHostingView {
             gitHostingView.rootView = rootView
         } else {
-            let hostingView = NSHostingView(rootView: rootView)
+            let hostingView = WorkspaceTileContentHostingView(rootView: rootView)
             hostingView.frame = surfaceContainerView.bounds
             hostingView.autoresizingMask = [.width, .height]
             hostingView.wantsLayer = false
+            hostingView.onPerformShortcut = { [weak self] event in
+                guard let self,
+                    let documentView = self.workspaceCanvasDocumentView()
+                else {
+                    return false
+                }
+                if TairiHotkeys.isDisabledTileReorderShortcut(event) {
+                    return true
+                }
+                guard let direction = TairiHotkeys.tileReorderDirection(for: event) else {
+                    return false
+                }
+                _ = documentView.handleKeyboardTileReorder(direction, from: self.tileID)
+                return true
+            }
             surfaceContainerView.addSubview(hostingView)
             gitHostingView = hostingView
         }
@@ -444,19 +460,19 @@ final class WorkspaceTileHostView: NSView {
             : (currentIsSelected ? theme.tileActiveBorderHighlight : .clear)
         let shadowOpacity: Float =
             isTileReorderLifted
-            ? 0.9
+            ? 1
             : (currentIsSelected ? 0.6 : 0)
-        let shadowRadius: CGFloat = isTileReorderLifted ? 24 : (currentIsSelected ? 18 : 0)
+        let shadowRadius: CGFloat = isTileReorderLifted ? 30 : (currentIsSelected ? 18 : 0)
         let targetAlpha: CGFloat = isTileReorderDragSource ? 0.38 : 1
         let targetZPosition: CGFloat = isTileReorderLifted ? 120 : (isTileReorderDropTarget ? 60 : 0)
         let targetTransform =
             isTileReorderLifted
             ? CATransform3DConcat(
-                CATransform3DMakeTranslation(0, -12, 0),
-                CATransform3DMakeScale(1.015, 1.015, 1)
+                CATransform3DMakeTranslation(0, -18, 0),
+                CATransform3DMakeScale(1.02, 1.02, 1)
             )
             : CATransform3DIdentity
-        let duration = animationPolicy.scaledDuration(0.18, requested: animated)
+        let duration = animationPolicy.scaledDuration(0.36, requested: animated)
 
         borderShapeLayer.lineWidth = borderWidth
         borderShapeLayer.strokeColor = borderColor.cgColor

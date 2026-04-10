@@ -94,6 +94,7 @@ enum TairiHotkeyKey {
 }
 
 enum TairiHotkeys {
+    static let tileReorderModifiers: EventModifiers = [.command, .option, .shift]
     static let openAppSettings = TairiHotkey(
         key: .character("."),
         modifiers: [.command]
@@ -125,6 +126,18 @@ enum TairiHotkeys {
     static let nextTile = TairiHotkey(
         key: .rightArrow,
         modifiers: [.command, .option]
+    )
+    static let moveTileLeft = TairiHotkey(
+        key: .leftArrow,
+        modifiers: tileReorderModifiers
+    )
+    static let moveTileRight = TairiHotkey(
+        key: .rightArrow,
+        modifiers: tileReorderModifiers
+    )
+    static let moveTileDown = TairiHotkey(
+        key: .downArrow,
+        modifiers: tileReorderModifiers
     )
     static let previousWorkspace = TairiHotkey(
         key: .upArrow,
@@ -171,6 +184,9 @@ enum TairiHotkeys {
                 .init(id: "splitHorizontally", title: "Split Horizontally", hotkey: splitHorizontally),
                 .init(id: "previousTile", title: "Previous Tile", hotkey: previousTile),
                 .init(id: "nextTile", title: "Next Tile", hotkey: nextTile),
+                .init(id: "moveTileLeft", title: "Move Tile Left", hotkey: moveTileLeft),
+                .init(id: "moveTileRight", title: "Move Tile Right", hotkey: moveTileRight),
+                .init(id: "moveTileDown", title: "Move Tile Down", hotkey: moveTileDown),
             ]
         ),
         TairiHotkeySection(
@@ -205,6 +221,28 @@ enum TairiHotkeys {
             ]
         ),
     ]
+
+    static func tileReorderDirection(for event: NSEvent) -> TileReorderDirection? {
+        if moveTileLeft.matches(event) {
+            return .left
+        }
+        if moveTileRight.matches(event) {
+            return .right
+        }
+        if moveTileDown.matches(event) {
+            return .down
+        }
+        return nil
+    }
+
+    static func isDisabledTileReorderShortcut(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection(.tairiShortcutRelevant) == tileReorderModifiers.nsEventModifiers
+            && TairiHotkeyKey.upArrow.matches(event)
+    }
+
+    static func isTileReorderLiftActive(_ event: NSEvent) -> Bool {
+        event.modifierFlags.intersection(.tairiShortcutRelevant) == tileReorderModifiers.nsEventModifiers
+    }
 }
 
 extension View {

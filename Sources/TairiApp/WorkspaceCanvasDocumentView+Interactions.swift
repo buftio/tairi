@@ -15,7 +15,7 @@ extension WorkspaceCanvasDocumentView {
     func handleWorkspaceKeyNavigation(offset: Int, from tileID: UUID) -> Bool {
         guard let tile = store.tile(tileID), viewportSize.width > 0 else { return false }
         interactionController.selectTile(tile.id)
-        return navigateWorkspace(offset: offset, preferredVisibleMidX: visibleMidX(for: store.selectedWorkspace))
+        return navigateWorkspace(offset: offset)
     }
 
     func handleTileKeyNavigation(offset: Int, from tileID: UUID) -> Bool {

@@ -74,8 +74,10 @@ extension WorkspaceCanvasDocumentView {
     }
 
     func effectiveFocusedFrame(for tileID: UUID, targetFrame: CGRect) -> CGRect {
+        let reorderedTargetFrame = animator.reorderedFrame(for: tileID, targetFrame: targetFrame) ?? targetFrame
+
         guard let animation = verticalSplitOpenAnimation else {
-            return targetFrame
+            return reorderedTargetFrame
         }
 
         guard
@@ -90,18 +92,18 @@ extension WorkspaceCanvasDocumentView {
 
         guard progress < 0.999 else {
             verticalSplitOpenAnimation = nil
-            return targetFrame
+            return reorderedTargetFrame
         }
 
         guard let startFrame = animation.startFrames[tileID] else {
-            return targetFrame
+            return reorderedTargetFrame
         }
 
         return CGRect(
-            x: interpolatedValue(from: startFrame.minX, to: targetFrame.minX, progress: progress),
-            y: interpolatedValue(from: startFrame.minY, to: targetFrame.minY, progress: progress),
-            width: interpolatedValue(from: startFrame.width, to: targetFrame.width, progress: progress),
-            height: interpolatedValue(from: startFrame.height, to: targetFrame.height, progress: progress)
+            x: interpolatedValue(from: startFrame.minX, to: reorderedTargetFrame.minX, progress: progress),
+            y: interpolatedValue(from: startFrame.minY, to: reorderedTargetFrame.minY, progress: progress),
+            width: interpolatedValue(from: startFrame.width, to: reorderedTargetFrame.width, progress: progress),
+            height: interpolatedValue(from: startFrame.height, to: reorderedTargetFrame.height, progress: progress)
         )
     }
 

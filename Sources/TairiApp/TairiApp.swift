@@ -150,7 +150,7 @@ struct TairiApp: App {
                 .tairiKeyboardShortcut(TairiHotkeys.nextTile)
 
                 Button("Previous Workspace") {
-                    interactionController.selectAdjacentWorkspace(offset: -1)
+                    interactionController.selectAdjacentWorkspacePreservingViewport(offset: -1)
                     if let selectedTileID = store.selectedTileID {
                         runtime.focusSurface(tileID: selectedTileID)
                     }
@@ -158,7 +158,7 @@ struct TairiApp: App {
                 .tairiKeyboardShortcut(TairiHotkeys.previousWorkspace)
 
                 Button("Next Workspace") {
-                    interactionController.selectAdjacentWorkspace(offset: 1)
+                    interactionController.selectAdjacentWorkspacePreservingViewport(offset: 1)
                     if let selectedTileID = store.selectedTileID {
                         runtime.focusSurface(tileID: selectedTileID)
                     }

@@ -199,6 +199,12 @@ struct WorkspaceSidebarView: View {
                                 store.clearWorkspaceIcon(workspace.id)
                             }
                         }
+
+                        Divider()
+
+                        Button("Remove Strip", role: .destructive) {
+                            removeWorkspace(workspace)
+                        }
                     }
                     .help("Double-click, force click, or drag to rename or reorder")
             }
@@ -480,6 +486,17 @@ struct WorkspaceSidebarView: View {
 
     private func clearWorkspaceDropIndicator() {
         workspaceDropIndicator = nil
+    }
+
+    private func removeWorkspace(_ workspace: WorkspaceStore.Workspace) {
+        clearWorkspaceDropIndicator()
+        if renamingWorkspaceID == workspace.id {
+            cancelRenaming()
+        }
+        if iconPickerWorkspaceID == workspace.id {
+            iconPickerWorkspaceID = nil
+        }
+        runtime.removeWorkspace(workspace.id)
     }
 
     private func focusSelectedTileIfNeeded() {

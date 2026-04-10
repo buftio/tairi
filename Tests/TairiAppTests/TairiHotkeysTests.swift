@@ -8,6 +8,8 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertEqual(TairiHotkeys.toggleSidebar.displayLabel, "⌘B")
         XCTAssertEqual(TairiHotkeys.previousWorkspace.displayLabel, "⌥⌘↑")
         XCTAssertEqual(TairiHotkeys.splitHorizontally.displayLabel, "⇧⌘D")
+        XCTAssertEqual(TairiHotkeys.moveTileLeft.displayLabel, "⌥⇧⌘←")
+        XCTAssertEqual(TairiHotkeys.moveTileDown.displayLabel, "⌥⇧⌘↓")
         XCTAssertEqual(TairiHotkeys.toggleFullscreen.displayLabel, "⌃⌘F")
     }
 
@@ -22,5 +24,8 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertTrue(entryIDs.contains("toggleSidebar"))
         XCTAssertTrue(entryIDs.contains("toggleFullscreen"))
         XCTAssertTrue(entryIDs.contains("reloadGhosttyConfiguration"))
+        XCTAssertTrue(entryIDs.contains("moveTileLeft"))
+        XCTAssertTrue(entryIDs.contains("moveTileDown"))
+        XCTAssertFalse(entryIDs.contains("moveTileUp"))
     }
 }

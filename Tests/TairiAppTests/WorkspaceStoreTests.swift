@@ -318,7 +318,42 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.workspaces.dropFirst().first?.id, targetID)
     }
 
-    func testSwapTileLayoutSlotsExchangesColumns() throws {
+    func testRemovingSelectedWorkspaceSelectsAdjacentWorkspace() throws {
+        let store = makeStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: [
+                .init(tileWidthFactors: [1]),
+                .init(tileWidthFactors: [1]),
+            ]
+        )
+        let removedWorkspaceID = store.selectedWorkspaceID
+        let adjacentWorkspace = try XCTUnwrap(
+            store.workspaces.first(where: { $0.id != removedWorkspaceID && !$0.tiles.isEmpty })
+        )
+
+        let selectedTileID = store.removeWorkspace(removedWorkspaceID)
+
+        XCTAssertEqual(store.selectedWorkspaceID, adjacentWorkspace.id)
+        XCTAssertEqual(selectedTileID, adjacentWorkspace.tiles.first?.id)
+        XCTAssertFalse(store.workspaces.contains(where: { $0.id == removedWorkspaceID }))
+    }
+
+    func testRemovingNamedEmptyWorkspaceRemovesItCompletely() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let workspaceID = store.selectedWorkspaceID
+        let tileID = try XCTUnwrap(store.selectedTileID)
+
+        store.renameWorkspace(workspaceID, to: "Inbox")
+        _ = store.closeTile(tileID)
+        XCTAssertTrue(store.workspaces.contains(where: { $0.id == workspaceID }))
+
+        store.removeWorkspace(workspaceID)
+
+        XCTAssertFalse(store.workspaces.contains(where: { $0.id == workspaceID }))
+        XCTAssertFalse(store.workspaces.isEmpty)
+    }
+
+    func testSwapTileLayoutSlotsPreservesTileSizeAcrossColumns() throws {
         let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
         let secondTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
@@ -332,15 +367,14 @@ final class WorkspaceStoreTests: XCTestCase {
 
         XCTAssertTrue(didSwap)
         XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [thirdTile.id, secondTile.id, firstTileID])
-        XCTAssertEqual(firstTileAfter.columnID, thirdTileBefore.columnID)
-        XCTAssertEqual(firstTileAfter.width, thirdTileBefore.width, accuracy: 0.001)
-        XCTAssertEqual(firstTileAfter.heightWeight, thirdTileBefore.heightWeight, accuracy: 0.001)
-        XCTAssertEqual(thirdTileAfter.columnID, firstTileBefore.columnID)
-        XCTAssertEqual(thirdTileAfter.width, firstTileBefore.width, accuracy: 0.001)
-        XCTAssertEqual(thirdTileAfter.heightWeight, firstTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(firstTileAfter.width, firstTileBefore.width, accuracy: 0.001)
+        XCTAssertEqual(firstTileAfter.heightWeight, firstTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(thirdTileAfter.width, thirdTileBefore.width, accuracy: 0.001)
+        XCTAssertEqual(thirdTileAfter.heightWeight, thirdTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertNotEqual(firstTileAfter.columnID, thirdTileAfter.columnID)
     }
 
-    func testSwapTileLayoutSlotsExchangesVerticalPositionsWithinColumn() throws {
+    func testSwapTileLayoutSlotsPreservesTileHeightWithinColumn() throws {
         let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
         let firstTileID = try XCTUnwrap(store.selectedTileID)
         let bottomTile = try XCTUnwrap(store.splitTerminalTile(firstTileID, sessionID: UUID()))
@@ -353,10 +387,32 @@ final class WorkspaceStoreTests: XCTestCase {
 
         XCTAssertTrue(didSwap)
         XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [bottomTile.id, firstTileID])
-        XCTAssertEqual(topTileAfter.heightWeight, bottomTileBefore.heightWeight, accuracy: 0.001)
-        XCTAssertEqual(bottomTileAfter.heightWeight, topTileBefore.heightWeight, accuracy: 0.001)
-        XCTAssertEqual(topTileAfter.columnID, bottomTileBefore.columnID)
-        XCTAssertEqual(bottomTileAfter.columnID, topTileBefore.columnID)
+        XCTAssertEqual(topTileAfter.heightWeight, topTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(bottomTileAfter.heightWeight, bottomTileBefore.heightWeight, accuracy: 0.001)
+        XCTAssertEqual(topTileAfter.columnID, bottomTileAfter.columnID)
+    }
+
+    func testSwapTileLayoutSlotsKeepsExistingSelectionWhenReorderingAnotherWorkspace() throws {
+        let store = makeStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            initialStrips: [
+                .init(tileWidthFactors: [1]),
+                .init(tileWidthFactors: [1, 1]),
+            ]
+        )
+        let selectedWorkspaceID = store.selectedWorkspaceID
+        let selectedTileID = try XCTUnwrap(store.selectedTileID)
+        let secondWorkspace = try XCTUnwrap(store.workspaces.dropFirst().first(where: { !$0.tiles.isEmpty }))
+        let secondWorkspaceTileIDs = secondWorkspace.tiles.map(\.id)
+
+        let didSwap = store.swapTileLayoutSlots(
+            try XCTUnwrap(secondWorkspaceTileIDs.first),
+            with: try XCTUnwrap(secondWorkspaceTileIDs.last)
+        )
+
+        XCTAssertTrue(didSwap)
+        XCTAssertEqual(store.selectedWorkspaceID, selectedWorkspaceID)
+        XCTAssertEqual(store.selectedTileID, selectedTileID)
     }
 
     func testPersistentStripsRestoreFromSidebarPersistence() throws {

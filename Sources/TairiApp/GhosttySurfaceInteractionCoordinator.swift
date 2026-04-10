@@ -48,6 +48,17 @@ final class GhosttySurfaceInteractionCoordinator {
         documentView?.handleWorkspaceKeyNavigation(offset: offset, from: tileID) == true
     }
 
+    func handleTileReorderCommand(
+        _ direction: TileReorderDirection,
+        from tileID: UUID
+    ) -> Bool {
+        documentView?.handleKeyboardTileReorder(direction, from: tileID) == true
+    }
+
+    func setTileReorderLiftArmed(_ armed: Bool) {
+        documentView?.setKeyboardTileReorderArmed(armed)
+    }
+
     func shouldSuppressPointerMotion() -> Bool {
         documentView?.isAnimatingPointerSensitiveTransition == true
     }

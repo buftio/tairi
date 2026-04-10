@@ -156,6 +156,7 @@ final class WorkspaceStore: ObservableObject {
 
     static let minimumTileWidth: CGFloat = 420
     static let maximumTileWidth: CGFloat = 1400
+    static let initialGitTileWidth: CGFloat = WidthPreset.standard.width / 2
 
     @Published private(set) var workspaces: [Workspace]
     private(set) var selectedWorkspaceID: UUID
@@ -232,6 +233,7 @@ final class WorkspaceStore: ObservableObject {
         let tile = Tile(
             title: "git",
             pwd: assignedFolderPathForNewTile(nextTo: tileID),
+            width: Self.initialGitTileWidth,
             surface: .git
         )
         guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == selectedWorkspaceID }) else {
@@ -579,6 +581,48 @@ final class WorkspaceStore: ObservableObject {
     }
 
     @discardableResult
+    func removeWorkspace(
+        _ workspaceID: UUID,
+        preferredVisibleMidX: CGFloat? = nil,
+        stripLeadingInset: CGFloat = WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false)
+    ) -> UUID? {
+        guard let workspaceIndex = workspaces.firstIndex(where: { $0.id == workspaceID }) else {
+            return selectedTileID
+        }
+
+        let wasSelectedWorkspace = selectedWorkspaceID == workspaceID
+        TairiLog.write(
+            "workspace store removeWorkspace begin workspace=\(workspaceID.uuidString) wasSelected=\(wasSelectedWorkspace) tileCountBefore=\(workspaces[workspaceIndex].tiles.count) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none")"
+        )
+
+        workspaces.remove(at: workspaceIndex)
+
+        if wasSelectedWorkspace {
+            let fallbackIndex = min(workspaceIndex, max(workspaces.count - 1, 0))
+            if workspaces.indices.contains(fallbackIndex) {
+                let fallbackWorkspaceID = workspaces[fallbackIndex].id
+                selectedWorkspaceID = fallbackWorkspaceID
+                selectedTileID = preferredTileID(
+                    in: fallbackWorkspaceID,
+                    preferredVisibleMidX: preferredVisibleMidX,
+                    stripLeadingInset: stripLeadingInset
+                ) ?? workspaces[fallbackIndex].tiles.first?.id
+                if let selectedTileID {
+                    markTileVisited(selectedTileID)
+                }
+            } else {
+                selectedTileID = nil
+            }
+        }
+
+        normalize()
+        TairiLog.write(
+            "workspace store removeWorkspace end workspace=\(workspaceID.uuidString) selectedWorkspace=\(selectedWorkspaceID.uuidString) selectedTile=\(selectedTileID?.uuidString ?? "none") workspaces=\(workspaceDebugSummary())"
+        )
+        return selectedTileID
+    }
+
+    @discardableResult
     func swapTileLayoutSlots(_ tileID: UUID, with targetTileID: UUID) -> Bool {
         guard tileID != targetTileID else { return false }
 
@@ -589,24 +633,8 @@ final class WorkspaceStore: ObservableObject {
                 continue
             }
 
-            let sourceTile = workspaces[workspaceIndex].tiles[sourceIndex]
-            let targetTile = workspaces[workspaceIndex].tiles[targetIndex]
-            let sourceSlot = (columnID: sourceTile.columnID, width: sourceTile.width, heightWeight: sourceTile.heightWeight)
-            let targetSlot = (columnID: targetTile.columnID, width: targetTile.width, heightWeight: targetTile.heightWeight)
-
-            var nextSourceTile = sourceTile
-            nextSourceTile.columnID = targetSlot.columnID
-            nextSourceTile.width = targetSlot.width
-            nextSourceTile.heightWeight = targetSlot.heightWeight
-
-            var nextTargetTile = targetTile
-            nextTargetTile.columnID = sourceSlot.columnID
-            nextTargetTile.width = sourceSlot.width
-            nextTargetTile.heightWeight = sourceSlot.heightWeight
-
-            workspaces[workspaceIndex].tiles[sourceIndex] = nextTargetTile
-            workspaces[workspaceIndex].tiles[targetIndex] = nextSourceTile
-            selectedWorkspaceID = workspaces[workspaceIndex].id
+            workspaces[workspaceIndex].tiles.swapAt(sourceIndex, targetIndex)
+            refreshColumnGroups(in: workspaceIndex)
             return true
         }
 
@@ -694,6 +722,22 @@ final class WorkspaceStore: ObservableObject {
             where workspaces[workspaceIndex].tiles[tileIndex].columnID == columnID {
                 transform(&workspaces[workspaceIndex].tiles[tileIndex])
             }
+        }
+    }
+
+    private func refreshColumnGroups(in workspaceIndex: Int) {
+        guard workspaces.indices.contains(workspaceIndex) else { return }
+
+        var lastOriginalColumnID: UUID?
+        var currentColumnID: UUID?
+
+        for tileIndex in workspaces[workspaceIndex].tiles.indices {
+            let originalColumnID = workspaces[workspaceIndex].tiles[tileIndex].columnID
+            if originalColumnID != lastOriginalColumnID {
+                currentColumnID = UUID()
+                lastOriginalColumnID = originalColumnID
+            }
+            workspaces[workspaceIndex].tiles[tileIndex].columnID = currentColumnID ?? UUID()
         }
     }
 
