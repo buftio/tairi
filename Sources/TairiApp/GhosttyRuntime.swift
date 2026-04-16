@@ -12,6 +12,15 @@ enum TerminateReason: String {
     case workspaceRemoved = "workspace_removed"
     case exitBehaviorAutoClose = "exit_behavior_auto_close"
     case appShutdown = "app_shutdown"
+
+    var requiresForceKill: Bool {
+        switch self {
+        case .userClosedTile, .workspaceRemoved, .appShutdown:
+            true
+        case .exitBehaviorAutoClose:
+            false
+        }
+    }
 }
 
 @MainActor
@@ -40,6 +49,7 @@ final class GhosttyRuntime: ObservableObject {
     var lastInputAt: Date?
     private var focusedTileID: UUID?
     private var pendingFocusedTileID: UUID?
+    private(set) var terminalCommand = "/bin/zsh"
 
     init(
         store: WorkspaceStore,
@@ -160,6 +170,7 @@ final class GhosttyRuntime: ObservableObject {
 
     func terminateSession(for tileID: UUID, reason: TerminateReason) {
         guard let sessionID = sessionID(for: tileID) else { return }
+        forceTerminateSessionProcess(sessionID: sessionID, reason: reason)
         destroySession(sessionID: sessionID, reasonLabel: reason.rawValue, requestedTileID: tileID)
     }
 
@@ -213,6 +224,7 @@ final class GhosttyRuntime: ObservableObject {
 
     func terminateAllSessions(reason: TerminateReason) {
         for session in sessionRegistry.allSessions {
+            forceTerminateSessionProcess(sessionID: session.id, reason: reason)
             destroySession(sessionID: session.id, reasonLabel: reason.rawValue, requestedTileID: session.attachedTileID)
         }
     }
@@ -398,6 +410,7 @@ final class GhosttyRuntime: ObservableObject {
         }
 
         configureBundledGhosttyPaths()
+        refreshTerminalCommand()
         TairiLog.write("bootstrap start")
         TairiLog.write("launch strips=\(launchConfiguration.layoutSummary)")
         TairiLog.write("GHOSTTY_RESOURCES_DIR=\(ProcessInfo.processInfo.environment["GHOSTTY_RESOURCES_DIR"] ?? "unset")")
@@ -522,5 +535,13 @@ final class GhosttyRuntime: ObservableObject {
         } else if let vendoredBinary, FileManager.default.fileExists(atPath: vendoredBinary.path(percentEncoded: false)) {
             setenv("TAIRI_BUNDLED_GHOSTTY_BIN", vendoredBinary.path(percentEncoded: false), 1)
         }
+    }
+
+    func refreshTerminalCommand() {
+        let resolvedCommand = GhosttyTerminalCommand.resolvedCommand(
+            ghosttyBinaryPath: ProcessInfo.processInfo.environment["TAIRI_BUNDLED_GHOSTTY_BIN"]
+        )
+        terminalCommand = resolvedCommand
+        TairiLog.write("ghostty terminal command resolved value=\(resolvedCommand.debugDescription)")
     }
 }

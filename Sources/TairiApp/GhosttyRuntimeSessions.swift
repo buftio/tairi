@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import GhosttyDyn
 
@@ -68,6 +69,7 @@ extension GhosttyRuntime {
     func reloadConfiguration() {
         guard errorMessage == nil else { return }
         TairiLog.write("ghostty reloading configuration")
+        refreshTerminalCommand()
 
         _ = withGhosttyConfig { config in
             updateAllSessions(using: config)
@@ -239,6 +241,35 @@ extension GhosttyRuntime {
         }
 
         releaseContext(session.appContext)
+    }
+
+    func forceTerminateSessionProcess(sessionID: UUID, reason: TerminateReason) {
+        guard reason.requiresForceKill else { return }
+        guard let session = sessionRegistry.session(id: sessionID) else { return }
+        guard let pid = session.surfaceView.launchedProcessID() else {
+            TairiLog.write(
+                "ghostty session kill skipped session=\(sessionID.uuidString) reason=\(reason.rawValue) pid=missing"
+            )
+            session.surfaceView.clearLaunchedProcessID()
+            return
+        }
+
+        let processGroupResult = kill(-pid, SIGKILL)
+        let processResult = processGroupResult == 0 ? 0 : kill(pid, SIGKILL)
+        let status = processGroupResult == 0 ? "group" : (processResult == 0 ? "process" : "failed")
+        let errorCode = processGroupResult == 0 || processResult == 0 ? 0 : errno
+
+        if status == "failed" {
+            TairiLog.write(
+                "ghostty session kill failed session=\(sessionID.uuidString) reason=\(reason.rawValue) pid=\(pid) errno=\(errorCode)"
+            )
+        } else {
+            TairiLog.write(
+                "ghostty session kill sent session=\(sessionID.uuidString) reason=\(reason.rawValue) pid=\(pid) target=\(status)"
+            )
+        }
+
+        session.surfaceView.clearLaunchedProcessID()
     }
 
     func destroyDetachedExitedSession(sessionID: UUID, source: String) {

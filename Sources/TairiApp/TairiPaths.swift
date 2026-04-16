@@ -16,6 +16,7 @@ enum TairiPaths {
 
     static let mainLogURL = logsDirectory.appendingPathComponent("tairi.log")
     static let crashReportsDirectory = logsDirectory.appendingPathComponent("crash-reports", isDirectory: true)
+    static let terminalSessionDirectory = logsDirectory.appendingPathComponent("terminal-sessions", isDirectory: true)
     static let sessionMarkerURL = logsDirectory.appendingPathComponent("tairi.session.json")
     static let exitMarkerURL = logsDirectory.appendingPathComponent("tairi.exit")
     static let signalMarkerURL = logsDirectory.appendingPathComponent("tairi.signal")
@@ -34,6 +35,14 @@ enum TairiPaths {
         let fileManager = FileManager.default
         try? fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         try? fileManager.createDirectory(at: crashReportsDirectory, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(at: terminalSessionDirectory, withIntermediateDirectories: true)
+    }
+
+    static func terminalSessionPIDFileURL(for sessionID: UUID) -> URL {
+        try? FileManager.default.createDirectory(at: terminalSessionDirectory, withIntermediateDirectories: true)
+        return terminalSessionDirectory
+            .appendingPathComponent(sessionID.uuidString.lowercased(), isDirectory: false)
+            .appendingPathExtension("pid")
     }
 
     static func requiredGhosttyVendorVersion() -> String? {

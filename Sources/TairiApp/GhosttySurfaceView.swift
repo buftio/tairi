@@ -38,6 +38,7 @@ final class GhosttySurfaceView: NSView {
 
     let runtime: GhosttyRuntime
     let sessionID: UUID
+    let pidFileURL: URL
 
     private(set) var surface: ghostty_surface_t?
     var interactionCoordinator: GhosttySurfaceInteractionCoordinator?
@@ -66,8 +67,10 @@ final class GhosttySurfaceView: NSView {
     init(runtime: GhosttyRuntime, sessionID: UUID, app: ghostty_app_t?, workingDirectory: String) {
         self.runtime = runtime
         self.sessionID = sessionID
+        pidFileURL = TairiPaths.terminalSessionPIDFileURL(for: sessionID)
         super.init(frame: NSRect(x: 0, y: 0, width: 900, height: 640))
         logLifecycle("init begin frame=\(describe(size: frame.size))")
+        try? FileManager.default.removeItem(at: pidFileURL)
 
         var config = tairi_ghostty_surface_config_new()
         config.platform_tag = GHOSTTY_PLATFORM_MACOS
@@ -83,10 +86,7 @@ final class GhosttySurfaceView: NSView {
                 config.working_directory = path
                 config.wait_after_command = runtime.waitAfterCommandEnabled
                 config.context = GHOSTTY_SURFACE_CONTEXT_WINDOW
-                if let command = Self.terminalDiagnosticCommand {
-                    TairiLog.write(
-                        "ghostty diagnostic shell wrapper enabled session=\(sessionID.uuidString) command=\(command)"
-                    )
+                if let command = wrappedLaunchCommand() {
                     command.withCString { commandCString in
                         config.command = commandCString
                         surface = tairi_ghostty_surface_new(app, &config)
@@ -121,7 +121,19 @@ final class GhosttySurfaceView: NSView {
             tairi_ghostty_surface_free(surface)
             self.surface = nil
         }
+        try? FileManager.default.removeItem(at: pidFileURL)
         logLifecycle("dispose end surface=nil")
+    }
+
+    func launchedProcessID() -> Int32? {
+        guard let contents = try? String(contentsOf: pidFileURL, encoding: .utf8) else { return nil }
+        let trimmed = contents.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let pid = Int32(trimmed), pid > 1 else { return nil }
+        return pid
+    }
+
+    func clearLaunchedProcessID() {
+        try? FileManager.default.removeItem(at: pidFileURL)
     }
 
     func focusSurface() {
@@ -358,6 +370,27 @@ final class GhosttySurfaceView: NSView {
         !GhosttySurfaceMouseInputPolicy.shouldForwardInitialMouseEvent(
             clickedTileID: tileID,
             selectedTileID: runtime.store.selectedTileID
+        )
+    }
+
+    private func wrappedLaunchCommand() -> String? {
+        let launchCommand = Self.terminalDiagnosticCommand ?? runtime.terminalCommand
+        guard let wrapperScriptURL = Bundle.module.url(forResource: "terminal-launch-wrapper", withExtension: "zsh") else {
+            TairiLog.write("ghostty launch wrapper missing session=\(sessionID.uuidString)")
+            return Self.terminalDiagnosticCommand
+        }
+
+        if let command = Self.terminalDiagnosticCommand {
+            TairiLog.write(
+                "ghostty diagnostic shell wrapper enabled session=\(sessionID.uuidString) command=\(command)"
+            )
+        }
+
+        return GhosttyTerminalCommand.wrappedCommand(
+            wrapperInterpreterPath: "/bin/zsh",
+            wrapperScriptPath: wrapperScriptURL.path(percentEncoded: false),
+            pidFilePath: pidFileURL.path(percentEncoded: false),
+            command: launchCommand
         )
     }
 }

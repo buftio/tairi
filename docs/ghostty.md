@@ -99,7 +99,7 @@ The red traffic-light button in the tile header calls:
 
 That does:
 
-1. terminate the session
+1. force-kill the session process group
 2. free the Ghostty app/surface
 3. remove the tile from the store
 
