@@ -5,6 +5,7 @@ import XCTest
 final class TairiHotkeysTests: XCTestCase {
     func testDisplayLabelsUseSharedMacFormatting() {
         XCTAssertEqual(TairiHotkeys.newTile.displayLabel, "⌘N")
+        XCTAssertEqual(TairiHotkeys.newGitTile.displayLabel, "⌘G")
         XCTAssertEqual(TairiHotkeys.toggleSidebar.displayLabel, "⌘B")
         XCTAssertEqual(TairiHotkeys.previousWorkspace.displayLabel, "⌥⌘↑")
         XCTAssertEqual(TairiHotkeys.splitHorizontally.displayLabel, "⇧⌘D")
@@ -26,6 +27,7 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertTrue(entryIDs.contains("reloadGhosttyConfiguration"))
         XCTAssertTrue(entryIDs.contains("moveTileLeft"))
         XCTAssertTrue(entryIDs.contains("moveTileDown"))
+        XCTAssertTrue(entryIDs.contains("newGitTile"))
         XCTAssertFalse(entryIDs.contains("moveTileUp"))
     }
 

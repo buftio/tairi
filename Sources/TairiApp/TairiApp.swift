@@ -127,6 +127,7 @@ struct TairiApp: App {
                         transition: .animatedReveal
                     )
                 }
+                .tairiKeyboardShortcut(TairiHotkeys.newGitTile)
 
                 Button("Split Horizontally") {
                     runtime.splitSelectedTileHorizontally()

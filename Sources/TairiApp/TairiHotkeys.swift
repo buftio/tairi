@@ -115,6 +115,10 @@ enum TairiHotkeys {
         key: .character("n"),
         modifiers: [.command]
     )
+    static let newGitTile = TairiHotkey(
+        key: .character("g"),
+        modifiers: [.command]
+    )
     static let splitHorizontally = TairiHotkey(
         key: .character("d"),
         modifiers: [.command, .shift]
@@ -181,6 +185,7 @@ enum TairiHotkeys {
             title: "Tiles",
             entries: [
                 .init(id: "newTile", title: "New Tile", hotkey: newTile),
+                .init(id: "newGitTile", title: "New Git Tile", hotkey: newGitTile),
                 .init(id: "splitHorizontally", title: "Split Horizontally", hotkey: splitHorizontally),
                 .init(id: "previousTile", title: "Previous Tile", hotkey: previousTile),
                 .init(id: "nextTile", title: "Next Tile", hotkey: nextTile),
