@@ -425,15 +425,15 @@ final class WorkspaceCanvasContainerView: NSView {
 
     private func handleKeyboardReorderShortcut(_ event: NSEvent) -> Bool {
         guard keyboardReorderEventsAreEligible,
-            !isGhosttySurfaceFirstResponder,
-            let tileID = keyboardReorderTileID(),
-            let direction = TairiHotkeys.tileReorderDirection(for: event)
+            !isGhosttySurfaceFirstResponder
         else {
             return false
         }
 
-        _ = documentView.handleKeyboardTileReorder(direction, from: tileID)
-        return true
+        return documentView.handleTileReorderShortcut(
+            event,
+            source: .container(preferredTileID: keyboardReorderTileID())
+        )
     }
 
     private func keyboardReorderTileID() -> UUID? {

@@ -93,13 +93,7 @@ extension GhosttySurfaceView {
         guard let surface else {
             return super.performKeyEquivalent(with: event)
         }
-        if let direction = TairiHotkeys.tileReorderDirection(for: event),
-            let tileID = Self.reorderTileID(
-                attachedTileID: attachedTileID,
-                selectedTileID: runtime.store.selectedTileID
-            )
-        {
-            _ = interactionCoordinator?.handleTileReorderCommand(direction, from: tileID)
+        if interactionCoordinator?.handleTileReorderShortcut(event, attachedTileID: attachedTileID) == true {
             return true
         }
         if window?.firstResponder === self,

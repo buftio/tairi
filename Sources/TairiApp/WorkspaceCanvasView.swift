@@ -57,6 +57,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     let animator = WorkspaceCanvasAnimator()
     let zoomController = WorkspaceCanvasZoomController()
     let overviewRenderer = WorkspaceCanvasOverviewRenderer()
+    let tileReorderController: WorkspaceTileReorderController
 
     var workspaces: [WorkspaceStore.Workspace] = []
     var selectedWorkspaceID: UUID?
@@ -79,7 +80,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
     var workspaceScrollAnimationStartedAt = Date.distantPast
     var anchoredZoomTransition: AnchoredZoomTransition?
-    var tileReorderSession: TileReorderSession?
+    var tileReorderSession: WorkspaceTileReorderController.Session?
 
     var targetStripLeadingInset: CGFloat {
         WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: isSidebarHidden)
@@ -114,6 +115,7 @@ final class WorkspaceCanvasDocumentView: NSView {
         self.store = store
         self.interactionController = interactionController
         self.runtime = runtime
+        tileReorderController = WorkspaceTileReorderController(store: store)
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor

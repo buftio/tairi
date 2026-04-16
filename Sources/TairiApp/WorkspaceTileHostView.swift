@@ -401,11 +401,7 @@ final class WorkspaceTileHostView: NSView {
                 else {
                     return false
                 }
-                guard let direction = TairiHotkeys.tileReorderDirection(for: event) else {
-                    return false
-                }
-                _ = documentView.handleKeyboardTileReorder(direction, from: self.tileID)
-                return true
+                return documentView.handleTileReorderShortcut(event, source: .tileHost(self.tileID))
             }
             surfaceContainerView.addSubview(hostingView)
             gitHostingView = hostingView

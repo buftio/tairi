@@ -48,11 +48,8 @@ final class GhosttySurfaceInteractionCoordinator {
         documentView?.handleWorkspaceKeyNavigation(offset: offset, from: tileID) == true
     }
 
-    func handleTileReorderCommand(
-        _ direction: TileReorderDirection,
-        from tileID: UUID
-    ) -> Bool {
-        documentView?.handleKeyboardTileReorder(direction, from: tileID) == true
+    func handleTileReorderShortcut(_ event: NSEvent, attachedTileID: UUID?) -> Bool {
+        documentView?.handleTileReorderShortcut(event, source: .surface(attachedTileID: attachedTileID)) == true
     }
 
     func shouldSuppressPointerMotion() -> Bool {
