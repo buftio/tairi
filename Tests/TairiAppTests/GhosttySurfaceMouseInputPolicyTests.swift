@@ -43,4 +43,31 @@ final class GhosttySurfaceMouseInputPolicyTests: XCTestCase {
             GhosttySurfaceMouseInputPolicy.shouldForwardPointerMotion(isCanvasAnimating: false)
         )
     }
+
+    @MainActor
+    func testReorderTileIDPrefersSelectedTileOverAttachedSurface() {
+        let attachedTileID = UUID()
+        let selectedTileID = UUID()
+
+        XCTAssertEqual(
+            GhosttySurfaceView.reorderTileID(
+                attachedTileID: attachedTileID,
+                selectedTileID: selectedTileID
+            ),
+            selectedTileID
+        )
+    }
+
+    @MainActor
+    func testReorderTileIDFallsBackToAttachedSurfaceWhenSelectionMissing() {
+        let attachedTileID = UUID()
+
+        XCTAssertEqual(
+            GhosttySurfaceView.reorderTileID(
+                attachedTileID: attachedTileID,
+                selectedTileID: nil
+            ),
+            attachedTileID
+        )
+    }
 }

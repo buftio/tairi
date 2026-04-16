@@ -42,6 +42,8 @@ final class WorkspaceTileHostView: NSView {
 
     override var isFlipped: Bool { true }
 
+    var representedTileID: UUID { tileID }
+
     init(runtime: GhosttyRuntime, tileID: UUID) {
         self.runtime = runtime
         self.tileID = tileID
@@ -89,14 +91,14 @@ final class WorkspaceTileHostView: NSView {
         headerInteractionView.canBeginDrag = { [weak self] in
             self?.workspaceCanvasDocumentView()?.canBeginTileReorderDrag(for: tileID) == true
         }
-        headerInteractionView.onBeginDrag = { [weak self] in
-            self?.workspaceCanvasDocumentView()?.beginTileReorderDrag(tileID)
+        headerInteractionView.onBeginDrag = { [weak self] windowLocation in
+            self?.workspaceCanvasDocumentView()?.beginTileReorderDrag(tileID, windowLocation: windowLocation)
         }
-        headerInteractionView.onEndDrag = { [weak self] in
-            self?.workspaceCanvasDocumentView()?.endTileReorderDrag(tileID)
+        headerInteractionView.onContinueDrag = { [weak self] windowLocation in
+            self?.workspaceCanvasDocumentView()?.updateTileReorderDrag(windowLocation: windowLocation)
         }
-        headerInteractionView.dragPreviewProvider = { [weak self] in
-            self?.tileDragPreview()
+        headerInteractionView.onEndDrag = { [weak self] windowLocation in
+            self?.workspaceCanvasDocumentView()?.endTileReorderDrag(tileID, windowLocation: windowLocation)
         }
         headerView.addSubview(headerInteractionView)
 
@@ -399,9 +401,6 @@ final class WorkspaceTileHostView: NSView {
                 else {
                     return false
                 }
-                if TairiHotkeys.isDisabledTileReorderShortcut(event) {
-                    return true
-                }
                 guard let direction = TairiHotkeys.tileReorderDirection(for: event) else {
                     return false
                 }
@@ -508,14 +507,6 @@ final class WorkspaceTileHostView: NSView {
         }
 
         needsLayout = true
-    }
-
-    private func tileDragPreview() -> WorkspaceTileHeaderDragPreview? {
-        guard let image = tairiSnapshotImage() else { return nil }
-        return WorkspaceTileHeaderDragPreview(
-            image: image,
-            frame: convert(bounds, to: headerInteractionView)
-        )
     }
 
     private func workspaceFolderPath() -> String? {

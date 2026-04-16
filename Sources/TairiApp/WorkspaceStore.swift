@@ -706,6 +706,11 @@ final class WorkspaceStore: ObservableObject {
         workspaceContaining(tileID)?.id
     }
 
+    func replaceWorkspace(at index: Int, with workspace: Workspace) {
+        guard workspaces.indices.contains(index) else { return }
+        workspaces[index] = workspace
+    }
+
     private func mutateTile(_ tileID: UUID, transform: (inout Tile) -> Void) {
         for workspaceIndex in workspaces.indices {
             guard let tileIndex = workspaces[workspaceIndex].tiles.firstIndex(where: { $0.id == tileID }) else {

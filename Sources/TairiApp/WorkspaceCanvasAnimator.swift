@@ -13,7 +13,7 @@ final class WorkspaceCanvasAnimator {
         static let stripLeadingInsetAnimationDuration: TimeInterval = 0.28
         static let closingGapAnimationDuration: TimeInterval = 0.22
         static let openingTileAnimationDuration: TimeInterval = 0.2
-        static let tileReorderAnimationDuration: TimeInterval = 0.22
+        static let tileReorderAnimationDuration: TimeInterval = 0.33
     }
 
     private struct ClosingGapAnimation {

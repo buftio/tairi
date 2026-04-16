@@ -28,4 +28,23 @@ final class TairiHotkeysTests: XCTestCase {
         XCTAssertTrue(entryIDs.contains("moveTileDown"))
         XCTAssertFalse(entryIDs.contains("moveTileUp"))
     }
+
+    func testTileReorderDoesNotHandleUpArrow() throws {
+        let event = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: [.command, .option, .shift],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                characters: "",
+                charactersIgnoringModifiers: "",
+                isARepeat: false,
+                keyCode: 126
+            )
+        )
+
+        XCTAssertNil(TairiHotkeys.tileReorderDirection(for: event))
+    }
 }

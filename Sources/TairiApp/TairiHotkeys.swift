@@ -235,14 +235,6 @@ enum TairiHotkeys {
         return nil
     }
 
-    static func isDisabledTileReorderShortcut(_ event: NSEvent) -> Bool {
-        event.modifierFlags.intersection(.tairiShortcutRelevant) == tileReorderModifiers.nsEventModifiers
-            && TairiHotkeyKey.upArrow.matches(event)
-    }
-
-    static func isTileReorderLiftActive(_ event: NSEvent) -> Bool {
-        event.modifierFlags.intersection(.tairiShortcutRelevant) == tileReorderModifiers.nsEventModifiers
-    }
 }
 
 extension View {

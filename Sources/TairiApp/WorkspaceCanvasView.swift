@@ -79,9 +79,7 @@ final class WorkspaceCanvasDocumentView: NSView {
     var workspaceScrollAnimationTargetOrigin: NSPoint = .zero
     var workspaceScrollAnimationStartedAt = Date.distantPast
     var anchoredZoomTransition: AnchoredZoomTransition?
-    var activeTileReorderDragTileID: UUID?
-    var hoveredTileReorderTargetTileID: UUID?
-    var keyboardTileReorderArmed = false
+    var tileReorderSession: TileReorderSession?
 
     var targetStripLeadingInset: CGFloat {
         WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: isSidebarHidden)
@@ -119,7 +117,6 @@ final class WorkspaceCanvasDocumentView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
-        registerForDraggedTypes([workspaceTileDragType])
         animator.onChange = { [weak self] in
             self?.needsLayout = true
         }
@@ -172,18 +169,11 @@ final class WorkspaceCanvasDocumentView: NSView {
             view.removeFromSuperview()
             tileViews.removeValue(forKey: tileID)
         }
-        if let activeTileReorderDragTileID, !allTileIDs.contains(activeTileReorderDragTileID) {
-            self.activeTileReorderDragTileID = nil
-        }
-        if let hoveredTileReorderTargetTileID, !allTileIDs.contains(hoveredTileReorderTargetTileID) {
-            self.hoveredTileReorderTargetTileID = nil
-        }
-        if selectedTileID == nil {
-            keyboardTileReorderArmed = false
+        if let tileReorderSession, !allTileIDs.contains(tileReorderSession.tileID) {
+            self.tileReorderSession = nil
         }
         if canvasZoomMode == .overview {
-            hoveredTileReorderTargetTileID = nil
-            keyboardTileReorderArmed = false
+            tileReorderSession = nil
         }
         pruneVerticalSplitOpenAnimation(using: allTileIDs)
 
@@ -199,7 +189,8 @@ final class WorkspaceCanvasDocumentView: NSView {
         }
 
         for workspace in workspaces {
-            for tile in workspace.tiles {
+            let presentedWorkspace = presentedWorkspace(for: workspace)
+            for tile in presentedWorkspace.tiles {
                 let tileView = tileViews[tile.id] ?? makeTileView(for: tile.id)
                 if shouldKeepTileViewsInDocument, tileView.superview !== self {
                     tileView.removeFromSuperview()
@@ -207,9 +198,9 @@ final class WorkspaceCanvasDocumentView: NSView {
                 }
                 tileView.update(tile: tile, selected: tile.id == selectedTileID)
                 tileView.setTileReorderPresentation(
-                    lifted: tile.id == liftedTileID,
-                    dropTarget: tile.id == hoveredTileReorderTargetTileID,
-                    dragSource: tile.id == activeTileReorderDragTileID,
+                    lifted: tile.id == tileReorderSession?.tileID,
+                    dropTarget: tile.id == tileReorderSession?.move?.targetTileID,
+                    dragSource: tile.id == tileReorderSession?.tileID,
                     animated: true,
                     animationPolicy: animationPolicy
                 )
@@ -273,7 +264,8 @@ final class WorkspaceCanvasDocumentView: NSView {
         )
 
         for (workspaceIndex, workspace) in workspaces.enumerated() {
-            let columns = WorkspaceColumnLayout.columns(in: workspace)
+            let layoutWorkspace = presentedWorkspace(for: workspace)
+            let columns = WorkspaceColumnLayout.columns(in: layoutWorkspace)
             let focusedRowOriginY = CGFloat(workspaceIndex) * (rowHeight + baseRowSpacing)
             let overviewRowOriginY =
                 overviewTopInsetAdjustment
@@ -289,7 +281,7 @@ final class WorkspaceCanvasDocumentView: NSView {
                 let overviewGapWidth = gapWidth * scale
                 let tileWidth = animator.effectiveTileWidth(column.width, for: representativeTileID)
                 layoutClosingTileSnapshotIfNeeded(
-                    workspaceID: workspace.id,
+                    workspaceID: layoutWorkspace.id,
                     insertionIndex: columnIndex,
                     originX: isOverviewPresented ? overviewX : focusedX,
                     rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
@@ -329,7 +321,7 @@ final class WorkspaceCanvasDocumentView: NSView {
                         )
                     } else {
                         overviewRenderer.hidePreview(for: tile.id)
-                        tileView.frame = effectiveFocusedFrame(for: tile.id, targetFrame: focusedFrame)
+                        tileView.frame = effectiveTileFrame(for: tile.id, targetFrame: focusedFrame)
                     }
                 }
 
@@ -355,7 +347,7 @@ final class WorkspaceCanvasDocumentView: NSView {
 
             let trailingGapWidth = animator.closingGapWidth(beforeTileAt: columns.count, in: workspace.id)
             layoutClosingTileSnapshotIfNeeded(
-                workspaceID: workspace.id,
+                workspaceID: layoutWorkspace.id,
                 insertionIndex: columns.count,
                 originX: isOverviewPresented ? overviewX : focusedX,
                 rowOriginY: isOverviewPresented ? overviewRowOriginY : focusedRowOriginY,
@@ -480,11 +472,28 @@ final class WorkspaceCanvasDocumentView: NSView {
         return handle
     }
 
-    private var liftedTileID: UUID? {
-        if let activeTileReorderDragTileID {
-            return activeTileReorderDragTileID
+    var isTileReorderActive: Bool {
+        tileReorderSession != nil
+    }
+
+    private func presentedWorkspace(for workspace: WorkspaceStore.Workspace) -> WorkspaceStore.Workspace {
+        guard let tileReorderSession,
+            tileReorderSession.workspaceID == workspace.id,
+            let previewWorkspace = tileReorderSession.previewWorkspace
+        else {
+            return workspace
         }
-        guard keyboardTileReorderArmed else { return nil }
-        return selectedTileID
+
+        return previewWorkspace
+    }
+
+    private func effectiveTileFrame(for tileID: UUID, targetFrame: CGRect) -> CGRect {
+        if let tileReorderSession,
+            tileReorderSession.tileID == tileID
+        {
+            return tileReorderSession.draggedFrame
+        }
+
+        return effectiveFocusedFrame(for: tileID, targetFrame: targetFrame)
     }
 }

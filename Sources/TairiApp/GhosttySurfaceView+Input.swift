@@ -5,9 +5,6 @@ import GhosttyDyn
 extension GhosttySurfaceView {
     override func flagsChanged(with event: NSEvent) {
         sendMousePosition(event)
-        interactionCoordinator?.setTileReorderLiftArmed(
-            attachedTileID != nil && TairiHotkeys.isTileReorderLiftActive(event)
-        )
         super.flagsChanged(with: event)
     }
 
@@ -96,13 +93,13 @@ extension GhosttySurfaceView {
         guard let surface else {
             return super.performKeyEquivalent(with: event)
         }
-        if let tileID = attachedTileID,
-            let direction = TairiHotkeys.tileReorderDirection(for: event)
+        if let direction = TairiHotkeys.tileReorderDirection(for: event),
+            let tileID = Self.reorderTileID(
+                attachedTileID: attachedTileID,
+                selectedTileID: runtime.store.selectedTileID
+            )
         {
             _ = interactionCoordinator?.handleTileReorderCommand(direction, from: tileID)
-            return true
-        }
-        if TairiHotkeys.isDisabledTileReorderShortcut(event) {
             return true
         }
         if window?.firstResponder === self,
@@ -111,6 +108,13 @@ extension GhosttySurfaceView {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    static func reorderTileID(
+        attachedTileID: UUID?,
+        selectedTileID: UUID?
+    ) -> UUID? {
+        selectedTileID ?? attachedTileID
     }
 
     override func keyUp(with event: NSEvent) {

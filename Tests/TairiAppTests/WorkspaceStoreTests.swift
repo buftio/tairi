@@ -415,6 +415,61 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.selectedTileID, selectedTileID)
     }
 
+    func testMoveTileLeftCreatesANewLeadingColumn() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        let secondTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+        let thirdTile = store.addTerminalTile(nextTo: secondTile.id, sessionID: UUID())
+
+        let didMove = store.moveTile(
+            thirdTile.id,
+            to: WorkspaceTileMove(targetTileID: firstTileID, direction: .left)
+        )
+
+        XCTAssertTrue(didMove)
+        XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [thirdTile.id, firstTileID, secondTile.id])
+        XCTAssertNotEqual(
+            try XCTUnwrap(store.tile(thirdTile.id)).columnID,
+            try XCTUnwrap(store.tile(firstTileID)).columnID
+        )
+    }
+
+    func testMoveTileDownIntoAnotherTileColumnAdoptsColumnWidth() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let firstTileID = try XCTUnwrap(store.selectedTileID)
+        store.setWidth(.narrow, for: firstTileID)
+        let secondTile = store.addTerminalTile(nextTo: firstTileID, sessionID: UUID())
+        let splitTile = try XCTUnwrap(store.splitTerminalTile(firstTileID, sessionID: UUID()))
+
+        let didMove = store.moveTile(
+            secondTile.id,
+            to: WorkspaceTileMove(targetTileID: splitTile.id, direction: .down)
+        )
+
+        XCTAssertTrue(didMove)
+        let movedTile = try XCTUnwrap(store.tile(secondTile.id))
+        let topTile = try XCTUnwrap(store.tile(firstTileID))
+        XCTAssertEqual(movedTile.columnID, topTile.columnID)
+        XCTAssertEqual(movedTile.width, topTile.width, accuracy: 0.001)
+    }
+
+    func testMoveSplitTileRightExtractsItIntoSeparateColumn() throws {
+        let store = makeStore(initialTerminalWorkingDirectory: "/tmp/dev-root")
+        let topTileID = try XCTUnwrap(store.selectedTileID)
+        let bottomTile = try XCTUnwrap(store.splitTerminalTile(topTileID, sessionID: UUID()))
+
+        let didMove = store.moveTile(
+            topTileID,
+            to: WorkspaceTileMove(targetTileID: bottomTile.id, direction: .right)
+        )
+
+        XCTAssertTrue(didMove)
+        let topTile = try XCTUnwrap(store.tile(topTileID))
+        let remainingSplitTile = try XCTUnwrap(store.tile(bottomTile.id))
+        XCTAssertEqual(store.selectedWorkspace.tiles.map(\.id), [bottomTile.id, topTileID])
+        XCTAssertNotEqual(topTile.columnID, remainingSplitTile.columnID)
+    }
+
     func testPersistentStripsRestoreFromSidebarPersistence() throws {
         let tempDirectory = try makeTemporaryDirectory()
         let persistence = makeSidebarPersistence()

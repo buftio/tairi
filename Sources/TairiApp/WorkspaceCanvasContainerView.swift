@@ -28,7 +28,6 @@ final class WorkspaceCanvasContainerView: NSView {
     private var pendingEmptySelectionResponderReason: String?
     private var pendingEmptySelectionHeartbeatWorkspaceID: UUID?
     nonisolated(unsafe) private var keyDownMonitor: Any?
-    nonisolated(unsafe) private var flagsChangedMonitor: Any?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -92,9 +91,6 @@ final class WorkspaceCanvasContainerView: NSView {
         if let keyDownMonitor {
             NSEvent.removeMonitor(keyDownMonitor)
         }
-        if let flagsChangedMonitor {
-            NSEvent.removeMonitor(flagsChangedMonitor)
-        }
     }
 
     override func layout() {
@@ -132,9 +128,6 @@ final class WorkspaceCanvasContainerView: NSView {
             sidebarHidden: sidebarHidden,
             renderedStripLeadingInset: renderedStripLeadingInset
         )
-        if !keyboardReorderLiftCanArm {
-            documentView.setKeyboardTileReorderArmed(false)
-        }
         requestEmptySelectionResponderHandoffIfNeeded(
             selectedWorkspaceID: selectedWorkspaceID,
             selectedTileID: selectedTileID,
@@ -149,28 +142,32 @@ final class WorkspaceCanvasContainerView: NSView {
         documentView.viewportSize = scrollView.contentView.bounds.size
         interactionController.updateWorkspaceNavigationViewport(width: scrollView.contentView.bounds.width)
 
-        if canvasZoomMode == .overview {
-            if lastCanvasZoomMode != .overview {
-                shouldSuppressFallbackReveal = true
-                documentView.scrollOverviewToOrigin(animated: true)
-            }
-        } else if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
-            switch canvasTransition.kind {
-            case .reveal(let tileID, let animated):
-                scheduleReveal(tileID: tileID, animated: animated)
+        if !documentView.isTileReorderActive {
+            if canvasZoomMode == .overview {
+                if lastCanvasZoomMode != .overview {
+                    shouldSuppressFallbackReveal = true
+                    documentView.scrollOverviewToOrigin(animated: true)
+                }
+            } else if let canvasTransition, canvasTransition.id != lastCanvasTransitionID {
+                switch canvasTransition.kind {
+                case .reveal(let tileID, let animated):
+                    scheduleReveal(tileID: tileID, animated: animated)
+                    shouldSuppressFallbackReveal = false
+                case .preserveViewport:
+                    shouldSuppressFallbackReveal = true
+                }
+                lastCanvasTransitionID = canvasTransition.id
+            } else if lastSelectedWorkspaceID == selectedWorkspaceID,
+                lastSelectedTileID != selectedTileID,
+                let selectedTileID,
+                !shouldSuppressFallbackReveal
+            {
+                scheduleReveal(tileID: selectedTileID, animated: false)
+            } else {
                 shouldSuppressFallbackReveal = false
-            case .preserveViewport:
-                shouldSuppressFallbackReveal = true
             }
-            lastCanvasTransitionID = canvasTransition.id
-        } else if lastSelectedWorkspaceID == selectedWorkspaceID,
-            lastSelectedTileID != selectedTileID,
-            let selectedTileID,
-            !shouldSuppressFallbackReveal
-        {
-            scheduleReveal(tileID: selectedTileID, animated: false)
         } else {
-            shouldSuppressFallbackReveal = false
+            shouldSuppressFallbackReveal = true
         }
 
         if let tileCloseAnimation, tileCloseAnimation.id != lastTileCloseAnimationID {
@@ -183,7 +180,9 @@ final class WorkspaceCanvasContainerView: NSView {
             lastTileOpenAnimationID = tileOpenAnimation.id
         }
 
-        if let workspaceRevealRequest, workspaceRevealRequest.id != lastWorkspaceRevealRequestID {
+        if !documentView.isTileReorderActive,
+            let workspaceRevealRequest, workspaceRevealRequest.id != lastWorkspaceRevealRequestID
+        {
             documentView.scrollWorkspaceToVisible(
                 workspaceRevealRequest.workspaceID,
                 preserveHorizontalOrigin: true,
@@ -192,7 +191,8 @@ final class WorkspaceCanvasContainerView: NSView {
             lastWorkspaceRevealRequestID = workspaceRevealRequest.id
         }
 
-        if canvasZoomMode != .overview,
+        if !documentView.isTileReorderActive,
+            canvasZoomMode != .overview,
             !documentView.isManagingAnchoredZoomTransition,
             lastCanvasZoomMode == .overview || lastSelectedWorkspaceID != selectedWorkspaceID || lastSelectedTileID != selectedTileID
         {
@@ -412,24 +412,10 @@ final class WorkspaceCanvasContainerView: NSView {
     }
 
     private func startKeyboardReorderMonitors() {
-        guard keyDownMonitor == nil, flagsChangedMonitor == nil else { return }
+        guard keyDownMonitor == nil else { return }
 
         keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyboardReorderKeyDown(event) ?? event
-        }
-        flagsChangedMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            self?.handleKeyboardReorderFlagsChanged(event) ?? event
-        }
-    }
-
-    private func stopKeyboardReorderMonitors() {
-        if let keyDownMonitor {
-            NSEvent.removeMonitor(keyDownMonitor)
-            self.keyDownMonitor = nil
-        }
-        if let flagsChangedMonitor {
-            NSEvent.removeMonitor(flagsChangedMonitor)
-            self.flagsChangedMonitor = nil
         }
     }
 
@@ -437,31 +423,36 @@ final class WorkspaceCanvasContainerView: NSView {
         handleKeyboardReorderShortcut(event) ? nil : event
     }
 
-    private func handleKeyboardReorderFlagsChanged(_ event: NSEvent) -> NSEvent? {
-        documentView.setKeyboardTileReorderArmed(
-            keyboardReorderLiftCanArm && TairiHotkeys.isTileReorderLiftActive(event)
-        )
-        return event
-    }
-
     private func handleKeyboardReorderShortcut(_ event: NSEvent) -> Bool {
-        if keyboardReorderEventsAreEligible,
-            !isGhosttySurfaceFirstResponder,
-            TairiHotkeys.isDisabledTileReorderShortcut(event)
-        {
-            return true
-        }
-
         guard keyboardReorderEventsAreEligible,
             !isGhosttySurfaceFirstResponder,
-            let selectedTileID = currentSelectedTileID,
+            let tileID = keyboardReorderTileID(),
             let direction = TairiHotkeys.tileReorderDirection(for: event)
         else {
             return false
         }
 
-        _ = documentView.handleKeyboardTileReorder(direction, from: selectedTileID)
+        _ = documentView.handleKeyboardTileReorder(direction, from: tileID)
         return true
+    }
+
+    private func keyboardReorderTileID() -> UUID? {
+        guard let firstResponderView = window?.firstResponder as? NSView else {
+            return currentSelectedTileID
+        }
+
+        var ancestor: NSView? = firstResponderView
+        while let view = ancestor {
+            if let tileHostView = view as? WorkspaceTileHostView {
+                return tileHostView.representedTileID
+            }
+            if view === self {
+                break
+            }
+            ancestor = view.superview
+        }
+
+        return currentSelectedTileID
     }
 
     private var keyboardReorderEventsAreEligible: Bool {
@@ -478,12 +469,6 @@ final class WorkspaceCanvasContainerView: NSView {
         }
 
         return firstResponderView.isDescendant(of: self)
-    }
-
-    private var keyboardReorderLiftCanArm: Bool {
-        currentCanvasZoomMode != .overview
-            && currentSelectedTileID != nil
-            && window?.isKeyWindow == true
     }
 
     private var isGhosttySurfaceFirstResponder: Bool {

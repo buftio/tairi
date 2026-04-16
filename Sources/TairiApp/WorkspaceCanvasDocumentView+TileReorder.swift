@@ -2,31 +2,78 @@ import AppKit
 
 @MainActor
 extension WorkspaceCanvasDocumentView {
+    struct TileReorderSession {
+        let tileID: UUID
+        let workspaceID: UUID
+        let initialPointerLocation: CGPoint
+        let currentPointerLocation: CGPoint
+        let initialTileFrame: CGRect
+        let draggedFrame: CGRect
+        let move: WorkspaceTileMove?
+        let previewWorkspace: WorkspaceStore.Workspace?
+    }
+
     func canBeginTileReorderDrag(for tileID: UUID) -> Bool {
         zoomMode != .overview && tileViews[tileID] != nil
     }
 
-    func beginTileReorderDrag(_ tileID: UUID) {
-        guard canBeginTileReorderDrag(for: tileID) else { return }
-        activeTileReorderDragTileID = tileID
-        hoveredTileReorderTargetTileID = nil
-        needsLayout = true
-    }
-
-    func endTileReorderDrag(_ tileID: UUID) {
-        guard activeTileReorderDragTileID == tileID else { return }
-        activeTileReorderDragTileID = nil
-        hoveredTileReorderTargetTileID = nil
-        needsLayout = true
-    }
-
-    func setKeyboardTileReorderArmed(_ armed: Bool) {
-        let nextValue = armed && selectedTileID != nil && zoomMode != .overview
-        guard keyboardTileReorderArmed != nextValue else { return }
-        keyboardTileReorderArmed = nextValue
-        if !nextValue {
-            hoveredTileReorderTargetTileID = nil
+    func beginTileReorderDrag(_ tileID: UUID, windowLocation: CGPoint) {
+        guard canBeginTileReorderDrag(for: tileID),
+            let workspaceID = store.workspaceID(containing: tileID),
+            let initialTileFrame = tileViews[tileID]?.frame
+        else {
+            return
         }
+
+        let localPoint = convert(windowLocation, from: nil)
+        tileReorderSession = TileReorderSession(
+            tileID: tileID,
+            workspaceID: workspaceID,
+            initialPointerLocation: localPoint,
+            currentPointerLocation: localPoint,
+            initialTileFrame: initialTileFrame,
+            draggedFrame: initialTileFrame,
+            move: nil,
+            previewWorkspace: nil
+        )
+        needsLayout = true
+    }
+
+    func updateTileReorderDrag(windowLocation: CGPoint) {
+        guard let tileReorderSession else { return }
+
+        let localPoint = convert(windowLocation, from: nil)
+        let draggedFrame = frameForDraggedTile(
+            initialFrame: tileReorderSession.initialTileFrame,
+            initialPointerLocation: tileReorderSession.initialPointerLocation,
+            currentPointerLocation: localPoint
+        )
+        let move = tileMove(at: localPoint, for: tileReorderSession)
+        let previewWorkspace = move.flatMap { store.previewWorkspaceMovingTile(tileReorderSession.tileID, to: $0) }
+
+        self.tileReorderSession = TileReorderSession(
+            tileID: tileReorderSession.tileID,
+            workspaceID: tileReorderSession.workspaceID,
+            initialPointerLocation: tileReorderSession.initialPointerLocation,
+            currentPointerLocation: localPoint,
+            initialTileFrame: tileReorderSession.initialTileFrame,
+            draggedFrame: draggedFrame,
+            move: move,
+            previewWorkspace: previewWorkspace
+        )
+        needsLayout = true
+    }
+
+    func endTileReorderDrag(_ tileID: UUID, windowLocation: CGPoint) {
+        guard let tileReorderSession,
+            tileReorderSession.tileID == tileID
+        else {
+            return
+        }
+
+        updateTileReorderDrag(windowLocation: windowLocation)
+        commitTileMove(tileID)
+        self.tileReorderSession = nil
         needsLayout = true
     }
 
@@ -40,69 +87,48 @@ extension WorkspaceCanvasDocumentView {
             return false
         }
 
-        let didSwap = swapTileSlots(
+        let didMove = commitTileMove(
             tileID,
-            with: targetTileID,
+            to: WorkspaceTileMove(targetTileID: targetTileID, direction: direction),
             animated: true,
-            revealMovedTile: true
+            revealMovedTile: true,
+            selectMovedTile: true
         )
-        if didSwap {
+        if didMove {
             runtime.focusSurface(tileID: tileID)
         }
-        return didSwap
+        return didMove
     }
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        updateTileReorderHover(using: sender) ? .move : []
-    }
-
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        updateTileReorderHover(using: sender) ? .move : []
-    }
-
-    override func draggingExited(_ sender: NSDraggingInfo?) {
-        hoveredTileReorderTargetTileID = nil
-        needsLayout = true
-        super.draggingExited(sender)
-    }
-
-    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        tileReorderDropTarget(using: sender) != nil
-    }
-
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        defer {
-            hoveredTileReorderTargetTileID = nil
-            needsLayout = true
-        }
-
-        guard let draggedTileID = draggedTileID(from: sender),
-            let targetTileID = tileReorderDropTarget(using: sender)
-        else {
-            return false
-        }
-
-        return swapTileSlots(draggedTileID, with: targetTileID, animated: true)
-    }
-
-    private func swapTileSlots(
+    private func commitTileMove(
         _ tileID: UUID,
-        with targetTileID: UUID,
+        to move: WorkspaceTileMove,
         animated: Bool,
-        revealMovedTile: Bool = false
+        revealMovedTile: Bool = false,
+        selectMovedTile: Bool = false
     ) -> Bool {
-        guard tileID != targetTileID else { return false }
+        guard tileID != move.targetTileID else { return false }
 
         var startFrames: [UUID: CGRect] = [:]
-        if let frame = tileViews[tileID]?.frame, !frame.isEmpty {
-            startFrames[tileID] = frame
+        if let workspaceID = store.workspaceID(containing: tileID),
+            let workspace = workspaces.first(where: { $0.id == workspaceID })
+        {
+            for tile in workspace.tiles {
+                if let frame = tileViews[tile.id]?.frame, !frame.isEmpty {
+                    startFrames[tile.id] = frame
+                }
+            }
         }
-        if let frame = tileViews[targetTileID]?.frame, !frame.isEmpty {
-            startFrames[targetTileID] = frame
+        if let tileReorderSession,
+            tileReorderSession.tileID == tileID
+        {
+            startFrames[tileID] = tileReorderSession.draggedFrame
         }
 
-        guard store.swapTileLayoutSlots(tileID, with: targetTileID) else { return false }
-        store.selectTile(tileID)
+        guard store.moveTile(tileID, to: move) else { return false }
+        if selectMovedTile {
+            store.selectTile(tileID)
+        }
 
         workspaces = store.workspaces
         selectedWorkspaceID = store.selectedWorkspaceID
@@ -124,53 +150,87 @@ extension WorkspaceCanvasDocumentView {
         return true
     }
 
-    private func updateTileReorderHover(using draggingInfo: NSDraggingInfo) -> Bool {
-        let targetTileID = tileReorderDropTarget(using: draggingInfo)
-        if hoveredTileReorderTargetTileID != targetTileID {
-            hoveredTileReorderTargetTileID = targetTileID
-            needsLayout = true
+    private func tileMove(
+        at point: NSPoint,
+        for session: TileReorderSession
+    ) -> WorkspaceTileMove? {
+        if let extractionMove = splitColumnExtractionMove(at: point, for: session) {
+            return extractionMove
         }
-        return targetTileID != nil
+
+        let workspace =
+            session.previewWorkspace
+            ?? workspaces.first(where: { $0.id == session.workspaceID })
+        guard let workspace else { return nil }
+
+        let candidate = workspace.tiles
+            .filter { $0.id != session.tileID }
+            .compactMap { tile -> (tileID: UUID, frame: CGRect, distance: CGFloat)? in
+                guard let frame = tileViews[tile.id]?.frame else { return nil }
+                return (
+                    tile.id,
+                    frame,
+                    distanceFrom(point, to: frame)
+                )
+            }
+            .min { lhs, rhs in
+                if abs(lhs.distance - rhs.distance) > 0.5 {
+                    return lhs.distance < rhs.distance
+                }
+                return lhs.tileID.uuidString < rhs.tileID.uuidString
+            }
+
+        guard let candidate else { return nil }
+
+        return WorkspaceTileMove(
+            targetTileID: candidate.tileID,
+            direction: moveDirection(for: point, in: candidate.frame)
+        )
     }
 
-    private func tileReorderDropTarget(using draggingInfo: NSDraggingInfo) -> UUID? {
-        guard zoomMode != .overview,
-            let draggedTileID = draggedTileID(from: draggingInfo),
-            let sourceWorkspaceID = store.workspaceID(containing: draggedTileID)
+    private func splitColumnExtractionMove(
+        at point: NSPoint,
+        for session: TileReorderSession
+    ) -> WorkspaceTileMove? {
+        guard let workspace = workspaces.first(where: { $0.id == session.workspaceID }) else {
+            return nil
+        }
+
+        let columns = WorkspaceColumnLayout.columns(in: workspace)
+        guard let sourceColumn = columns.first(where: { column in
+            column.tiles.contains(where: { $0.id == session.tileID })
+        }), sourceColumn.tiles.count > 1
         else {
             return nil
         }
 
-        let localPoint = convert(draggingInfo.draggingLocation, from: nil)
-        return tileID(
-            at: localPoint,
-            in: sourceWorkspaceID,
-            excluding: draggedTileID
-        )
-    }
+        let horizontalDelta = point.x - session.initialPointerLocation.x
+        let threshold = min(max(session.initialTileFrame.width * 0.16, 72), 140)
+        guard abs(horizontalDelta) >= threshold else { return nil }
 
-    private func draggedTileID(from draggingInfo: NSDraggingInfo) -> UUID? {
-        let pasteboard = draggingInfo.draggingPasteboard
-        guard let rawValue = pasteboard.string(forType: workspaceTileDragType) else {
-            return nil
-        }
-        return UUID(uuidString: rawValue)
-    }
+        let targetTile = sourceColumn.tiles
+            .filter { $0.id != session.tileID }
+            .min { lhs, rhs in
+                guard let lhsFrame = tileViews[lhs.id]?.frame,
+                    let rhsFrame = tileViews[rhs.id]?.frame
+                else {
+                    return lhs.id.uuidString < rhs.id.uuidString
+                }
 
-    private func tileID(
-        at point: NSPoint,
-        in workspaceID: UUID,
-        excluding excludedTileID: UUID?
-    ) -> UUID? {
-        guard let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return nil }
-
-        return workspace.tiles
-            .map(\.id)
-            .filter { $0 != excludedTileID }
-            .first { tileID in
-                guard let frame = tileViews[tileID]?.frame else { return false }
-                return frame.insetBy(dx: -10, dy: -10).contains(point)
+                let lhsDistance = abs(lhsFrame.midY - session.initialTileFrame.midY)
+                let rhsDistance = abs(rhsFrame.midY - session.initialTileFrame.midY)
+                if abs(lhsDistance - rhsDistance) > 0.5 {
+                    return lhsDistance < rhsDistance
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
             }
+
+        guard let targetTile else { return nil }
+
+        return WorkspaceTileMove(
+            targetTileID: targetTile.id,
+            direction: horizontalDelta < 0 ? .left : .right
+        )
     }
 
     private func neighboringTileID(
@@ -254,5 +314,54 @@ extension WorkspaceCanvasDocumentView {
         }
 
         return frames
+    }
+
+    private func frameForDraggedTile(
+        initialFrame: CGRect,
+        initialPointerLocation: CGPoint,
+        currentPointerLocation: CGPoint
+    ) -> CGRect {
+        initialFrame.offsetBy(
+            dx: currentPointerLocation.x - initialPointerLocation.x,
+            dy: currentPointerLocation.y - initialPointerLocation.y
+        )
+    }
+
+    private func moveDirection(for point: CGPoint, in frame: CGRect) -> TileReorderDirection {
+        let horizontalRatio = abs(point.x - frame.midX) / max(frame.width / 2, 1)
+        let verticalRatio = abs(point.y - frame.midY) / max(frame.height / 2, 1)
+
+        if horizontalRatio > verticalRatio {
+            return point.x < frame.midX ? .left : .right
+        }
+
+        return point.y < frame.midY ? .up : .down
+    }
+
+    private func distanceFrom(_ point: CGPoint, to frame: CGRect) -> CGFloat {
+        if frame.insetBy(dx: -10, dy: -10).contains(point) {
+            return 0
+        }
+
+        let dx = max(max(frame.minX - point.x, 0), point.x - frame.maxX)
+        let dy = max(max(frame.minY - point.y, 0), point.y - frame.maxY)
+        return hypot(dx, dy)
+    }
+
+    private func commitTileMove(_ tileID: UUID) {
+        guard let tileReorderSession,
+            tileReorderSession.tileID == tileID,
+            let move = tileReorderSession.move
+        else {
+            return
+        }
+
+        _ = commitTileMove(
+            tileID,
+            to: move,
+            animated: true,
+            revealMovedTile: false,
+            selectMovedTile: false
+        )
     }
 }
