@@ -385,9 +385,19 @@ extension GhosttyRuntime {
             if session.attachedTileID == nil {
                 destroyDetachedExitedSession(sessionID: sessionID, source: "child_exited")
             } else {
-                TairiLog.write(
-                    "ghostty keeping session=\(sessionID.uuidString) open until close_surface confirms the session ended"
-                )
+                if let tileID = session.attachedTileID {
+                    if waitAfterCommandEnabled {
+                        TairiLog.write(
+                            "ghostty keeping session=\(sessionID.uuidString) open until close_surface confirms the session ended"
+                        )
+                    } else {
+                        closeExitedTileImmediately(
+                            sessionID: sessionID,
+                            tileID: tileID,
+                            reason: "child_exited"
+                        )
+                    }
+                }
             }
             return true
 

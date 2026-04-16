@@ -49,6 +49,7 @@ final class GhosttyRuntime: ObservableObject {
     var lastInputAt: Date?
     private var focusedTileID: UUID?
     private var pendingFocusedTileID: UUID?
+    private var pendingExitedTileCloseSessionIDs = Set<UUID>()
     private(set) var terminalCommand = "/bin/zsh"
 
     init(
@@ -345,6 +346,51 @@ final class GhosttyRuntime: ObservableObject {
             interactionController.revealSelection(of: selectedTileID, transition: transition)
             focusSurface(tileID: selectedTileID)
         }
+    }
+
+    func closeExitedTileImmediately(sessionID: UUID, tileID: UUID, reason: String) {
+        guard shouldAcceptExit(for: tileID, reason: reason) else { return }
+        guard sessionRegistry.session(id: sessionID) != nil else { return }
+        let inserted = pendingExitedTileCloseSessionIDs.insert(sessionID).inserted
+        guard inserted else {
+            TairiLog.write(
+                "ghostty skipped duplicate exited close session=\(sessionID.uuidString) tile=\(tileID.uuidString) reason=\(reason)"
+            )
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.performExitedTileClose(sessionID: sessionID, tileID: tileID, reason: reason)
+        }
+    }
+
+    private func performExitedTileClose(sessionID: UUID, tileID: UUID, reason: String) {
+        defer {
+            pendingExitedTileCloseSessionIDs.remove(sessionID)
+        }
+
+        guard let session = sessionRegistry.session(id: sessionID) else { return }
+        guard session.attachedTileID == tileID else { return }
+        guard case .exited = session.state else { return }
+
+        TairiLog.write(
+            "ghostty performing exited close session=\(sessionID.uuidString) tile=\(tileID.uuidString) reason=\(reason)"
+        )
+
+        let closeContext = session.surfaceView.closeContext(for: tileID)
+        let closeAnimationContext = tileCloseAnimationContext(
+            for: tileID,
+            snapshotImage: closeContext?.snapshotImage
+        )
+        terminateSession(for: tileID, reason: .exitBehaviorAutoClose)
+        finishClosingTile(
+            tileID,
+            preferredVisibleMidX: closeContext?.preferredVisibleMidX,
+            stripLeadingInset: closeContext?.stripLeadingInset
+                ?? WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false),
+            transition: .animatedReveal,
+            closeAnimationContext: closeAnimationContext
+        )
     }
 
     func workingDirectory(for tileID: UUID) -> String {

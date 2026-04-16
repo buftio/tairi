@@ -29,24 +29,7 @@ extension GhosttyRuntime {
             return
         }
 
-        guard shouldAcceptExit(for: tileID, reason: "close_surface") else {
-            return
-        }
-
-        let closeContext = session.surfaceView.closeContext(for: tileID)
-        let closeAnimationContext = tileCloseAnimationContext(
-            for: tileID,
-            snapshotImage: closeContext?.snapshotImage
-        )
-        terminateSession(for: tileID, reason: .exitBehaviorAutoClose)
-        finishClosingTile(
-            tileID,
-            preferredVisibleMidX: closeContext?.preferredVisibleMidX,
-            stripLeadingInset: closeContext?.stripLeadingInset
-                ?? WorkspaceCanvasLayoutMetrics.stripLeadingInset(sidebarHidden: false),
-            transition: .animatedReveal,
-            closeAnimationContext: closeAnimationContext
-        )
+        closeExitedTileImmediately(sessionID: sessionID, tileID: tileID, reason: "close_surface")
     }
 
     static let wakeup: ghostty_runtime_wakeup_cb = { userdata in
