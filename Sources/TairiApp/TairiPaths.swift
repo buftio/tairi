@@ -40,7 +40,8 @@ enum TairiPaths {
 
     static func terminalSessionPIDFileURL(for sessionID: UUID) -> URL {
         try? FileManager.default.createDirectory(at: terminalSessionDirectory, withIntermediateDirectories: true)
-        return terminalSessionDirectory
+        return
+            terminalSessionDirectory
             .appendingPathComponent(sessionID.uuidString.lowercased(), isDirectory: false)
             .appendingPathExtension("pid")
     }
@@ -74,7 +75,8 @@ enum TairiPaths {
     }
 
     static func ghosttyManifestVersion(from manifestURL: URL?) -> String? {
-        guard let manifestURL,
+        guard
+            let manifestURL,
             let contents = try? String(contentsOf: manifestURL, encoding: .utf8)
         else {
             return nil

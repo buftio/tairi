@@ -602,11 +602,12 @@ final class WorkspaceStore: ObservableObject {
             if workspaces.indices.contains(fallbackIndex) {
                 let fallbackWorkspaceID = workspaces[fallbackIndex].id
                 selectedWorkspaceID = fallbackWorkspaceID
-                selectedTileID = preferredTileID(
-                    in: fallbackWorkspaceID,
-                    preferredVisibleMidX: preferredVisibleMidX,
-                    stripLeadingInset: stripLeadingInset
-                ) ?? workspaces[fallbackIndex].tiles.first?.id
+                selectedTileID =
+                    preferredTileID(
+                        in: fallbackWorkspaceID,
+                        preferredVisibleMidX: preferredVisibleMidX,
+                        stripLeadingInset: stripLeadingInset
+                    ) ?? workspaces[fallbackIndex].tiles.first?.id
                 if let selectedTileID {
                     markTileVisited(selectedTileID)
                 }

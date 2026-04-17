@@ -89,9 +89,10 @@ extension WorkspaceStore {
         }
 
         let rebuiltWorkspace = rebuildWorkspace(workspace, from: columns)
-        guard rebuiltWorkspace.tiles.map(\.id) != originalTileIDs
-            || rebuiltWorkspace.tiles.map(\.columnID) != workspace.tiles.map(\.columnID)
-            || rebuiltWorkspace.tiles.map(\.width) != workspace.tiles.map(\.width)
+        guard
+            rebuiltWorkspace.tiles.map(\.id) != originalTileIDs
+                || rebuiltWorkspace.tiles.map(\.columnID) != workspace.tiles.map(\.columnID)
+                || rebuiltWorkspace.tiles.map(\.width) != workspace.tiles.map(\.width)
         else {
             return nil
         }

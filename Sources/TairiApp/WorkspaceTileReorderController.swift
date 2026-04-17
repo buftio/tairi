@@ -138,9 +138,10 @@ final class WorkspaceTileReorderController {
         }
 
         let columns = WorkspaceColumnLayout.columns(in: workspace)
-        guard let sourceColumn = columns.first(where: { column in
-            column.tiles.contains(where: { $0.id == session.tileID })
-        }), sourceColumn.tiles.count > 1
+        guard
+            let sourceColumn = columns.first(where: { column in
+                column.tiles.contains(where: { $0.id == session.tileID })
+            }), sourceColumn.tiles.count > 1
         else {
             return nil
         }
@@ -152,7 +153,8 @@ final class WorkspaceTileReorderController {
         let targetTile = sourceColumn.tiles
             .filter { $0.id != session.tileID }
             .min { lhs, rhs in
-                guard let lhsFrame = tileFrames[lhs.id],
+                guard
+                    let lhsFrame = tileFrames[lhs.id],
                     let rhsFrame = tileFrames[rhs.id]
                 else {
                     return lhs.id.uuidString < rhs.id.uuidString
