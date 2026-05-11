@@ -49,10 +49,12 @@ extension WorkspaceCanvasDocumentView {
         _ event: NSEvent,
         tileID: UUID?
     ) -> GhosttySurfaceInteractionCoordinator.ScrollWheelRoutingDecision {
-        guard GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
-            tileID: tileID,
-            selectedTileID: selectedTileID
-        ) else {
+        guard
+            GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
+                tileID: tileID,
+                selectedTileID: selectedTileID
+            )
+        else {
             _ = handleScrollWheel(event)
             return .interceptForWorkspaceScroll
         }
