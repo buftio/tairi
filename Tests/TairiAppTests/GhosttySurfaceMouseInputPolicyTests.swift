@@ -44,6 +44,35 @@ final class GhosttySurfaceMouseInputPolicyTests: XCTestCase {
         )
     }
 
+    func testScrollEventForwardsWhenTileIsAlreadySelected() {
+        let tileID = UUID()
+
+        XCTAssertTrue(
+            GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
+                tileID: tileID,
+                selectedTileID: tileID
+            )
+        )
+    }
+
+    func testScrollEventIsSuppressedWhenTileIsNotSelected() {
+        XCTAssertFalse(
+            GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
+                tileID: UUID(),
+                selectedTileID: UUID()
+            )
+        )
+    }
+
+    func testScrollEventIsSuppressedWithoutTile() {
+        XCTAssertFalse(
+            GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
+                tileID: nil,
+                selectedTileID: UUID()
+            )
+        )
+    }
+
     @MainActor
     func testReorderTileIDPrefersSelectedTileOverAttachedSurface() {
         let attachedTileID = UUID()

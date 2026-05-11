@@ -46,8 +46,17 @@ extension WorkspaceCanvasDocumentView {
     }
 
     func scrollWheelRoutingDecisionForTileGesture(
-        _ event: NSEvent
+        _ event: NSEvent,
+        tileID: UUID?
     ) -> GhosttySurfaceInteractionCoordinator.ScrollWheelRoutingDecision {
+        guard GhosttySurfaceMouseInputPolicy.shouldForwardScrollEvent(
+            tileID: tileID,
+            selectedTileID: selectedTileID
+        ) else {
+            _ = handleScrollWheel(event)
+            return .interceptForWorkspaceScroll
+        }
+
         let sample = TileScrollGestureLock.Sample(
             deltaX: event.scrollingDeltaX,
             deltaY: event.scrollingDeltaY,
@@ -70,7 +79,7 @@ extension WorkspaceCanvasDocumentView {
             return .forwardToTile
         case .interceptForWorkspaceHorizontalPan:
             guard shouldTreatAsHorizontalScroll(event) else { return .forwardToTile }
-            return handleHorizontalScroll(event) ? .interceptForWorkspaceHorizontalPan : .forwardToTile
+            return handleHorizontalScroll(event) ? .interceptForWorkspaceScroll : .forwardToTile
         }
     }
 

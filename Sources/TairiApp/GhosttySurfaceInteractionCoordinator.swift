@@ -4,7 +4,7 @@ import AppKit
 final class GhosttySurfaceInteractionCoordinator {
     enum ScrollWheelRoutingDecision: Equatable {
         case forwardToTile
-        case interceptForWorkspaceHorizontalPan
+        case interceptForWorkspaceScroll
     }
 
     private let runtime: GhosttyRuntime
@@ -25,8 +25,8 @@ final class GhosttySurfaceInteractionCoordinator {
         documentView?.handleTileOverviewClick(tileID) == true
     }
 
-    func scrollWheelRoutingDecision(for event: NSEvent) -> ScrollWheelRoutingDecision {
-        documentView?.scrollWheelRoutingDecisionForTileGesture(event) ?? .forwardToTile
+    func scrollWheelRoutingDecision(for event: NSEvent, tileID: UUID?) -> ScrollWheelRoutingDecision {
+        documentView?.scrollWheelRoutingDecisionForTileGesture(event, tileID: tileID) ?? .forwardToTile
     }
 
     func handleMagnify(_ event: NSEvent, preferredTileID: UUID?) -> Bool {

@@ -26,6 +26,11 @@ enum GhosttySurfaceMouseInputPolicy {
     static func shouldForwardPointerMotion(isCanvasAnimating: Bool) -> Bool {
         !isCanvasAnimating
     }
+
+    static func shouldForwardScrollEvent(tileID: UUID?, selectedTileID: UUID?) -> Bool {
+        guard let tileID else { return false }
+        return tileID == selectedTileID
+    }
 }
 
 @MainActor
