@@ -9,9 +9,12 @@ source "$ROOT/scripts/release-config.sh"
 
 BUILD_CONFIGURATION="${TAIRI_BUILD_CONFIGURATION:-release}"
 BUILD_DIR="$ROOT/.build/$BUILD_CONFIGURATION"
+SWIFTPM_BUILD_DIR="$ROOT/.build/$(uname -m)-apple-macosx/$BUILD_CONFIGURATION"
 DIST_DIR="$ROOT/dist"
 APP_DIR="$DIST_DIR/$TAIRI_APP_BUNDLE_NAME.app"
 GHOSTTY_APP_DIR="$APP_DIR/Contents/Frameworks/GhosttyRuntime.app"
+RESOURCE_BUNDLE_NAME="${TAIRI_APP_NAME}_TairiApp.bundle"
+RESOURCE_BUNDLE_SOURCE="$SWIFTPM_BUILD_DIR/$RESOURCE_BUNDLE_NAME"
 APP_ICON_SOURCE="$ROOT/Assets/AppIcon.png"
 APP_ICON_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
 LEGAL_DIR="$APP_DIR/Contents/Resources/ThirdPartyNotices"
@@ -84,12 +87,17 @@ if [[ ! -d "$VERSION_DIR/GhosttyRuntime.app" ]]; then
 fi
 
 swift build --configuration "$BUILD_CONFIGURATION" --package-path "$ROOT"
+if [[ ! -d "$RESOURCE_BUNDLE_SOURCE" ]]; then
+  echo "Missing SwiftPM resource bundle: $RESOURCE_BUNDLE_SOURCE" >&2
+  exit 1
+fi
 
 trash_path_if_present "$APP_DIR"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources" "$APP_DIR/Contents/Frameworks" "$LEGAL_DIR"
 
 cp "$BUILD_DIR/$TAIRI_APP_NAME" "$APP_DIR/Contents/MacOS/$TAIRI_APP_NAME"
+cp -R "$RESOURCE_BUNDLE_SOURCE/." "$APP_DIR/Contents/Resources/"
 cp -R "$VERSION_DIR/GhosttyRuntime.app" "$GHOSTTY_APP_DIR"
 cp -R "$VERSION_DIR/GhosttyRuntime.app/Contents/Resources/ghostty" "$APP_DIR/Contents/Resources/"
 "$ROOT/scripts/render-app-icon.sh" "$APP_ICON_SOURCE" "$APP_ICON_PATH"

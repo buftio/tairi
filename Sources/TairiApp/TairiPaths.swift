@@ -46,6 +46,20 @@ enum TairiPaths {
             .appendingPathExtension("pid")
     }
 
+    static func appResourceURL(forResource name: String, withExtension extensionName: String) -> URL? {
+        let fileName = "\(name).\(extensionName)"
+        let candidates = [
+            Bundle.main.resourceURL?.appendingPathComponent(fileName, isDirectory: false),
+            repositoryRoot?
+                .appendingPathComponent("Sources/TairiApp/Resources", isDirectory: true)
+                .appendingPathComponent(fileName, isDirectory: false),
+        ]
+
+        return candidates.compactMap(\.self).first { candidate in
+            FileManager.default.fileExists(atPath: candidate.path(percentEncoded: false))
+        }
+    }
+
     static func requiredGhosttyVendorVersion() -> String? {
         ghosttyManifestVersion(from: ghosttyManifestURL)
     }

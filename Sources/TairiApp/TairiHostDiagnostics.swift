@@ -12,13 +12,13 @@ enum TairiHostDiagnostics {
         let ghosttyBinaryURL = ghosttyRuntimeURL.appendingPathComponent("Contents/MacOS/ghostty")
         let ghosttyResourcesURL = bundleURL.appendingPathComponent("Contents/Resources/ghostty")
         let appIconURL = bundleURL.appendingPathComponent("Contents/Resources/AppIcon.icns")
-        let swiftPMResourceBundleURL = bundleURL.appendingPathComponent("tairi_TairiApp.bundle")
+        let launchWrapperURL = resourceURL?.appendingPathComponent("terminal-launch-wrapper.zsh")
 
         TairiLog.write(
             "startup preflight bundleExists=\(exists(bundleURL)) executableExists=\(exists(executableURL)) infoPlistExists=\(exists(infoPlistURL)) resourcesExists=\(exists(resourceURL))"
         )
         TairiLog.write(
-            "startup preflight appIconExists=\(exists(appIconURL)) ghosttyRuntimeExists=\(exists(ghosttyRuntimeURL)) ghosttyBinaryExists=\(exists(ghosttyBinaryURL)) ghosttyResourcesExists=\(exists(ghosttyResourcesURL)) swiftPMBundleExists=\(exists(swiftPMResourceBundleURL))"
+            "startup preflight appIconExists=\(exists(appIconURL)) launchWrapperExists=\(exists(launchWrapperURL)) ghosttyRuntimeExists=\(exists(ghosttyRuntimeURL)) ghosttyBinaryExists=\(exists(ghosttyBinaryURL)) ghosttyResourcesExists=\(exists(ghosttyResourcesURL))"
         )
         logCodesignVerification(label: "bundle", path: bundleURL.path(percentEncoded: false))
         logCodesignVerification(label: "ghosttyRuntime", path: ghosttyRuntimeURL.path(percentEncoded: false))
