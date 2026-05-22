@@ -45,6 +45,7 @@ extension GhosttySurfaceView {
         if let zoomDirection = canvasZoomDirection(for: event),
             interactionCoordinator?.handleZoomKeyCommand(zoomDirection, preferredTileID: attachedTileID) == true
         {
+            markAppShortcutKeyDownConsumed(event)
             return
         }
 
@@ -52,6 +53,7 @@ extension GhosttySurfaceView {
             let tileOffset = tileNavigationOffset(for: event),
             interactionCoordinator?.handleTileKeyNavigation(offset: tileOffset, from: tileID) == true
         {
+            markAppShortcutKeyDownConsumed(event)
             return
         }
 
@@ -59,13 +61,16 @@ extension GhosttySurfaceView {
             let workspaceOffset = workspaceNavigationOffset(for: event),
             interactionCoordinator?.handleWorkspaceKeyNavigation(offset: workspaceOffset, from: tileID) == true
         {
+            markAppShortcutKeyDownConsumed(event)
             return
         }
 
         guard let surface else { return }
         if handleSplitShortcut(event, surface: surface) {
+            markAppShortcutKeyDownConsumed(event)
             return
         }
+        markAppShortcutKeyDownForwarded(event)
         recordInputIfAttached()
 
         var key = ghostty_input_key_s()
@@ -112,11 +117,7 @@ extension GhosttySurfaceView {
     }
 
     override func keyUp(with event: NSEvent) {
-        if workspaceNavigationOffset(for: event) != nil
-            || tileNavigationOffset(for: event) != nil
-            || canvasZoomDirection(for: event) != nil
-            || isHorizontalSplitShortcut(event)
-        {
+        if shouldSuppressConsumedAppShortcutKeyUp(event) {
             return
         }
 
@@ -235,5 +236,26 @@ extension GhosttySurfaceView {
     func focusAttachedTile(transition: WorkspaceInteractionController.TileTransition) {
         guard let tileID = attachedTileID else { return }
         runtime.focus(tileID: tileID, transition: transition)
+    }
+
+    private func markAppShortcutKeyDownConsumed(_ event: NSEvent) {
+        GhosttySurfaceKeyInputPolicy.markConsumedKeyDown(
+            keyCode: event.keyCode,
+            consumedKeyCodes: &consumedAppShortcutKeyCodes
+        )
+    }
+
+    private func markAppShortcutKeyDownForwarded(_ event: NSEvent) {
+        GhosttySurfaceKeyInputPolicy.markForwardedKeyDown(
+            keyCode: event.keyCode,
+            consumedKeyCodes: &consumedAppShortcutKeyCodes
+        )
+    }
+
+    private func shouldSuppressConsumedAppShortcutKeyUp(_ event: NSEvent) -> Bool {
+        GhosttySurfaceKeyInputPolicy.shouldSuppressKeyUp(
+            keyCode: event.keyCode,
+            consumedKeyCodes: &consumedAppShortcutKeyCodes
+        )
     }
 }
