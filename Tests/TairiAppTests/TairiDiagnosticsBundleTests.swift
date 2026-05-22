@@ -6,6 +6,7 @@ final class TairiDiagnosticsBundleTests: XCTestCase {
     func testCollectedEntriesIncludeLogCrashReportsAndDiagnosticReports() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
         let logsDirectory = root.appendingPathComponent("logs", isDirectory: true)
         let crashReportsDirectory = logsDirectory.appendingPathComponent("crash-reports", isDirectory: true)
         let diagnosticReportsDirectory = root.appendingPathComponent("diagnostic-reports", isDirectory: true)
@@ -51,5 +52,42 @@ final class TairiDiagnosticsBundleTests: XCTestCase {
                 "diagnostic-reports/tairi-2026-03-25-120000.ips",
             ]
         )
+    }
+
+    func testExportArchiveFailurePreservesExistingDestination() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logsDirectory = root.appendingPathComponent("logs", isDirectory: true)
+        let diagnosticReportsDirectory = root.appendingPathComponent("diagnostic-reports", isDirectory: true)
+        let mainLogURL = logsDirectory.appendingPathComponent("tairi.log")
+        let destinationURL = root.appendingPathComponent("diagnostics.zip")
+
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: diagnosticReportsDirectory, withIntermediateDirectories: true)
+        try "log".write(to: mainLogURL, atomically: true, encoding: .utf8)
+        try "original archive".write(to: destinationURL, atomically: true, encoding: .utf8)
+
+        struct ArchiveFailure: Error {}
+        var attemptedDestinationURL: URL?
+
+        XCTAssertThrowsError(
+            try TairiDiagnosticsBundle.exportArchive(
+                to: destinationURL,
+                logsDirectory: logsDirectory,
+                diagnosticReportsDirectory: diagnosticReportsDirectory,
+                mainLogURL: mainLogURL,
+                archiveCreator: { _, destinationURL in
+                    attemptedDestinationURL = destinationURL
+                    throw ArchiveFailure()
+                }
+            )
+        )
+
+        XCTAssertEqual(try String(contentsOf: destinationURL, encoding: .utf8), "original archive")
+        XCTAssertNotEqual(attemptedDestinationURL, destinationURL)
+        if let attemptedDestinationURL {
+            XCTAssertFalse(FileManager.default.fileExists(atPath: attemptedDestinationURL.path(percentEncoded: false)))
+        }
     }
 }
