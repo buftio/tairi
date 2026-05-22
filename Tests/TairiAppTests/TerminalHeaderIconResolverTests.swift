@@ -168,6 +168,18 @@ final class TerminalHeaderIconResolverTests: XCTestCase {
         )
     }
 
+    func testResolveIconHrefRejectsTildePrefixedHref() {
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        let projectURL = homeURL.appendingPathComponent("tairi-icon-tilde-project", isDirectory: true)
+
+        XCTAssertTrue(
+            TerminalHeaderIconResolver.resolveIconHref(
+                projectDirectoryURL: projectURL,
+                href: "~/tairi-icon-tilde-project/secret.png"
+            ).isEmpty
+        )
+    }
+
     private func makeTemporaryDirectory(prefix: String) throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(prefix + UUID().uuidString, isDirectory: true)
