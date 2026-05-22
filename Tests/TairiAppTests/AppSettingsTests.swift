@@ -49,10 +49,10 @@ final class AppSettingsTests: XCTestCase {
         let userDefaults = makeUserDefaults()
         let settings = AppSettings(userDefaults: userDefaults)
 
-        settings.terminalExitBehavior = .closeImmediately
+        settings.terminalExitBehavior = .waitForKeyPress
 
         let reloadedSettings = AppSettings(userDefaults: userDefaults)
-        XCTAssertEqual(reloadedSettings.terminalExitBehavior, .closeImmediately)
+        XCTAssertEqual(reloadedSettings.terminalExitBehavior, .waitForKeyPress)
     }
 
     func testDefaultWindowGlassOpacityIsFiftyPercent() {
