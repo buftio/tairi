@@ -301,7 +301,7 @@ final class GhosttyRuntime: ObservableObject {
             return
         }
         let workingDirectory = spawnWorkingDirectory(for: tileID)
-        let sessionID = createSession(workingDirectory: workingDirectory)
+        let sessionID = UUID()
         guard
             let tile = interactionController.splitTerminalTile(
                 tileID,
@@ -313,6 +313,7 @@ final class GhosttyRuntime: ObservableObject {
             TairiLog.write("ghostty split shortcut skipped tile=\(tileID.uuidString) reason=split-failed")
             return
         }
+        _ = ensureSessionExists(id: sessionID, workingDirectory: workingDirectory)
         sessionRegistry.setSessionID(sessionID, forTileID: tile.id)
         TairiLog.write(
             "ghostty command split sourceTile=\(tileID.uuidString) newTile=\(tile.id.uuidString) session=\(sessionID.uuidString)"
