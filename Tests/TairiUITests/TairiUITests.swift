@@ -16,8 +16,18 @@ private enum Identifiers {
 
 @MainActor
 final class TairiUITests: XCTestCase {
+    private nonisolated(unsafe) var userDefaultsSuiteNames: [String] = []
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+        for suiteName in userDefaultsSuiteNames {
+            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        }
+        userDefaultsSuiteNames = []
+        try super.tearDownWithError()
     }
 
     func testWorkspaceSmokeFlow() throws {
@@ -125,14 +135,39 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: startingWidth + 24))
     }
 
-    private func launchApp() throws -> XCUIApplication {
+    func testLaunchAppResetsPersistedWorkspaceState() throws {
+        let suiteName = makeDefaultsSuiteName()
+        let dirtyApp = try launchApp(defaultsSuiteName: suiteName)
+        let initialWorkspaceButton = workspaceButton(in: dirtyApp, at: 0)
+        XCTAssertTrue(initialWorkspaceButton.waitForExistence(timeout: 10))
+
+        rename(workspaceButton: initialWorkspaceButton, in: dirtyApp, to: "Inbox")
+        XCTAssertEqual(selectedWorkspaceTitle(in: dirtyApp), "Workspace Inbox")
+        dirtyApp.terminate()
+
+        let resetApp = try launchApp(defaultsSuiteName: suiteName)
+        defer { resetApp.terminate() }
+
+        XCTAssertEqual(selectedWorkspaceTitle(in: resetApp), "Workspace New Strip 1")
+    }
+
+    private func launchApp(defaultsSuiteName: String? = nil) throws -> XCUIApplication {
+        let defaultsSuiteName = defaultsSuiteName ?? makeDefaultsSuiteName()
+        UserDefaults(suiteName: defaultsSuiteName)?.removePersistentDomain(forName: defaultsSuiteName)
         let app = XCUIApplication(url: try resolvedAppBundleURL())
         app.terminate()
         app.launchEnvironment["TAIRI_UI_TEST"] = "1"
+        app.launchEnvironment["TAIRI_UI_TEST_DEFAULTS_SUITE"] = defaultsSuiteName
         app.launch()
         app.activate()
         XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).waitForExistence(timeout: 15))
         return app
+    }
+
+    private func makeDefaultsSuiteName() -> String {
+        let suiteName = "TairiUITests.\(UUID().uuidString)"
+        userDefaultsSuiteNames.append(suiteName)
+        return suiteName
     }
 
     private func resolvedAppBundleURL() throws -> URL {
@@ -203,6 +238,17 @@ final class TairiUITests: XCTestCase {
         app.textFields.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", Identifiers.workspaceRenameFieldPrefix)
         ).firstMatch
+    }
+
+    private func rename(workspaceButton: XCUIElement, in app: XCUIApplication, to title: String) {
+        workspaceButton.doubleClick()
+
+        let renameField = workspaceRenameField(in: app)
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        renameField.click()
+        app.typeKey("a", modifierFlags: [.command])
+        app.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        renameField.typeText("\(title)\n")
     }
 
     private func emptyWorkspaceState(in app: XCUIApplication) -> XCUIElement {
