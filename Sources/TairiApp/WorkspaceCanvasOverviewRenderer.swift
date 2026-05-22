@@ -41,6 +41,7 @@ final class WorkspaceCanvasOverviewRenderer {
                 isSelected: tileID == selectedTileID,
                 theme: theme
             )
+            previewView.updateLabel(tileView.overviewLabel, theme: theme)
             previewView.showLiveTile(tileView)
         }
     }
@@ -88,9 +89,21 @@ final class WorkspaceCanvasOverviewRenderer {
 
 @MainActor
 private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
+    private enum LabelMetrics {
+        static let horizontalPadding: CGFloat = 24
+        static let minWidth: CGFloat = 172
+        static let maxWidthFraction: CGFloat = 0.86
+        static let height: CGFloat = 54
+        static let fontSize: CGFloat = 20
+        static let minimumFontSize: CGFloat = 11
+    }
+
     let tileID: UUID
     let liveContainerView = NSView()
     let selectionOverlayView = NSView()
+    let labelChromeView: NSView
+    let labelContentView = NSView()
+    let labelField = NSTextField(labelWithString: "")
     let clickOverlayView = WorkspaceCanvasOverviewClickOverlayView()
 
     var onPrimaryClick: (() -> Void)?
@@ -108,6 +121,14 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
 
     init(tileID: UUID) {
         self.tileID = tileID
+        if #available(macOS 26.0, *) {
+            let glassView = NSGlassEffectView()
+            glassView.style = .regular
+            glassView.tintColor = NSColor.white.withAlphaComponent(0.18)
+            labelChromeView = glassView
+        } else {
+            labelChromeView = NSView()
+        }
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = WorkspaceTileChromeMetrics.cornerRadius
@@ -118,6 +139,23 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         liveContainerView.layer?.isGeometryFlipped = true
         selectionOverlayView.wantsLayer = true
         selectionOverlayView.isHidden = true
+        labelChromeView.wantsLayer = true
+        labelChromeView.layer?.masksToBounds = false
+        labelChromeView.layer?.shadowColor = NSColor.black.cgColor
+        labelChromeView.layer?.shadowOpacity = 0.24
+        labelChromeView.layer?.shadowRadius = 18
+        labelChromeView.layer?.shadowOffset = CGSize(width: 0, height: 8)
+        labelContentView.wantsLayer = true
+        labelField.alignment = .center
+        labelField.font = .systemFont(ofSize: LabelMetrics.fontSize, weight: .bold)
+        labelField.lineBreakMode = .byClipping
+        labelField.maximumNumberOfLines = 1
+        labelContentView.addSubview(labelField)
+        if #available(macOS 26.0, *), let glassView = labelChromeView as? NSGlassEffectView {
+            glassView.contentView = labelContentView
+        } else {
+            labelChromeView.addSubview(labelContentView)
+        }
 
         clickOverlayView.onPrimaryClick = { [weak self] in
             self?.onPrimaryClick?()
@@ -149,6 +187,7 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         let scaleX = contentSize.width > 0 ? bounds.width / contentSize.width : 1
         let scaleY = contentSize.height > 0 ? bounds.height / contentSize.height : 1
         liveContainerView.layer?.setAffineTransform(CGAffineTransform(scaleX: scaleX, y: scaleY))
+        layoutLabel()
     }
 
     func updateSelectionAppearance(isSelected: Bool, theme: GhosttyAppTheme) {
@@ -165,12 +204,32 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         needsLayout = true
     }
 
+    func updateLabel(_ label: String, theme: GhosttyAppTheme) {
+        labelField.stringValue = label
+        labelField.textColor = theme.primaryText
+        if #available(macOS 26.0, *), let glassView = labelChromeView as? NSGlassEffectView {
+            glassView.tintColor = theme.accent.withAlphaComponent(theme.isLightTheme ? 0.16 : 0.22)
+        } else {
+            labelContentView.layer?.backgroundColor =
+                theme.cardBackground
+                .withAlphaComponent(theme.isLightTheme ? 0.94 : 0.88)
+                .cgColor
+            labelContentView.layer?.borderColor = theme.divider.withAlphaComponent(0.9).cgColor
+            labelContentView.layer?.borderWidth = 1
+        }
+        setAccessibilityLabel("Workspace tile \(label)")
+        needsLayout = true
+    }
+
     func showLiveTile(_ tileView: WorkspaceTileHostView) {
         if liveContainerView.superview !== self {
             addSubview(liveContainerView)
         }
         if selectionOverlayView.superview !== self {
             addSubview(selectionOverlayView, positioned: .above, relativeTo: liveContainerView)
+        }
+        if labelChromeView.superview !== self {
+            addSubview(labelChromeView, positioned: .above, relativeTo: selectionOverlayView)
         }
         if tileView.superview !== liveContainerView {
             tileView.removeFromSuperview()
@@ -191,6 +250,7 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
         }
         liveContainerView.removeFromSuperview()
         selectionOverlayView.removeFromSuperview()
+        labelChromeView.removeFromSuperview()
         clickOverlayView.removeFromSuperview()
     }
 
@@ -204,6 +264,61 @@ private final class WorkspaceCanvasOverviewTilePreviewView: NSView {
 
     private func effectiveCornerRadius() -> CGFloat {
         WorkspaceTileChromeMetrics.cornerRadius(for: bounds.size)
+    }
+
+    private func layoutLabel() {
+        let maxWidth = max(bounds.width * LabelMetrics.maxWidthFraction, 64)
+        let minWidth = min(LabelMetrics.minWidth, maxWidth)
+        let maxTextWidth = max(maxWidth - (LabelMetrics.horizontalPadding * 2), 1)
+        let font = fittedLabelFont(maxTextWidth: maxTextWidth)
+        labelField.font = font
+        let textWidth = labelWidth(using: font)
+        let width = min(max(textWidth + (LabelMetrics.horizontalPadding * 2), minWidth), maxWidth)
+        let height = min(LabelMetrics.height, max(bounds.height - 24, 36))
+        labelChromeView.frame = NSRect(
+            x: floor((bounds.width - width) / 2),
+            y: floor((bounds.height - height) / 2),
+            width: width,
+            height: height
+        )
+        labelContentView.frame = labelChromeView.bounds
+        labelContentView.layer?.cornerRadius = height / 2
+        labelContentView.layer?.masksToBounds = true
+        labelChromeView.layer?.cornerRadius = height / 2
+        labelChromeView.layer?.shadowPath = CGPath(
+            roundedRect: labelChromeView.bounds,
+            cornerWidth: height / 2,
+            cornerHeight: height / 2,
+            transform: nil
+        )
+        if #available(macOS 26.0, *), let glassView = labelChromeView as? NSGlassEffectView {
+            glassView.cornerRadius = height / 2
+        }
+        labelField.frame = NSRect(
+            x: LabelMetrics.horizontalPadding,
+            y: floor((height - font.pointSize - 2) / 2),
+            width: max(width - (LabelMetrics.horizontalPadding * 2), 1),
+            height: ceil(font.pointSize + 4)
+        )
+    }
+
+    private func fittedLabelFont(maxTextWidth: CGFloat) -> NSFont {
+        var fontSize = LabelMetrics.fontSize
+        while fontSize > LabelMetrics.minimumFontSize {
+            let font = NSFont.systemFont(ofSize: fontSize, weight: .bold)
+            if labelWidth(using: font) <= maxTextWidth {
+                return font
+            }
+            fontSize -= 1
+        }
+        return NSFont.systemFont(ofSize: LabelMetrics.minimumFontSize, weight: .bold)
+    }
+
+    private func labelWidth(using font: NSFont) -> CGFloat {
+        let text = labelField.stringValue as NSString
+        return ceil(
+            text.size(withAttributes: [.font: font]).width
+        )
     }
 }
 
