@@ -32,9 +32,11 @@ enum GitTileCommandRunner {
                 let errorPipe = Pipe()
                 process.standardOutput = outputPipe
                 process.standardError = errorPipe
+                let pipeDrain: ProcessPipeDrain
 
                 do {
                     try process.run()
+                    pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
                     process.waitUntilExit()
                 } catch {
                     continuation.resume(
@@ -47,13 +49,12 @@ enum GitTileCommandRunner {
                     return
                 }
 
-                let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let output = pipeDrain.waitForOutput()
                 continuation.resume(
                     returning: GitTileCommandResult(
                         exitCode: process.terminationStatus,
-                        stdout: String(decoding: outputData, as: UTF8.self),
-                        stderr: String(decoding: errorData, as: UTF8.self)
+                        stdout: String(decoding: output.stdout, as: UTF8.self),
+                        stderr: String(decoding: output.stderr, as: UTF8.self)
                     )
                 )
             }

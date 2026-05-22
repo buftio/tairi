@@ -34,4 +34,22 @@ final class GhosttyTerminalCommandTests: XCTestCase {
             "'/bin/zsh' '/tmp/terminal wrapper.zsh' '/tmp/tairi'\\''s session.pid' 'shell:echo '\\''hello world'\\'''"
         )
     }
+
+    func testConfiguredCommandDrainsLargeStdoutAndStderr() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let script = directory.appendingPathComponent("ghostty", isDirectory: false)
+        let contents = """
+            #!/bin/sh
+            yes err | head -c 200000 >&2
+            yes out | head -c 200000
+            printf '\\ncommand = /bin/zsh\\n'
+            """
+        try contents.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path(percentEncoded: false))
+
+        XCTAssertEqual(GhosttyTerminalCommand.configuredCommand(ghosttyBinaryPath: script.path(percentEncoded: false)), "/bin/zsh")
+    }
 }
