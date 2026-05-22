@@ -333,12 +333,11 @@ final class WorkspaceCanvasDocumentView: NSView {
                         let handleCenterX = focusedX + tileWidth + (baseTileSpacing / 2)
                         handle.frame = NSRect(
                             x: handleCenterX - (WorkspaceCanvasLayoutMetrics.resizeHandleWidth / 2),
-                            y: focusedRowOriginY + baseVerticalPadding + WorkspaceCanvasLayoutMetrics.resizeHandleInset,
+                            y: focusedRowOriginY + baseVerticalPadding + tileHeight
+                                - WorkspaceCanvasLayoutMetrics.resizeHandleHeight
+                                - WorkspaceCanvasLayoutMetrics.resizeHandleBottomInset,
                             width: WorkspaceCanvasLayoutMetrics.resizeHandleWidth,
-                            height: max(
-                                tileHeight - (WorkspaceCanvasLayoutMetrics.resizeHandleInset * 2),
-                                72
-                            )
+                            height: WorkspaceCanvasLayoutMetrics.resizeHandleHeight
                         )
                     }
                 }

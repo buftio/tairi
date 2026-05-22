@@ -613,13 +613,13 @@ final class WorkspaceTileResizeHandleView: NSView {
     override func layout() {
         super.layout()
         gripView.frame = NSRect(
-            x: (bounds.width - 4) / 2,
-            y: 10,
-            width: 4,
-            height: max(bounds.height - 20, 24)
+            x: 10,
+            y: (bounds.height - 4) / 2,
+            width: max(bounds.width - 20, 24),
+            height: 4
         )
         gripView.layer?.cornerRadius = 2
-        gripView.layer?.backgroundColor = NSColor.clear.cgColor
+        gripView.layer?.backgroundColor = NSColor.quaternaryLabelColor.withAlphaComponent(0.55).cgColor
     }
 
     override func resetCursorRects() {

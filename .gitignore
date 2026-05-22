@@ -10,3 +10,5 @@ Package.resolved
 *.xcuserstate
 *.swp
 *.tmp
+
+.clawpatch/
