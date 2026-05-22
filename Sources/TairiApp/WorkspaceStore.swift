@@ -315,7 +315,7 @@ final class WorkspaceStore: ObservableObject {
     private func assignedFolderPathForNewTile(nextTo tileID: UUID?) -> String? {
         if let tileID,
             let workspace = workspaceContaining(tileID),
-            let folderPath = usableAssignedFolderPath(workspace.folderPath)
+            let folderPath = Self.usableAssignedFolderPath(workspace.folderPath)
         {
             return folderPath
         }
@@ -324,7 +324,7 @@ final class WorkspaceStore: ObservableObject {
             return nil
         }
 
-        return usableAssignedFolderPath(workspace.folderPath)
+        return Self.usableAssignedFolderPath(workspace.folderPath)
     }
 
     func preferredWorkingDirectoryForNewTile(nextTo tileID: UUID?, fallback: String) -> String {
@@ -356,7 +356,7 @@ final class WorkspaceStore: ObservableObject {
             .path(percentEncoded: false)
     }
 
-    private func usableAssignedFolderPath(_ folderPath: String?) -> String? {
+    nonisolated static func usableAssignedFolderPath(_ folderPath: String?) -> String? {
         guard let normalizedPath = Self.normalizedAssignedFolderPath(folderPath) else {
             return nil
         }

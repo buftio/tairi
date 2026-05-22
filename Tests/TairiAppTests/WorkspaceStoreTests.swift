@@ -503,6 +503,31 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(restoredWorkspace.tiles.first?.pwd, tempDirectory)
     }
 
+    func testRestoredPersistentStripWithDeletedFolderFallsBackForInitialTile() throws {
+        let tempDirectory = try makeTemporaryDirectory()
+        let persistence = makeSidebarPersistence()
+        let initialStore = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            sidebarPersistence: persistence
+        )
+        let persistentWorkspaceID = try XCTUnwrap(
+            initialStore.workspaces.first(where: { $0.id != initialStore.selectedWorkspaceID })?.id
+        )
+
+        initialStore.renameWorkspace(persistentWorkspaceID, to: "Docs")
+        initialStore.setWorkspaceFolder(persistentWorkspaceID, to: tempDirectory)
+        try FileManager.default.removeItem(atPath: tempDirectory)
+
+        let restoredStore = WorkspaceStore(
+            initialTerminalWorkingDirectory: "/tmp/dev-root",
+            sidebarPersistence: persistence
+        )
+
+        let restoredWorkspace = try XCTUnwrap(restoredStore.workspaces.first(where: { $0.title == "Docs" }))
+        XCTAssertEqual(restoredWorkspace.folderPath, tempDirectory)
+        XCTAssertEqual(restoredWorkspace.tiles.first?.pwd, "/tmp/dev-root")
+    }
+
     private func makeSidebarPersistence() -> WorkspaceSidebarPersistence {
         let suiteName = "WorkspaceStoreTests.\(UUID().uuidString)"
         userDefaultsSuiteNames.append(suiteName)
