@@ -521,10 +521,19 @@ final class GhosttyRuntime: ObservableObject {
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
-            queue: .main
+            queue: nil
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.terminateAllSessions(reason: .appShutdown)
+            guard let self else { return }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    self.terminateAllSessions(reason: .appShutdown)
+                }
+            } else {
+                DispatchQueue.main.sync {
+                    MainActor.assumeIsolated {
+                        self.terminateAllSessions(reason: .appShutdown)
+                    }
+                }
             }
         }
 
