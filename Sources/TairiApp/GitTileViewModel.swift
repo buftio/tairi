@@ -10,6 +10,19 @@ final class GitTileViewModel: ObservableObject {
     private var workspaceFolderPath: String?
     private var refreshLoopTask: Task<Void, Never>?
     private var latestRefreshID = UUID()
+    private let refreshInterval: Duration
+    private let sleep: @MainActor (Duration) async throws -> Void
+    private let loadSnapshot: @MainActor (String?) async -> GitTileState
+
+    init(
+        refreshInterval: Duration = .seconds(4),
+        sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        loadSnapshot: @escaping @MainActor (String?) async -> GitTileState = { await GitTileSnapshotLoader.load(for: $0) }
+    ) {
+        self.refreshInterval = refreshInterval
+        self.sleep = sleep
+        self.loadSnapshot = loadSnapshot
+    }
 
     func updateWorkspaceFolderPath(_ workspaceFolderPath: String?) {
         let normalizedPath =
@@ -27,7 +40,12 @@ final class GitTileViewModel: ObservableObject {
             guard let self else { return }
             await self.refresh()
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(4))
+                do {
+                    try await self.sleep(self.refreshInterval)
+                } catch {
+                    break
+                }
+                guard !Task.isCancelled else { break }
                 await self.refresh()
             }
         }
@@ -48,7 +66,7 @@ final class GitTileViewModel: ObservableObject {
         let refreshID = UUID()
         latestRefreshID = refreshID
         isRefreshing = true
-        let nextState = await GitTileSnapshotLoader.load(for: workspaceFolderPath)
+        let nextState = await loadSnapshot(workspaceFolderPath)
         guard latestRefreshID == refreshID else { return }
         state = nextState
         isRefreshing = false
