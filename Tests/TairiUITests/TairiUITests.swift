@@ -319,7 +319,11 @@ final class TairiUITests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        _ = waitForSelectedWorkspaceTitle(in: app, toEqual: expectedTitle, timeout: timeout)
+        XCTAssertTrue(
+            waitForSelectedWorkspaceTitle(in: app, toEqual: expectedTitle, timeout: timeout),
+            file: file,
+            line: line
+        )
         XCTAssertEqual(selectedWorkspaceTitle(in: app), expectedTitle, file: file, line: line)
     }
 
