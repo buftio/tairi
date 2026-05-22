@@ -33,6 +33,20 @@ enum GhosttySurfaceMouseInputPolicy {
     }
 }
 
+enum GhosttySurfaceKeyInputPolicy {
+    static func markConsumedKeyDown(keyCode: UInt16, consumedKeyCodes: inout Set<UInt16>) {
+        consumedKeyCodes.insert(keyCode)
+    }
+
+    static func markForwardedKeyDown(keyCode: UInt16, consumedKeyCodes: inout Set<UInt16>) {
+        consumedKeyCodes.remove(keyCode)
+    }
+
+    static func shouldSuppressKeyUp(keyCode: UInt16, consumedKeyCodes: inout Set<UInt16>) -> Bool {
+        consumedKeyCodes.remove(keyCode) != nil
+    }
+}
+
 @MainActor
 final class GhosttySurfaceView: NSView {
     struct TileCloseContext {
@@ -55,6 +69,7 @@ final class GhosttySurfaceView: NSView {
     private var lastLoggedWindowNumber: Int?
     private var suppressLeftMouseSequence = false
     private var suppressRightMouseSequence = false
+    var consumedAppShortcutKeyCodes = Set<UInt16>()
     private static let terminalDiagnosticCommand: String? = {
         guard ProcessInfo.processInfo.environment["TAIRI_TERMINAL_DIAG"] == "1" else {
             return nil

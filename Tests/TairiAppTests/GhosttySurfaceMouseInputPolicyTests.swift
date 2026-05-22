@@ -73,6 +73,57 @@ final class GhosttySurfaceMouseInputPolicyTests: XCTestCase {
         )
     }
 
+    func testKeyUpIsNotSuppressedWithoutConsumedKeyDown() {
+        var consumedKeyCodes = Set<UInt16>()
+
+        XCTAssertFalse(
+            GhosttySurfaceKeyInputPolicy.shouldSuppressKeyUp(
+                keyCode: 123,
+                consumedKeyCodes: &consumedKeyCodes
+            )
+        )
+    }
+
+    func testKeyUpIsSuppressedOnlyOnceAfterConsumedKeyDown() {
+        var consumedKeyCodes = Set<UInt16>()
+        GhosttySurfaceKeyInputPolicy.markConsumedKeyDown(
+            keyCode: 123,
+            consumedKeyCodes: &consumedKeyCodes
+        )
+
+        XCTAssertTrue(
+            GhosttySurfaceKeyInputPolicy.shouldSuppressKeyUp(
+                keyCode: 123,
+                consumedKeyCodes: &consumedKeyCodes
+            )
+        )
+        XCTAssertFalse(
+            GhosttySurfaceKeyInputPolicy.shouldSuppressKeyUp(
+                keyCode: 123,
+                consumedKeyCodes: &consumedKeyCodes
+            )
+        )
+    }
+
+    func testForwardedKeyDownClearsStaleConsumedKeyDown() {
+        var consumedKeyCodes = Set<UInt16>()
+        GhosttySurfaceKeyInputPolicy.markConsumedKeyDown(
+            keyCode: 123,
+            consumedKeyCodes: &consumedKeyCodes
+        )
+        GhosttySurfaceKeyInputPolicy.markForwardedKeyDown(
+            keyCode: 123,
+            consumedKeyCodes: &consumedKeyCodes
+        )
+
+        XCTAssertFalse(
+            GhosttySurfaceKeyInputPolicy.shouldSuppressKeyUp(
+                keyCode: 123,
+                consumedKeyCodes: &consumedKeyCodes
+            )
+        )
+    }
+
     @MainActor
     func testReorderTileIDPrefersSelectedTileOverAttachedSurface() {
         let attachedTileID = UUID()
