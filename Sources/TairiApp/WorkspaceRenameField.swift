@@ -68,12 +68,7 @@ struct WorkspaceRenameField: NSViewRepresentable {
 
         if isFocused {
             DispatchQueue.main.async {
-                guard nsView.window?.firstResponder !== nsView.currentEditor() else {
-                    nsView.placeCursorAtEnd()
-                    return
-                }
-                nsView.window?.makeFirstResponder(nsView)
-                nsView.placeCursorAtEnd()
+                nsView.focusForRenameIfNeeded()
             }
         }
     }
@@ -167,7 +162,14 @@ final class WorkspaceRenameTextField: NSTextField {
 
     func placeCursorAtEnd() {
         guard let editor = currentEditor() as? NSTextView else { return }
-        let location = editor.string.count
+        let location = (editor.string as NSString).length
         editor.selectedRange = NSRange(location: location, length: 0)
+    }
+
+    func focusForRenameIfNeeded() {
+        guard let window else { return }
+        guard window.firstResponder !== currentEditor() else { return }
+        window.makeFirstResponder(self)
+        placeCursorAtEnd()
     }
 }
