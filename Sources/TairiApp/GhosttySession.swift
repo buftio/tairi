@@ -8,9 +8,17 @@ final class GhosttyAppContext {
     var app: ghostty_app_t?
     var wakeupCount = 0
 
-    init(runtime: GhosttyRuntime, sessionID: UUID) {
+    init(runtime: GhosttyRuntime? = nil, sessionID: UUID) {
         self.runtime = runtime
         self.sessionID = sessionID
+    }
+
+    @discardableResult
+    func releaseApp(using freeApp: (ghostty_app_t) -> Void = tairi_ghostty_app_free) -> ghostty_app_t? {
+        guard let app else { return nil }
+        freeApp(app)
+        self.app = nil
+        return app
     }
 }
 
