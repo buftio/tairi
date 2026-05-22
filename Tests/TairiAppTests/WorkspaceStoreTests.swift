@@ -5,8 +5,13 @@ import XCTest
 @MainActor
 final class WorkspaceStoreTests: XCTestCase {
     private nonisolated(unsafe) var userDefaultsSuiteNames: [String] = []
+    private nonisolated(unsafe) var temporaryDirectoryURLs: [URL] = []
 
     override func tearDown() {
+        for directoryURL in temporaryDirectoryURLs {
+            try? FileManager.default.removeItem(at: directoryURL)
+        }
+        temporaryDirectoryURLs = []
         for suiteName in userDefaultsSuiteNames {
             UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
         }
@@ -216,6 +221,16 @@ final class WorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(workspace.folderPath, tempDirectory)
         XCTAssertEqual(workspace.title, "Today")
         XCTAssertFalse(workspace.usesAutomaticTitle)
+    }
+
+    func testTemporaryDirectoryHelperIsolatesRepeatedNames() throws {
+        let firstDirectory = URL(fileURLWithPath: try makeTemporaryDirectory(named: "Inbox"), isDirectory: true)
+        let secondDirectory = URL(fileURLWithPath: try makeTemporaryDirectory(named: "Inbox"), isDirectory: true)
+
+        XCTAssertNotEqual(firstDirectory, secondDirectory)
+        XCTAssertEqual(firstDirectory.lastPathComponent, "Inbox")
+        XCTAssertEqual(secondDirectory.lastPathComponent, "Inbox")
+        XCTAssertNotEqual(firstDirectory.deletingLastPathComponent(), secondDirectory.deletingLastPathComponent())
     }
 
     func testInitialLaunchDirectoryFallsBackToHomeOutsideRepository() {
@@ -551,8 +566,10 @@ final class WorkspaceStoreTests: XCTestCase {
 
     private func makeTemporaryDirectory(named name: String = UUID().uuidString) throws -> String {
         let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
             .appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        temporaryDirectoryURLs.append(directoryURL.deletingLastPathComponent())
         return directoryURL.path(percentEncoded: false)
     }
 }
