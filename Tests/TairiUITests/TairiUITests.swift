@@ -129,7 +129,12 @@ final class TairiUITests: XCTestCase {
         let dragEnd = dragStart.withOffset(CGVector(dx: 120, dy: 0))
         dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
 
-        XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: startingWidth + 24))
+        XCTAssertTrue(
+            waitForFrameWidth(
+                of: { self.tileQuery(in: app).element(boundBy: 0) },
+                toBeGreaterThan: startingWidth + 24
+            )
+        )
     }
 
     func testLaunchAppResetsPersistedWorkspaceState() throws {
@@ -265,24 +270,24 @@ final class TairiUITests: XCTestCase {
     }
 
     private func waitForFrameWidth(
-        of element: XCUIElement,
+        of element: @escaping () -> XCUIElement,
         toBeLessThan threshold: CGFloat,
         timeout: TimeInterval = 5
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
-            element.frame.width < threshold
+            element().frame.width < threshold
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     private func waitForFrameWidth(
-        of element: XCUIElement,
+        of element: @escaping () -> XCUIElement,
         toBeGreaterThan threshold: CGFloat,
         timeout: TimeInterval = 5
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
-            element.frame.width > threshold
+            element().frame.width > threshold
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
