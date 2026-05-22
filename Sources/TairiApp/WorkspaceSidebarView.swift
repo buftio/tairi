@@ -180,8 +180,7 @@ struct WorkspaceSidebarView: View {
                         }
 
                         Button(workspace.folderPath == nil ? "Assign Folder..." : "Change Folder...") {
-                            beginRenaming(workspace)
-                            chooseFolderForRename()
+                            assignFolder(for: workspace)
                         }
 
                         Button(workspace.hasCustomIcon ? "Change Icon..." : "Choose Icon...") {
