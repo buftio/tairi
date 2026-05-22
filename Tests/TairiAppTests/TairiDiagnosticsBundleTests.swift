@@ -90,4 +90,35 @@ final class TairiDiagnosticsBundleTests: XCTestCase {
             XCTAssertFalse(FileManager.default.fileExists(atPath: attemptedDestinationURL.path(percentEncoded: false)))
         }
     }
+
+    func testCreateZipArchiveDrainsLargeErrorOutputBeforeWaitingForExit() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceDirectory = root.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = root.appendingPathComponent("diagnostics.zip")
+        let scriptURL = root.appendingPathComponent("noisy-archiver")
+
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try """
+            #!/bin/sh
+            /usr/bin/perl -e 'print STDERR "x" x (512 * 1024)'
+            exit 42
+            """.write(to: scriptURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+
+        XCTAssertThrowsError(
+            try TairiDiagnosticsBundle.createZipArchive(
+                sourceDirectory: sourceDirectory,
+                destinationURL: destinationURL,
+                executableURL: scriptURL
+            )
+        ) { error in
+            guard case TairiDiagnosticsBundleError.archiveFailed(let details) = error else {
+                XCTFail("Expected archiveFailed, got \(error)")
+                return
+            }
+            XCTAssertEqual(details.count, 512 * 1024)
+        }
+    }
 }

@@ -175,9 +175,13 @@ enum TairiDiagnosticsBundle {
             }
     }
 
-    private static func createZipArchive(sourceDirectory: URL, destinationURL: URL) throws {
+    static func createZipArchive(
+        sourceDirectory: URL,
+        destinationURL: URL,
+        executableURL: URL = URL(fileURLWithPath: "/usr/bin/ditto", isDirectory: false)
+    ) throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto", isDirectory: false)
+        process.executableURL = executableURL
         process.arguments = [
             "-c",
             "-k",
@@ -187,16 +191,19 @@ enum TairiDiagnosticsBundle {
             destinationURL.path(percentEncoded: false),
         ]
 
+        let outputPipe = Pipe()
         let errorPipe = Pipe()
+        process.standardOutput = outputPipe
         process.standardError = errorPipe
 
         try process.run()
+        let pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
         process.waitUntilExit()
+        let output = pipeDrain.waitForOutput()
 
         guard process.terminationStatus == 0 else {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
             let details =
-                String(data: errorData, encoding: .utf8)?
+                String(data: output.stderr, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw TairiDiagnosticsBundleError.archiveFailed(details)
         }
