@@ -395,7 +395,12 @@ final class GhosttySurfaceView: NSView {
 
     private func wrappedLaunchCommand() -> String? {
         let launchCommand = Self.terminalDiagnosticCommand ?? runtime.terminalCommand
-        guard let wrapperScriptURL = Bundle.module.url(forResource: "terminal-launch-wrapper", withExtension: "zsh") else {
+        guard
+            let wrapperScriptURL = TairiPaths.appResourceURL(
+                forResource: "terminal-launch-wrapper",
+                withExtension: "zsh"
+            )
+        else {
             TairiLog.write("ghostty launch wrapper missing session=\(sessionID.uuidString)")
             return Self.terminalDiagnosticCommand
         }
