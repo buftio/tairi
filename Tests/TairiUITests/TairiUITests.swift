@@ -111,7 +111,7 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).exists)
     }
 
-    func testSingleTileStripShowsResizeHandleAndCanGrowWidth() throws {
+    func testSingleTileStripHasInvisibleResizeHandleAndCanGrowWidth() throws {
         let app = try launchApp()
         defer { app.terminate() }
 
@@ -121,8 +121,8 @@ final class TairiUITests: XCTestCase {
         let resizeHandle = tileResizeHandleQuery(in: app).element(boundBy: 0)
         XCTAssertTrue(resizeHandle.waitForExistence(timeout: 5))
         XCTAssertTrue(resizeHandle.isHittable)
-        XCTAssertGreaterThan(resizeHandle.frame.width, resizeHandle.frame.height)
-        XCTAssertLessThan(resizeHandle.frame.height, firstTile.frame.height / 4)
+        XCTAssertGreaterThan(resizeHandle.frame.height, resizeHandle.frame.width)
+        XCTAssertGreaterThan(resizeHandle.frame.height, firstTile.frame.height * 0.8)
 
         let startingWidth = firstTile.frame.width
         let dragStart = resizeHandle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))

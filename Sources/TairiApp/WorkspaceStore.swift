@@ -8,8 +8,8 @@ enum WorkspaceCanvasLayoutMetrics {
     static let tileSpacing: CGFloat = 8
     static let neighboringTilePeek: CGFloat = 20
     static let minimumTileHeight: CGFloat = 320
-    static let resizeHandleWidth: CGFloat = 88
-    static let resizeHandleHeight: CGFloat = 18
+    static let resizeHandleWidth: CGFloat = 18
+    static let resizeHandleHeight: CGFloat = 88
     static let resizeHandleBottomInset: CGFloat = 10
     static let rowSpacing: CGFloat = 16
 
