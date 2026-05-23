@@ -146,9 +146,9 @@ final class WorkspaceTileHostView: NSView {
         super.layout()
         let cornerRadius = effectiveCornerRadius()
         let borderWidth = borderShapeLayer.lineWidth
-        let borderInset = borderWidth / 2
-        let borderBounds = bounds.insetBy(dx: borderInset, dy: borderInset)
-        let borderCornerRadius = max(cornerRadius - borderInset, 0)
+        let borderOutset = borderWidth / 2
+        let borderBounds = bounds.insetBy(dx: -borderOutset, dy: -borderOutset)
+        let borderCornerRadius = cornerRadius + borderOutset
         layer?.cornerRadius = cornerRadius
         layer?.shadowPath = CGPath(
             roundedRect: bounds,
@@ -163,9 +163,9 @@ final class WorkspaceTileHostView: NSView {
             cornerHeight: borderCornerRadius,
             transform: nil
         )
-        let highlightInset: CGFloat = 1.25
-        let highlightBounds = bounds.insetBy(dx: highlightInset, dy: highlightInset)
-        let highlightCornerRadius = max(cornerRadius - highlightInset, 0)
+        let highlightOutset = borderOutset + (borderHighlightLayer.lineWidth / 2)
+        let highlightBounds = bounds.insetBy(dx: -highlightOutset, dy: -highlightOutset)
+        let highlightCornerRadius = cornerRadius + highlightOutset
         borderHighlightLayer.frame = bounds
         borderHighlightLayer.path = CGPath(
             roundedRect: highlightBounds,
