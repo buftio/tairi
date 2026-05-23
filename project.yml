@@ -13,7 +13,6 @@ targets:
     settings:
       base:
         CODE_SIGNING_ALLOWED: YES
-        CODE_SIGN_IDENTITY: "-"
     sources:
       - path: UITestHost
     info:
@@ -37,7 +36,6 @@ targets:
     settings:
       base:
         CODE_SIGNING_ALLOWED: YES
-        CODE_SIGN_IDENTITY: "-"
     sources:
       - path: Tests/TairiUITests
     info:

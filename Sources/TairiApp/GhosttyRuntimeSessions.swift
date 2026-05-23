@@ -192,7 +192,7 @@ extension GhosttyRuntime {
             workingDirectory: workingDirectory
         )
         guard surfaceView.surface != nil else {
-            releaseContext(appContext)
+            disposeAppContext(appContext)
             errorMessage = "ghostty_surface_new failed"
             TairiLog.write(errorMessage ?? "ghostty_surface_new failed")
             return nil
@@ -231,16 +231,18 @@ extension GhosttyRuntime {
         )
 
         session.surfaceView.dispose()
+        disposeAppContext(session.appContext)
+    }
 
-        if let app = session.appContext.app {
+    func disposeAppContext(_ context: GhosttyAppContext) {
+        if let app = context.app {
             TairiLog.write(
-                "ghostty freeing app session=\(sessionID.uuidString) app=\(Self.describeHandle(app)) wakeups=\(session.appContext.wakeupCount)"
+                "ghostty freeing app session=\(context.sessionID.uuidString) app=\(Self.describeHandle(app)) wakeups=\(context.wakeupCount)"
             )
-            tairi_ghostty_app_free(app)
-            session.appContext.app = nil
+            context.releaseApp()
         }
 
-        releaseContext(session.appContext)
+        releaseContext(context)
     }
 
     func forceTerminateSessionProcess(sessionID: UUID, reason: TerminateReason) {

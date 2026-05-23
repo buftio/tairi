@@ -97,4 +97,32 @@ final class TerminalTitleDisplayTests: XCTestCase {
             "~/glite/experiments/shadowing"
         )
     }
+
+    func testOverviewLabelUsesRunningAppTitle() {
+        XCTAssertEqual(
+            TerminalTitleDisplay.overviewLabel(for: "claude", path: "/Users/buft/wabi/streamer"),
+            "claude"
+        )
+    }
+
+    func testOverviewLabelFallsBackToFolderForShell() {
+        XCTAssertEqual(
+            TerminalTitleDisplay.overviewLabel(for: "shell", path: "/Users/buft/wabi/streamer"),
+            "streamer"
+        )
+        XCTAssertEqual(
+            TerminalTitleDisplay.overviewLabel(for: "zsh", path: "/Users/buft/wabi/react-native-app-template"),
+            "react-native-app-template"
+        )
+    }
+
+    func testOverviewLabelFallsBackToFolderForWorkingDirectoryTitle() {
+        XCTAssertEqual(
+            TerminalTitleDisplay.overviewLabel(
+                for: "buft@humanity:~/wabi/streamer/",
+                path: "/Users/buft/wabi/streamer"
+            ),
+            "streamer"
+        )
+    }
 }

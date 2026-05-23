@@ -7,6 +7,7 @@ struct TairiDiagnosticsBundleEntry: Equatable {
 
 enum TairiDiagnosticsBundleError: LocalizedError {
     case archiveFailed(String)
+    case invalidDestination(String)
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,8 @@ enum TairiDiagnosticsBundleError: LocalizedError {
                 return "The diagnostics archive could not be created."
             }
             return "The diagnostics archive could not be created: \(details)"
+        case .invalidDestination(let path):
+            return "The diagnostics archive destination is a folder: \(path)"
         }
     }
 }
@@ -69,7 +72,10 @@ enum TairiDiagnosticsBundle {
         diagnosticReportsDirectory: URL = TairiPaths.diagnosticReportsDirectory,
         mainLogURL: URL = TairiPaths.mainLogURL,
         now: Date = Date(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        archiveCreator: (URL, URL) throws -> Void = { sourceDirectory, destinationURL in
+            try createZipArchive(sourceDirectory: sourceDirectory, destinationURL: destinationURL)
+        }
     ) throws -> URL {
         let stagingRoot = fileManager.temporaryDirectory
             .appendingPathComponent("tairi-diagnostics-\(UUID().uuidString)", isDirectory: true)
@@ -106,14 +112,29 @@ enum TairiDiagnosticsBundle {
             now: now
         ).write(to: readmeURL, atomically: true, encoding: .utf8)
 
-        if fileManager.fileExists(atPath: destinationURL.path(percentEncoded: false)) {
-            try fileManager.removeItem(at: destinationURL)
+        var isDirectory: ObjCBool = false
+        let destinationExists = fileManager.fileExists(
+            atPath: destinationURL.path(percentEncoded: false),
+            isDirectory: &isDirectory
+        )
+        if destinationExists, isDirectory.boolValue {
+            throw TairiDiagnosticsBundleError.invalidDestination(destinationURL.path(percentEncoded: false))
         }
 
-        try createZipArchive(
-            sourceDirectory: bundleDirectory,
-            destinationURL: destinationURL
+        let temporaryArchiveURL = destinationURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(destinationURL.lastPathComponent).\(UUID().uuidString).tmp", isDirectory: false)
+        defer { try? fileManager.removeItem(at: temporaryArchiveURL) }
+
+        try archiveCreator(
+            bundleDirectory,
+            temporaryArchiveURL
         )
+
+        if destinationExists {
+            _ = try fileManager.replaceItemAt(destinationURL, withItemAt: temporaryArchiveURL)
+        } else {
+            try fileManager.moveItem(at: temporaryArchiveURL, to: destinationURL)
+        }
 
         TairiLog.write(
             "diagnostics bundle exported archive=\(destinationURL.path(percentEncoded: false)) files=\(entries.count)"
@@ -154,9 +175,13 @@ enum TairiDiagnosticsBundle {
             }
     }
 
-    private static func createZipArchive(sourceDirectory: URL, destinationURL: URL) throws {
+    static func createZipArchive(
+        sourceDirectory: URL,
+        destinationURL: URL,
+        executableURL: URL = URL(fileURLWithPath: "/usr/bin/ditto", isDirectory: false)
+    ) throws {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto", isDirectory: false)
+        process.executableURL = executableURL
         process.arguments = [
             "-c",
             "-k",
@@ -166,16 +191,19 @@ enum TairiDiagnosticsBundle {
             destinationURL.path(percentEncoded: false),
         ]
 
+        let outputPipe = Pipe()
         let errorPipe = Pipe()
+        process.standardOutput = outputPipe
         process.standardError = errorPipe
 
         try process.run()
+        let pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
         process.waitUntilExit()
+        let output = pipeDrain.waitForOutput()
 
         guard process.terminationStatus == 0 else {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
             let details =
-                String(data: errorData, encoding: .utf8)?
+                String(data: output.stderr, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw TairiDiagnosticsBundleError.archiveFailed(details)
         }

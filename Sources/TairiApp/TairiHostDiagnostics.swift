@@ -99,8 +99,9 @@ enum TairiHostDiagnostics {
         process.arguments = ["--verify", "--deep", "--strict", path]
 
         let outputPipe = Pipe()
+        let errorPipe = Pipe()
         process.standardOutput = outputPipe
-        process.standardError = outputPipe
+        process.standardError = errorPipe
 
         do {
             try process.run()
@@ -111,8 +112,11 @@ enum TairiHostDiagnostics {
             return
         }
 
+        let pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
         process.waitUntilExit()
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let processOutput = pipeDrain.waitForOutput()
+        var outputData = processOutput.stdout
+        outputData.append(processOutput.stderr)
         let output =
             String(data: outputData, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -137,8 +141,9 @@ enum TairiHostDiagnostics {
         process.arguments = arguments
 
         let outputPipe = Pipe()
+        let errorPipe = Pipe()
         process.standardOutput = outputPipe
-        process.standardError = outputPipe
+        process.standardError = errorPipe
 
         do {
             try process.run()
@@ -147,8 +152,11 @@ enum TairiHostDiagnostics {
             return nil
         }
 
+        let pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
         process.waitUntilExit()
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let processOutput = pipeDrain.waitForOutput()
+        var data = processOutput.stdout
+        data.append(processOutput.stderr)
         guard !data.isEmpty else { return nil }
         return String(data: data, encoding: .utf8)
     }

@@ -13,7 +13,7 @@ extension WorkspaceStore {
     ) {
         if !persistedStrips.isEmpty {
             let initialWorkingDirectory =
-                WorkspaceStore.normalizedAssignedFolderPath(persistedStrips[0].folderPath)
+                WorkspaceStore.usableAssignedFolderPath(persistedStrips[0].folderPath)
                 ?? initialTerminalWorkingDirectory
             let firstTile = Tile(
                 pwd: initialWorkingDirectory,

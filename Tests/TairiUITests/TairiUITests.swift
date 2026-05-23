@@ -16,8 +16,18 @@ private enum Identifiers {
 
 @MainActor
 final class TairiUITests: XCTestCase {
+    private nonisolated(unsafe) var userDefaultsSuiteNames: [String] = []
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+        for suiteName in userDefaultsSuiteNames {
+            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        }
+        userDefaultsSuiteNames = []
+        try super.tearDownWithError()
     }
 
     func testWorkspaceSmokeFlow() throws {
@@ -42,10 +52,7 @@ final class TairiUITests: XCTestCase {
 
         for workspaceNumber in 2...15 {
             selectNextWorkspace(in: app)
-            XCTAssertEqual(
-                selectedWorkspaceTitle(in: app),
-                "Workspace New Strip \(workspaceNumber)"
-            )
+            assertSelectedWorkspaceTitle(in: app, equals: "Workspace New Strip \(workspaceNumber)")
             createNewTile(in: app)
         }
 
@@ -53,7 +60,7 @@ final class TairiUITests: XCTestCase {
 
         let lastWorkspaceButton = workspaceButton(in: app, at: 15)
         XCTAssertTrue(lastWorkspaceButton.waitForExistence(timeout: 5))
-        XCTAssertEqual(selectedWorkspaceTitle(in: app), "Workspace New Strip 16")
+        assertSelectedWorkspaceTitle(in: app, equals: "Workspace New Strip 16")
         XCTAssertTrue(lastWorkspaceButton.isHittable)
     }
 
@@ -73,7 +80,7 @@ final class TairiUITests: XCTestCase {
         app.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
         renameField.typeText("Inbox\n")
 
-        XCTAssertEqual(selectedWorkspaceTitle(in: app), "Workspace Inbox")
+        assertSelectedWorkspaceTitle(in: app, equals: "Workspace Inbox")
     }
 
     func testSelectingEmptyWorkspaceShowsEmptyWorkspaceState() throws {
@@ -86,7 +93,7 @@ final class TairiUITests: XCTestCase {
         emptyWorkspaceButton.click()
 
         XCTAssertTrue(emptyWorkspaceState(in: app).waitForExistence(timeout: 5))
-        XCTAssertEqual(selectedWorkspaceTitle(in: app), "Workspace New Strip 2")
+        assertSelectedWorkspaceTitle(in: app, equals: "Workspace New Strip 2")
         XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).exists)
     }
 
@@ -104,7 +111,7 @@ final class TairiUITests: XCTestCase {
         XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).exists)
     }
 
-    func testSingleTileStripShowsResizeHandleAndCanGrowWidth() throws {
+    func testSingleTileStripHasInvisibleResizeHandleAndCanGrowWidth() throws {
         let app = try launchApp()
         defer { app.terminate() }
 
@@ -114,23 +121,55 @@ final class TairiUITests: XCTestCase {
         let resizeHandle = tileResizeHandleQuery(in: app).element(boundBy: 0)
         XCTAssertTrue(resizeHandle.waitForExistence(timeout: 5))
         XCTAssertTrue(resizeHandle.isHittable)
+        XCTAssertGreaterThan(resizeHandle.frame.height, resizeHandle.frame.width)
+        XCTAssertGreaterThan(resizeHandle.frame.height, firstTile.frame.height * 0.8)
 
         let startingWidth = firstTile.frame.width
         let dragStart = resizeHandle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let dragEnd = dragStart.withOffset(CGVector(dx: 120, dy: 0))
         dragStart.press(forDuration: 0.1, thenDragTo: dragEnd)
 
-        XCTAssertTrue(waitForFrameWidth(of: firstTile, toBeGreaterThan: startingWidth + 24))
+        XCTAssertTrue(
+            waitForFrameWidth(
+                of: { self.tileQuery(in: app).element(boundBy: 0) },
+                toBeGreaterThan: startingWidth + 24
+            )
+        )
     }
 
-    private func launchApp() throws -> XCUIApplication {
+    func testLaunchAppResetsPersistedWorkspaceState() throws {
+        let suiteName = makeDefaultsSuiteName()
+        let dirtyApp = try launchApp(defaultsSuiteName: suiteName)
+        let initialWorkspaceButton = workspaceButton(in: dirtyApp, at: 0)
+        XCTAssertTrue(initialWorkspaceButton.waitForExistence(timeout: 10))
+
+        rename(workspaceButton: initialWorkspaceButton, in: dirtyApp, to: "Inbox")
+        assertSelectedWorkspaceTitle(in: dirtyApp, equals: "Workspace Inbox")
+        dirtyApp.terminate()
+
+        let resetApp = try launchApp(defaultsSuiteName: suiteName)
+        defer { resetApp.terminate() }
+
+        XCTAssertEqual(selectedWorkspaceTitle(in: resetApp), "Workspace New Strip 1")
+    }
+
+    private func launchApp(defaultsSuiteName: String? = nil) throws -> XCUIApplication {
+        let defaultsSuiteName = defaultsSuiteName ?? makeDefaultsSuiteName()
+        UserDefaults(suiteName: defaultsSuiteName)?.removePersistentDomain(forName: defaultsSuiteName)
         let app = XCUIApplication(url: try resolvedAppBundleURL())
         app.terminate()
         app.launchEnvironment["TAIRI_UI_TEST"] = "1"
+        app.launchEnvironment["TAIRI_UI_TEST_DEFAULTS_SUITE"] = defaultsSuiteName
         app.launch()
         app.activate()
         XCTAssertTrue(element(in: app, identifiedBy: Identifiers.appRoot).waitForExistence(timeout: 15))
         return app
+    }
+
+    private func makeDefaultsSuiteName() -> String {
+        let suiteName = "TairiUITests.\(UUID().uuidString)"
+        userDefaultsSuiteNames.append(suiteName)
+        return suiteName
     }
 
     private func resolvedAppBundleURL() throws -> URL {
@@ -203,6 +242,17 @@ final class TairiUITests: XCTestCase {
         ).firstMatch
     }
 
+    private func rename(workspaceButton: XCUIElement, in app: XCUIApplication, to title: String) {
+        workspaceButton.doubleClick()
+
+        let renameField = workspaceRenameField(in: app)
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        renameField.click()
+        app.typeKey("a", modifierFlags: [.command])
+        app.typeKey(XCUIKeyboardKey.delete.rawValue, modifierFlags: [])
+        renameField.typeText("\(title)\n")
+    }
+
     private func emptyWorkspaceState(in app: XCUIApplication) -> XCUIElement {
         element(in: app, identifiedBy: Identifiers.emptyWorkspaceState)
     }
@@ -220,24 +270,24 @@ final class TairiUITests: XCTestCase {
     }
 
     private func waitForFrameWidth(
-        of element: XCUIElement,
+        of element: @escaping () -> XCUIElement,
         toBeLessThan threshold: CGFloat,
         timeout: TimeInterval = 5
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
-            element.frame.width < threshold
+            element().frame.width < threshold
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     private func waitForFrameWidth(
-        of element: XCUIElement,
+        of element: @escaping () -> XCUIElement,
         toBeGreaterThan threshold: CGFloat,
         timeout: TimeInterval = 5
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
-            element.frame.width > threshold
+            element().frame.width > threshold
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
@@ -262,6 +312,33 @@ final class TairiUITests: XCTestCase {
     ) -> Bool {
         let predicate = NSPredicate { _, _ in
             self.visibleTileElements(in: app).count == expectedCount
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func assertSelectedWorkspaceTitle(
+        in app: XCUIApplication,
+        equals expectedTitle: String,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(
+            waitForSelectedWorkspaceTitle(in: app, toEqual: expectedTitle, timeout: timeout),
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(selectedWorkspaceTitle(in: app), expectedTitle, file: file, line: line)
+    }
+
+    private func waitForSelectedWorkspaceTitle(
+        in app: XCUIApplication,
+        toEqual expectedTitle: String,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            self.selectedWorkspaceTitle(in: app) == expectedTitle
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed

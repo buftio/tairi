@@ -44,6 +44,16 @@ final class WorkspaceTileHostView: NSView {
 
     var representedTileID: UUID { tileID }
 
+    var overviewLabel: String {
+        guard let currentTile else {
+            return "shell"
+        }
+        if currentTile.surface.kind == .git {
+            return displayTitle(for: currentTile)
+        }
+        return TerminalTitleDisplay.overviewLabel(for: currentTile.title, path: currentTile.pwd)
+    }
+
     init(runtime: GhosttyRuntime, tileID: UUID) {
         self.runtime = runtime
         self.tileID = tileID
@@ -586,6 +596,7 @@ final class WorkspaceTileResizeHandleView: NSView {
 
         wantsLayer = true
         gripView.wantsLayer = true
+        gripView.isHidden = true
         gripView.layer?.cornerRadius = 2
         configureAccessibility(
             identifier: TairiAccessibility.tileResizeHandle(tileID),

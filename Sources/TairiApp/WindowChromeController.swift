@@ -34,6 +34,8 @@ final class WindowChromeController: ObservableObject {
     }
 
     private func animateStripLeadingInset(to targetInset: CGFloat) {
+        stripLeadingInsetAnimationTargetValue = targetInset
+
         guard abs(renderedStripLeadingInset - targetInset) > 0.5 else {
             renderedStripLeadingInset = targetInset
             stopStripLeadingInsetAnimation()
@@ -47,7 +49,6 @@ final class WindowChromeController: ObservableObject {
         }
 
         stripLeadingInsetAnimationStartValue = renderedStripLeadingInset
-        stripLeadingInsetAnimationTargetValue = targetInset
         stripLeadingInsetAnimationStartedAt = Date()
 
         stripLeadingInsetAnimationTimer?.invalidate()

@@ -301,7 +301,7 @@ final class GhosttyRuntime: ObservableObject {
             return
         }
         let workingDirectory = spawnWorkingDirectory(for: tileID)
-        let sessionID = createSession(workingDirectory: workingDirectory)
+        let sessionID = UUID()
         guard
             let tile = interactionController.splitTerminalTile(
                 tileID,
@@ -313,6 +313,7 @@ final class GhosttyRuntime: ObservableObject {
             TairiLog.write("ghostty split shortcut skipped tile=\(tileID.uuidString) reason=split-failed")
             return
         }
+        _ = ensureSessionExists(id: sessionID, workingDirectory: workingDirectory)
         sessionRegistry.setSessionID(sessionID, forTileID: tile.id)
         TairiLog.write(
             "ghostty command split sourceTile=\(tileID.uuidString) newTile=\(tile.id.uuidString) session=\(sessionID.uuidString)"
@@ -520,10 +521,19 @@ final class GhosttyRuntime: ObservableObject {
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
-            queue: .main
+            queue: nil
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.terminateAllSessions(reason: .appShutdown)
+            guard let self else { return }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated {
+                    self.terminateAllSessions(reason: .appShutdown)
+                }
+            } else {
+                DispatchQueue.main.sync {
+                    MainActor.assumeIsolated {
+                        self.terminateAllSessions(reason: .appShutdown)
+                    }
+                }
             }
         }
 

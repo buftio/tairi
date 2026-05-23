@@ -94,12 +94,14 @@ final class WorkspaceTileReorderController {
         workspaces: [WorkspaceStore.Workspace],
         tileFrames: [UUID: CGRect]
     ) -> WorkspaceTileMove? {
-        if let extractionMove = splitColumnExtractionMove(
-            at: point,
-            session: session,
-            workspaces: workspaces,
-            tileFrames: tileFrames
-        ) {
+        if session.previewWorkspace == nil,
+            let extractionMove = splitColumnExtractionMove(
+                at: point,
+                session: session,
+                workspaces: workspaces,
+                tileFrames: tileFrames
+            )
+        {
             return extractionMove
         }
 

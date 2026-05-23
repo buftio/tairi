@@ -35,6 +35,19 @@ enum TerminalTitleDisplay {
         return abbreviatedPath
     }
 
+    static func overviewLabel(for rawTitle: String, path: String?) -> String {
+        let trimmedTitle = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedTitle.isEmpty || shellTitles.contains(trimmedTitle.lowercased()) {
+            return folderName(for: path)
+        }
+
+        if workingDirectoryTitle(for: trimmedTitle, path: path) != nil {
+            return folderName(for: path)
+        }
+
+        return displayTitle(for: rawTitle, path: path)
+    }
+
     private static func workingDirectoryTitle(for trimmedTitle: String, path: String?) -> String? {
         guard let rawPathLikeTitle = pathLikeTitle(from: trimmedTitle) else {
             return nil
@@ -119,5 +132,22 @@ enum TerminalTitleDisplay {
         return tildeNormalizedValue.hasSuffix("/")
             ? String(tildeNormalizedValue.dropLast())
             : tildeNormalizedValue
+    }
+
+    private static let shellTitles: Set<String> = ["shell", "sh", "bash", "zsh", "fish", "nu", "pwsh"]
+
+    private static func folderName(for path: String?) -> String {
+        guard let path, !path.isEmpty else {
+            return "Home"
+        }
+
+        let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        let homeURL = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        if url.path(percentEncoded: false) == homeURL.path(percentEncoded: false) {
+            return "Home"
+        }
+
+        let lastComponent = url.lastPathComponent
+        return lastComponent.isEmpty ? "/" : lastComponent
     }
 }

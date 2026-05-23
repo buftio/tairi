@@ -114,21 +114,35 @@ extension GhosttyRuntime {
         }
     }
 
-    static let writeClipboard: ghostty_runtime_write_clipboard_cb = { _, _, content, len, _ in
+    static let writeClipboard: ghostty_runtime_write_clipboard_cb = { _, location, content, len, _ in
         GhosttyRuntime.onMain {
-            guard let content, len > 0 else { return }
-            let items = UnsafeBufferPointer(start: content, count: len)
-            guard
-                let first = items.first(where: { item in
-                    guard let mime = item.mime else { return false }
-                    return String(cString: mime) == "text/plain"
-                }), let data = first.data
-            else {
-                return
-            }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(String(cString: data), forType: .string)
+            guard let payload = clipboardWritePayload(location: location, content: content, len: len) else { return }
+            writeStringToPasteboard(location: payload.location, value: payload.value)
         }
+    }
+
+    static func clipboardWritePayload(
+        location: ghostty_clipboard_e,
+        content: UnsafePointer<ghostty_clipboard_content_s>?,
+        len: Int
+    ) -> (location: ghostty_clipboard_e, value: String)? {
+        guard let content, len > 0 else { return nil }
+        let items = UnsafeBufferPointer(start: content, count: len)
+        guard
+            let first = items.first(where: { item in
+                guard let mime = item.mime else { return false }
+                return String(cString: mime) == "text/plain"
+            }), let data = first.data
+        else {
+            return nil
+        }
+        return (location, String(cString: data))
+    }
+
+    private static func writeStringToPasteboard(location: ghostty_clipboard_e, value: String) {
+        guard let pasteboard = TerminalPasteboard.pasteboard(for: location) else { return }
+        pasteboard.clearContents()
+        pasteboard.setString(value, forType: .string)
     }
 
     static let closeSurface: ghostty_runtime_close_surface_cb = { userdata, processAlive in

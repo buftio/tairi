@@ -45,26 +45,29 @@ struct GhosttyTerminalCommand {
         process.environment = ProcessInfo.processInfo.environment
 
         let outputPipe = Pipe()
+        let errorPipe = Pipe()
         process.standardOutput = outputPipe
-        process.standardError = Pipe()
+        process.standardError = errorPipe
+        let pipeDrain: ProcessPipeDrain
 
         do {
             try process.run()
+            pipeDrain = ProcessPipeDrain.start(stdout: outputPipe, stderr: errorPipe)
         } catch {
             TairiLog.write("ghostty command resolve failed launchPath=\(ghosttyBinaryPath) error=\(error.localizedDescription)")
             return nil
         }
 
         process.waitUntilExit()
+        let output = pipeDrain.waitForOutput()
 
         guard process.terminationStatus == 0 else {
             TairiLog.write("ghostty command resolve failed launchPath=\(ghosttyBinaryPath) status=\(process.terminationStatus)")
             return nil
         }
 
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return nil }
-        return parseShowConfig(output)
+        guard let outputString = String(data: output.stdout, encoding: .utf8) else { return nil }
+        return parseShowConfig(outputString)
     }
 
     static func parseShowConfig(_ output: String) -> String? {

@@ -280,13 +280,16 @@ enum TerminalHeaderIconResolver {
         return String(source[captureRange])
     }
 
-    private static func resolveIconHref(projectDirectoryURL: URL, href: String) -> [URL] {
+    static func resolveIconHref(projectDirectoryURL: URL, href: String) -> [URL] {
         let cleanHref =
             href
             .split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
             .first
             .map(String.init) ?? href
         let trimmedHref = cleanHref.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedHref.hasPrefix("~") else {
+            return []
+        }
         let relativePath = trimmedHref.hasPrefix("/") ? String(trimmedHref.dropFirst()) : trimmedHref
         let publicDirectoryURL = projectDirectoryURL.appendingPathComponent("public", isDirectory: true)
 
