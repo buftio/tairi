@@ -44,7 +44,7 @@ cask "${TAIRI_APP_NAME}" do
   end
 
   depends_on arch: :arm64
-  depends_on macos: "${TAIRI_HOMEBREW_MIN_MACOS}"
+  depends_on macos: ${TAIRI_HOMEBREW_MIN_MACOS}
 
   app "${TAIRI_APP_BUNDLE_NAME}.app"
 

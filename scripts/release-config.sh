@@ -25,9 +25,9 @@ homebrew_macos_floor_for_version() {
   local major="${1%%.*}"
 
   case "$major" in
-    13) echo ">= :ventura" ;;
-    14) echo ">= :sonoma" ;;
-    15) echo ">= :sequoia" ;;
+    13) echo ":ventura" ;;
+    14) echo ":sonoma" ;;
+    15) echo ":sequoia" ;;
     *)
       echo "Unsupported TAIRI_MIN_MACOS major version for Homebrew cask generation: $1" >&2
       return 1
