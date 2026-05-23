@@ -101,10 +101,10 @@ final class TairiDiagnosticsBundleTests: XCTestCase {
 
         try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
         try """
-            #!/bin/sh
-            /usr/bin/perl -e 'print STDERR "x" x (512 * 1024)'
-            exit 42
-            """.write(to: scriptURL, atomically: true, encoding: .utf8)
+        #!/bin/sh
+        /usr/bin/perl -e 'print STDERR "x" x (512 * 1024)'
+        exit 42
+        """.write(to: scriptURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
 
         XCTAssertThrowsError(
