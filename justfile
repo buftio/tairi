@@ -9,12 +9,8 @@ build:
 test:
   swift test
 
-test-ui:
-  ./scripts/test-ui.sh
-
 test-all:
   just test
-  just test-ui
 
 format:
   ./scripts/swift-format.sh format

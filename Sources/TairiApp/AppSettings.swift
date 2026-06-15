@@ -112,26 +112,22 @@ final class AppSettings: ObservableObject {
         AppAnimationPolicy(
             animationsEnabled: animationsEnabled,
             speedMultiplier: animationSpeedMultiplier,
-            systemReduceMotionEnabled: systemReduceMotionEnabled,
-            uiTesting: uiTestingProvider()
+            systemReduceMotionEnabled: systemReduceMotionEnabled
         )
     }
 
     private let userDefaults: UserDefaults
     private let reduceMotionProvider: () -> Bool
-    private let uiTestingProvider: () -> Bool
     private let notificationCenter: NotificationCenter
     private var accessibilityObserver: NSObjectProtocol?
 
     init(
         userDefaults: UserDefaults = .standard,
         reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
-        uiTestingProvider: @escaping () -> Bool = { TairiEnvironment.isUITesting },
         notificationCenter: NotificationCenter = .default
     ) {
         self.userDefaults = userDefaults
         self.reduceMotionProvider = reduceMotionProvider
-        self.uiTestingProvider = uiTestingProvider
         self.notificationCenter = notificationCenter
         systemReduceMotionEnabled = reduceMotionProvider()
 

@@ -77,10 +77,6 @@ enum TairiAccessibility {
     }
 }
 
-enum TairiEnvironment {
-    static let isUITesting = ProcessInfo.processInfo.environment["TAIRI_UI_TEST"] == "1"
-}
-
 extension NSView {
     func configureAccessibility(
         identifier: String,

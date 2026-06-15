@@ -13,7 +13,6 @@
   - [docs/ghostty.md](docs/ghostty.md)
   - [docs/logs.md](docs/logs.md)
   - [docs/crash-diagnostics.md](docs/crash-diagnostics.md)
-  - [docs/ui-testing.md](docs/ui-testing.md)
 
 ## Dev Hints
 
@@ -45,12 +44,6 @@
 - Check the Markdown crash report first, then the matching `.ips`, then `tairi.log`.
 - Full guide: [docs/crash-diagnostics.md](docs/crash-diagnostics.md)
 
-## UI Testing
-
-- Keep accessibility identifiers stable and prefer visible-behavior XCUITests.
-- Use `just test-ui` for the checked-in UI suite. The runner should be locally signed, and macOS AX queries are often role-shifty, so prefer identifier-driven, behavior-level assertions over exact geometry or role-specific lookups.
-- Full guide: [docs/ui-testing.md](docs/ui-testing.md)
-
 ## Keyboard Shortcuts
 
 - Keep app shortcuts in a single source of truth: [Sources/TairiApp/TairiHotkeys.swift](Sources/TairiApp/TairiHotkeys.swift).
@@ -60,4 +53,4 @@
 
 - Keep animation speed and enable/disable behavior in the shared policy, not per-view constants.
 - Start with [Sources/TairiApp/AppAnimation.swift](Sources/TairiApp/AppAnimation.swift) and [Sources/TairiApp/AppSettings.swift](Sources/TairiApp/AppSettings.swift) before changing motion behavior.
-- App-owned animations should respect the centralized policy, including UI test mode and macOS Reduce Motion.
+- App-owned animations should respect the centralized policy, including macOS Reduce Motion.

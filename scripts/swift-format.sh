@@ -8,7 +8,6 @@ TARGETS=(
   "$ROOT_DIR/Package.swift"
   "$ROOT_DIR/Sources"
   "$ROOT_DIR/Tests"
-  "$ROOT_DIR/UITestHost"
 )
 
 mode="${1:-}"

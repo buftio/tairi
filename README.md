@@ -55,11 +55,6 @@ For running Tairi from source:
 - [just](https://github.com/casey/just)
 - `trash`
 
-Optional:
-
-- `xcodegen` for UI tests
-- an Apple Development signing identity for the UI test runner
-
 ## Quick Start
 
 From a fresh clone:
@@ -118,24 +113,12 @@ Gate:
 just format && just lint && swift test
 ```
 
-UI tests currently require extra local setup:
-
-- `xcodegen` installed
-- a working Apple Development signing identity
-
-Run them with:
-
-```sh
-./scripts/test-ui.sh
-```
-
 Auxiliary diagnostics and CI helper scripts live under `scripts/misc/`.
 
 Common first-run issues:
 
 - the pinned Ghostty download may fail if it cannot be fetched
 - `just install` expects `trash` to be installed
-- UI tests fail without a local signing identity
 
 ## Troubleshooting
 
@@ -161,5 +144,4 @@ Built app bundles also include the notice set under
 - [Logs](docs/logs.md)
 - [Crash diagnostics](docs/crash-diagnostics.md)
 - [Release packaging and distribution](docs/release.md)
-- [UI testing](docs/ui-testing.md)
 - [UI walkthrough](docs/ui-walkthrough.md)

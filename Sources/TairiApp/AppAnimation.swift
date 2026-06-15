@@ -10,17 +10,15 @@ struct AppAnimationPolicy: Equatable {
     static let defaultValue = AppAnimationPolicy(
         animationsEnabled: true,
         speedMultiplier: 1,
-        systemReduceMotionEnabled: false,
-        uiTesting: false
+        systemReduceMotionEnabled: false
     )
 
     let animationsEnabled: Bool
     let speedMultiplier: Double
     let systemReduceMotionEnabled: Bool
-    let uiTesting: Bool
 
     var effectiveAnimationsEnabled: Bool {
-        animationsEnabled && !systemReduceMotionEnabled && !uiTesting
+        animationsEnabled && !systemReduceMotionEnabled
     }
 
     func shouldAnimate(_ requested: Bool = true) -> Bool {

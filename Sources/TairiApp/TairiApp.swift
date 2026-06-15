@@ -21,9 +21,7 @@ struct TairiApp: App {
         TairiCrashReporter.shared.install()
         let launchConfiguration = TairiLaunchConfiguration.fromProcessArguments()
         let settings = AppSettings()
-        let sidebarPersistence = WorkspaceSidebarPersistence(
-            userDefaults: Self.workspaceSidebarUserDefaults()
-        )
+        let sidebarPersistence = WorkspaceSidebarPersistence(userDefaults: .standard)
         let store = WorkspaceStore(
             initialStrips: launchConfiguration.resolvedInitialStrips,
             sidebarPersistence: sidebarPersistence
@@ -42,20 +40,6 @@ struct TairiApp: App {
         )
         _chromeController = StateObject(wrappedValue: WindowChromeController(settings: settings))
         _spotlightController = StateObject(wrappedValue: TileSpotlightController())
-    }
-
-    private static func workspaceSidebarUserDefaults(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> UserDefaults {
-        guard environment["TAIRI_UI_TEST"] == "1",
-            let suiteName = environment["TAIRI_UI_TEST_DEFAULTS_SUITE"],
-            !suiteName.isEmpty,
-            let userDefaults = UserDefaults(suiteName: suiteName)
-        else {
-            return .standard
-        }
-
-        return userDefaults
     }
 
     var body: some Scene {
