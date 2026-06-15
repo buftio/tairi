@@ -405,6 +405,7 @@ final class WorkspaceTileHostView: NSView {
             hostingView.frame = surfaceContainerView.bounds
             hostingView.autoresizingMask = [.width, .height]
             hostingView.wantsLayer = false
+            hostingView.consumesHorizontalScrollWheel = true
             hostingView.onPerformShortcut = { [weak self] event in
                 guard let self,
                     let documentView = self.workspaceCanvasDocumentView()

@@ -36,6 +36,7 @@ struct GitTileView: View {
             )
             .scrollBounceBehavior(.basedOnSize, axes: .vertical)
             .background(backgroundColor)
+            .background(GitTileHorizontalScrollWheelCaptureView())
         }
     }
 
@@ -234,5 +235,50 @@ struct GitTileView: View {
 
     private func shouldShowStack(_ snapshot: GitTileSnapshot) -> Bool {
         snapshot.graphiteEnabled || snapshot.stackNeedsAttention || snapshot.stackLines.count > 1
+    }
+}
+
+private struct GitTileHorizontalScrollWheelCaptureView: NSViewRepresentable {
+    func makeNSView(context: Context) -> GitTileHorizontalScrollWheelCaptureNSView {
+        GitTileHorizontalScrollWheelCaptureNSView()
+    }
+
+    func updateNSView(_ nsView: GitTileHorizontalScrollWheelCaptureNSView, context: Context) {}
+}
+
+private final class GitTileHorizontalScrollWheelCaptureNSView: NSView {
+    private var scrollWheelMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            removeScrollWheelMonitor()
+        } else {
+            installScrollWheelMonitorIfNeeded()
+        }
+    }
+
+    private func installScrollWheelMonitorIfNeeded() {
+        guard scrollWheelMonitor == nil else { return }
+        scrollWheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self, self.shouldConsumeScrollWheel(event) else { return event }
+            return nil
+        }
+    }
+
+    private func removeScrollWheelMonitor() {
+        guard let scrollWheelMonitor else { return }
+        NSEvent.removeMonitor(scrollWheelMonitor)
+        self.scrollWheelMonitor = nil
+    }
+
+    private func shouldConsumeScrollWheel(_ event: NSEvent) -> Bool {
+        guard event.window === window else { return false }
+        let location = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(location) else { return false }
+        return WorkspaceTileContentHostingView<EmptyView>.shouldConsumeHorizontalScrollWheel(
+            deltaX: event.scrollingDeltaX,
+            deltaY: event.scrollingDeltaY
+        )
     }
 }
